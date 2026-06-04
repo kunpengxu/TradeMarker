@@ -7,6 +7,7 @@ export default function Layout() {
         <NavLink to="/" className="brand"><span>TM</span> TradeMarker</NavLink>
         <nav>
           <NavLink to="/">Dashboard</NavLink>
+          <NavLink to="/portfolio">Portfolio</NavLink>
           <NavLink to="/trades">Trade Log</NavLink>
           <NavLink to="/settings">Settings</NavLink>
         </nav>

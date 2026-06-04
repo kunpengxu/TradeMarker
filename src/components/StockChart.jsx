@@ -28,6 +28,27 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
     const data = resampleCandles(candles, interval)
     series.setData(showCloseLine ? data.map((candle) => ({ time: candle.time, value: candle.close })) : data)
+    const tooltip = document.createElement('div')
+    tooltip.className = 'chart-tooltip'
+    containerRef.current.appendChild(tooltip)
+    const candleByTime = new Map(data.map((candle, index) => [candle.time, { candle, previous: data[index - 1] }]))
+    const showTooltip = (param) => {
+      if (!param.time || !param.point) {
+        tooltip.style.display = 'none'
+        return
+      }
+      const entry = candleByTime.get(param.time)
+      if (!entry) return
+      const { candle, previous } = entry
+      const change = previous ? candle.close - previous.close : 0
+      const changePercent = previous?.close ? (change / previous.close) * 100 : 0
+      const changeClass = change >= 0 ? 'positive' : 'negative'
+      tooltip.innerHTML = `<strong>${candle.time}</strong><span>Open <b>${candle.open.toFixed(2)}</b></span><span>High <b>${candle.high.toFixed(2)}</b></span><span>Low <b>${candle.low.toFixed(2)}</b></span><span>Close <b>${candle.close.toFixed(2)}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
+      tooltip.style.display = 'grid'
+      tooltip.style.left = `${param.point.x > containerRef.current.clientWidth / 2 ? 14 : containerRef.current.clientWidth - 214}px`
+      tooltip.style.top = '14px'
+    }
+    chart.subscribeCrosshairMove(showTooltip)
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
       priceScaleId: '',
@@ -97,6 +118,8 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     return () => {
       resizeObserver.disconnect()
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(positionMarkers)
+      chart.unsubscribeCrosshairMove(showTooltip)
+      tooltip.remove()
       markerLayer.remove()
       chart.remove()
     }

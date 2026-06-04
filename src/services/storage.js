@@ -3,6 +3,8 @@ const KEYS = {
   trades: 'trademarker.trades',
   plannedOrders: 'trademarker.plannedOrders',
   settings: 'trademarker.settings',
+  watchlistGroups: 'trademarker.watchlistGroups',
+  updatedAt: 'trademarker.updatedAt',
 }
 
 const read = (key, fallback) => {
@@ -14,7 +16,13 @@ const read = (key, fallback) => {
   }
 }
 
-const write = (key, value) => localStorage.setItem(key, JSON.stringify(value))
+const write = (key, value, notify = true) => {
+  localStorage.setItem(key, JSON.stringify(value))
+  if (notify && key !== KEYS.updatedAt) {
+    localStorage.setItem(KEYS.updatedAt, JSON.stringify(new Date().toISOString()))
+    window.dispatchEvent(new CustomEvent('trademarker:data-changed'))
+  }
+}
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 export const normalizeSymbol = (symbol) => {
   const clean = symbol.trim().toUpperCase()
@@ -33,7 +41,24 @@ export const addSymbol = (symbol) => {
 export const removeSymbol = (symbol) => {
   const next = getWatchlist().filter((item) => item !== symbol)
   saveWatchlist(next)
+  saveWatchlistGroups(getWatchlistGroups().map((group) => ({ ...group, symbols: group.symbols.filter((item) => item !== symbol) })))
   return next
+}
+export const getWatchlistGroups = () => {
+  const groups = read(KEYS.watchlistGroups, [])
+  const watchlist = getWatchlist()
+  if (!groups.length) return [{ id: 'default', name: 'Watchlist', symbols: watchlist }]
+  const grouped = new Set(groups.flatMap((group) => group.symbols))
+  const missing = watchlist.filter((symbol) => !grouped.has(symbol))
+  return groups.map((group, index) => index === 0 ? { ...group, symbols: [...group.symbols, ...missing] } : group)
+}
+export const saveWatchlistGroups = (groups) => {
+  const clean = groups.filter((group) => group.name.trim()).map((group) => ({
+    id: group.id || uid(),
+    name: group.name.trim(),
+    symbols: [...new Set(group.symbols.filter((symbol) => getWatchlist().includes(symbol)))],
+  }))
+  write(KEYS.watchlistGroups, clean.length ? clean : [{ id: 'default', name: 'Watchlist', symbols: getWatchlist() }])
 }
 
 export const getTrades = (symbol) => {
@@ -42,6 +67,11 @@ export const getTrades = (symbol) => {
 }
 export const saveTrade = (trade) => {
   const next = [...getTrades(), { ...trade, id: trade.id || uid(), symbol: trade.symbol.toUpperCase() }]
+  write(KEYS.trades, next)
+  return next
+}
+export const updateTrade = (updated) => {
+  const next = getTrades().map((trade) => trade.id === updated.id ? { ...trade, ...updated, symbol: updated.symbol.toUpperCase() } : trade)
   write(KEYS.trades, next)
   return next
 }
@@ -68,10 +98,11 @@ export const saveSettings = (settings) => write(KEYS.settings, settings)
 
 export const exportData = () => ({
   watchlist: getWatchlist(),
+  watchlistGroups: getWatchlistGroups(),
   trades: getTrades(),
   plannedOrders: getOrders(),
-  settings: { ...getSettings(), twelveDataApiKey: undefined, fmpApiKey: undefined },
-  exportedAt: new Date().toISOString(),
+  settings: { ...getSettings(), twelveDataApiKey: undefined, fmpApiKey: undefined, githubToken: undefined },
+  updatedAt: read(KEYS.updatedAt, new Date().toISOString()),
 })
 
 export const importData = (data) => {
@@ -79,9 +110,13 @@ export const importData = (data) => {
     throw new Error('Invalid TradeMarker data file.')
   }
   saveWatchlist(data.watchlist)
-  write(KEYS.trades, data.trades)
-  write(KEYS.plannedOrders, data.plannedOrders)
-  saveSettings(data.settings || {})
+  write(KEYS.watchlistGroups, data.watchlistGroups || [{ id: 'default', name: 'Watchlist', symbols: data.watchlist }], false)
+  write(KEYS.trades, data.trades, false)
+  write(KEYS.plannedOrders, data.plannedOrders, false)
+  write(KEYS.settings, { ...getSettings(), ...(data.settings || {}) }, false)
+  write(KEYS.updatedAt, data.updatedAt || new Date().toISOString(), false)
+  window.dispatchEvent(new CustomEvent('trademarker:data-imported'))
 }
 
 export const clearData = () => Object.values(KEYS).forEach((key) => localStorage.removeItem(key))
+export const getDataUpdatedAt = () => read(KEYS.updatedAt, null)

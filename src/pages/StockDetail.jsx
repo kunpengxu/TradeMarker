@@ -6,7 +6,7 @@ import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import { deleteTrade, getTrades, saveTrade } from '../services/storage'
+import { deleteTrade, getTrades, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 
 export default function StockDetail() {
@@ -16,6 +16,7 @@ export default function StockDetail() {
   const [trades, setTrades] = useState(() => getTrades(symbol))
   const [interval, setInterval] = useState('daily')
   const [tradeSide, setTradeSide] = useState(null)
+  const [editingTrade, setEditingTrade] = useState(null)
   const [error, setError] = useState('')
   const position = calculatePosition(trades, quote?.price)
 
@@ -42,8 +43,9 @@ export default function StockDetail() {
       <p className="safety-strip">All actions on this page are journal notes only. TradeMarker has no brokerage connection and cannot execute orders.</p>
       <div className="stat-strip"><span>Current shares<strong>{number(position.shares, 4)}</strong></span><span>Average cost<strong>{money(position.averageCost, quote.currency)}</strong></span><span>Market value<strong>{money(position.marketValue, quote.currency)}</strong></span><span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, quote.currency)} · {percent(position.unrealizedPLPercent)}</strong></span></div>
       <div className="panel chart-panel"><div className="panel-head"><div><h2>{quote.closeOnly && interval === 'daily' ? 'Daily closing-price chart' : 'Candlestick chart'}</h2><p>Each candle represents one selected interval.</p></div><IntervalSelector value={interval} onChange={setInterval} /></div><StockChart candles={candles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={quote.closeOnly} /></div>
-      <div className="panel"><div className="panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records for {symbol}.</p></div></div><TradeLog trades={trades} onDelete={(id) => { deleteTrade(id); setTrades(getTrades(symbol)) }} /></div>
+      <div className="panel"><div className="panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records for {symbol}.</p></div></div><TradeLog trades={trades} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); setTrades(getTrades(symbol)) }} /></div>
       {tradeSide && <TradeModal side={tradeSide} symbol={symbol} defaultPrice={quote.price} onClose={() => setTradeSide(null)} onSave={recordTrade} />}
+      {editingTrade && <TradeModal side={editingTrade.side} symbol={symbol} defaultPrice={editingTrade.price} initialTrade={editingTrade} onClose={() => setEditingTrade(null)} onSave={(trade) => { updateTrade(trade); setTrades(getTrades(symbol)); setEditingTrade(null) }} />}
     </section>
   )
 }

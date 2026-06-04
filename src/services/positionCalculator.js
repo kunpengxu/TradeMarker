@@ -20,5 +20,5 @@ export function calculatePosition(trades, latestPrice = 0) {
   const marketValue = shares * latestPrice
   const unrealizedPL = shares * (latestPrice - averageCost)
   const unrealizedPLPercent = averageCost > 0 ? ((latestPrice - averageCost) / averageCost) * 100 : 0
-  return { shares, averageCost, marketValue, unrealizedPL, unrealizedPLPercent }
+  return { shares, costBasis, averageCost, marketValue, unrealizedPL, unrealizedPLPercent }
 }

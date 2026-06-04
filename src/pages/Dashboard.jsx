@@ -8,7 +8,7 @@ import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
 import { getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade } from '../services/storage'
+import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 
 export default function Dashboard() {
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [interval, setInterval] = useState('daily')
   const [activeSection, setActiveSection] = useState('chart')
   const [tradeSide, setTradeSide] = useState(null)
+  const [editingTrade, setEditingTrade] = useState(null)
   const [updated, setUpdated] = useState(null)
   const [loading, setLoading] = useState(false)
   const [marketError, setMarketError] = useState('')
@@ -143,12 +144,13 @@ export default function Dashboard() {
                 <span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
               </div>
 
-              <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records shown as boxed markers on the chart.</p></div></div><TradeLog trades={trades} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
+              <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records shown as boxed markers on the chart.</p></div></div><TradeLog trades={trades} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
             </>
           )}
         </div>
       </div>
       {tradeSide && <TradeModal side={tradeSide} symbol={selected} defaultPrice={selectedItem.quote.price} onClose={() => setTradeSide(null)} onSave={async (trade) => { saveTrade(trade); setTradeSide(null); reloadJournal(); await refresh([selected], false) }} />}
+      {editingTrade && <TradeModal side={editingTrade.side} symbol={editingTrade.symbol} defaultPrice={editingTrade.price} initialTrade={editingTrade} onClose={() => setEditingTrade(null)} onSave={async (trade) => { updateTrade(trade); setEditingTrade(null); reloadJournal(); await refresh([selected], false) }} />}
     </section>
   )
 }

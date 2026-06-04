@@ -4,16 +4,22 @@ import Dashboard from './pages/Dashboard'
 import StockDetail from './pages/StockDetail'
 import TradeLogPage from './pages/TradeLogPage'
 import Settings from './pages/Settings'
+import SyncManager from './components/SyncManager'
+import Portfolio from './pages/Portfolio'
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/stock/:symbol" element={<StockDetail />} />
-        <Route path="/trades" element={<TradeLogPage />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-    </Routes>
+    <>
+      <SyncManager />
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/stock/:symbol" element={<StockDetail />} />
+          <Route path="/trades" element={<TradeLogPage />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </>
   )
 }

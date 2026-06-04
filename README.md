@@ -74,6 +74,16 @@ Market data is used as reference context for the personal trade journal; it is n
 
 To conserve free API credits, TradeMarker refreshes reference data once when the page opens, once when Refresh is clicked, when a stock is added, and when a new Buy/Sell journal entry is saved. Selecting stocks and changing chart intervals use the current session cache without new API requests.
 
+## Journal and Portfolio
+
+Trade records can be edited after they are saved. The K-line chart shows a Futu-style OHLCV tooltip under the crosshair and keeps Buy/Sell markers at each journal entry's date and price.
+
+The watchlist supports custom groups, drag-and-drop manual ordering, symbol filtering, open-position filtering, and sorting by daily percentage change or unrealized profit/loss. The Portfolio page summarizes open positions, total cost, market value, unrealized profit/loss, and nominal currency distribution.
+
+## GitHub Backup
+
+Settings can connect TradeMarker to a JSON file in a GitHub repository. When configured, the app loads newer remote data on startup and automatically saves local watchlist, group, and journal changes. Use a fine-grained token restricted to the selected repository with **Contents: Read and write**. The token stays in the current browser and is excluded from exported and synchronized data. Use a private repository if journal data should remain private.
+
 ## Import and Export
 
 The Settings page exports all local data as JSON. Importing a valid TradeMarker JSON file replaces the current local watchlist, trades, and settings. Keep backups somewhere private if journal notes are sensitive.
