@@ -79,7 +79,7 @@ export default function Dashboard() {
         </form>
         <div className="workspace-status">
           <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
-          {updated ? `Twelve Data · may be delayed · ${updated.toLocaleTimeString()}` : 'Loading market data'}
+          {updated ? `Reference market data · refreshed ${updated.toLocaleTimeString()}` : 'Loading reference market data'}
           <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ Refresh</button>
         </div>
       </div>
@@ -107,7 +107,7 @@ export default function Dashboard() {
               <header className="quote-header">
                 <div className="quote-identity">
                   <span className="symbol-avatar">{selected.slice(0, 2)}</span>
-                  <div><h1>{selected}</h1><small>{selectedItem.quote.exchange} · {selectedItem.quote.source} · may be delayed</small></div>
+                  <div><h1>{selected}</h1><small>{selectedItem.quote.exchange} · {selectedItem.quote.source} · reference data</small></div>
                 </div>
                 <div className="quote-price">
                   <strong className={valueClass(selectedItem.quote.change)}>{money(selectedItem.quote.price)}</strong>
@@ -127,7 +127,7 @@ export default function Dashboard() {
               </div>
 
               <div className="chart-toolbar">
-                <div className="chart-label"><strong>K-line chart</strong><span>OHLCV · B/S markers · average cost</span></div>
+                <div className="chart-label"><strong>K-line chart</strong><span>B/S markers use each journal entry's date and price</span></div>
                 <IntervalSelector value={interval} onChange={setInterval} />
               </div>
               <StockChart candles={candles} interval={interval} trades={trades} averageCost={position.averageCost} />

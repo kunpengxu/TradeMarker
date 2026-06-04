@@ -44,30 +44,41 @@ export default function StockChart({ candles, interval, trades, averageCost }) {
     containerRef.current.appendChild(markerLayer)
     const markerEntries = trades.map((trade) => {
       const time = markerTime(trade.date)
-      const candle = data.find((item) => item.time === time)
       const element = document.createElement('span')
       element.className = `trade-chart-marker ${trade.side.toLowerCase()}`
       element.textContent = trade.side[0]
+      element.title = `${trade.side} ${trade.shares} shares at $${Number(trade.price).toFixed(2)} on ${day(trade.date)}`
       markerLayer.appendChild(element)
-      return { trade, time, candle, element }
+      return { trade, time, element }
     })
+    const tradeBounds = new Map()
+    markerEntries.forEach(({ trade, time }) => {
+      const price = Number(trade.price)
+      const bounds = tradeBounds.get(time) || { min: price, max: price }
+      bounds.min = Math.min(bounds.min, price)
+      bounds.max = Math.max(bounds.max, price)
+      tradeBounds.set(time, bounds)
+    })
+    const hiddenSeriesOptions = { color: 'rgba(0, 0, 0, 0)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }
+    const tradeMinSeries = chart.addLineSeries(hiddenSeriesOptions)
+    const tradeMaxSeries = chart.addLineSeries(hiddenSeriesOptions)
+    tradeMinSeries.setData([...tradeBounds].map(([time, bounds]) => ({ time, value: bounds.min })))
+    tradeMaxSeries.setData([...tradeBounds].map(([time, bounds]) => ({ time, value: bounds.max })))
     const positionMarkers = () => {
       const stacks = new Map()
-      markerEntries.forEach(({ trade, time, candle, element }) => {
+      markerEntries.forEach(({ trade, time, element }) => {
         const x = chart.timeScale().timeToCoordinate(time)
-        const anchor = trade.side === 'BUY' ? candle?.low : candle?.high
-        const y = anchor == null ? null : series.priceToCoordinate(anchor)
+        const y = series.priceToCoordinate(Number(trade.price))
         if (x == null || y == null) {
           element.style.display = 'none'
           return
         }
-        const key = `${time}-${trade.side}`
+        const key = `${time}-${Number(trade.price).toFixed(4)}`
         const stack = stacks.get(key) || 0
         stacks.set(key, stack + 1)
-        const offset = 22 + stack * 28
         element.style.display = 'grid'
-        element.style.left = `${x}px`
-        element.style.top = `${trade.side === 'BUY' ? y + offset : y - offset}px`
+        element.style.left = `${x + stack * 10}px`
+        element.style.top = `${y - stack * 10}px`
       })
     }
     positionMarkers()
