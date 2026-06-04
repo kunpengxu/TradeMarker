@@ -6,8 +6,9 @@ const pendingSnapshots = new Map()
 const DEFAULT_YAHOO_PROXY = 'https://trademarker-yahoo-proxy.kunp-xu.workers.dev'
 
 const yahooUrls = (path) => {
-  const proxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '') || DEFAULT_YAHOO_PROXY
-  const urls = [`${proxy}${path}`]
+  const customProxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '')
+  const proxies = [...new Set([customProxy, DEFAULT_YAHOO_PROXY].filter(Boolean))]
+  const urls = proxies.map((proxy) => `${proxy}${path}`)
   if (import.meta.env.DEV) urls.push(`/api/yahoo${path}`, `/api/yahoo2${path}`)
   return urls
 }
