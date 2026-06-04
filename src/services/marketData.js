@@ -4,6 +4,12 @@ const round = (value) => Number(Number(value).toFixed(2))
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
 
+const yahooUrl = (path, alternate = false) => {
+  if (import.meta.env.DEV) return `${alternate ? '/api/yahoo2' : '/api/yahoo'}${path}`
+  const proxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '')
+  return proxy ? `${proxy}${path}` : `https://query1.finance.yahoo.com${path}`
+}
+
 const providerConfig = () => {
   const settings = getSettings()
   const provider = settings.marketDataProviderChosen ? settings.marketDataProvider : 'yahoo'
@@ -26,7 +32,7 @@ async function fetchJson(url) {
   try {
     response = await fetch(url)
   } catch {
-    throw new Error('Yahoo Finance could not be reached from this browser. Its unofficial API may be blocked by CORS or rate limiting.')
+    throw new Error('Yahoo Finance could not be reached. Local development uses the Vite proxy; GitHub Pages requires a Yahoo proxy URL in Settings.')
   }
   const data = await response.json().catch(() => null)
   if (!response.ok) {
@@ -36,11 +42,24 @@ async function fetchJson(url) {
   return data
 }
 
+async function fetchYahooJson(path) {
+  try {
+    return await fetchJson(yahooUrl(path))
+  } catch (error) {
+    if (!import.meta.env.DEV || !error.message.includes('429')) throw error
+    try {
+      return await fetchJson(yahooUrl(path, true))
+    } catch {
+      throw new Error('Yahoo Finance rate-limited both public endpoints (429). Wait before retrying or select another provider in Settings.')
+    }
+  }
+}
+
 export async function searchSymbols(query) {
   const clean = query.trim()
   if (clean.length < 2) return []
   const params = new URLSearchParams({ q: clean, quotesCount: '20', newsCount: '0', enableFuzzyQuery: 'true' })
-  const data = await fetchJson(`https://query1.finance.yahoo.com/v1/finance/search?${params}`)
+  const data = await fetchYahooJson(`/v1/finance/search?${params}`)
   return (data.quotes || []).filter((item) => item.symbol && ['EQUITY', 'ETF'].includes(item.quoteType)).map((item) => ({
     symbol: item.symbol,
     name: item.shortname || item.longname || item.symbol,
@@ -52,7 +71,7 @@ export async function searchSymbols(query) {
 async function fetchYahooSnapshot(symbol) {
   const yahooSymbol = symbol.endsWith(':CA') ? `${symbol.slice(0, -3)}.NE` : symbol.endsWith(':US') ? symbol.slice(0, -3) : symbol
   const params = new URLSearchParams({ interval: '1d', range: '2y', events: 'history', includeAdjustedClose: 'true' })
-  const data = await fetchJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${params}`)
+  const data = await fetchYahooJson(`/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${params}`)
   const result = data.chart?.result?.[0]
   const quote = result?.indicators?.quote?.[0]
   if (!result || !quote || !Array.isArray(result.timestamp)) throw new Error(`No Yahoo Finance market data found for ${symbol}.`)
