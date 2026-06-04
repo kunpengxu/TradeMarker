@@ -58,16 +58,13 @@ Position calculations use a simple weighted-average method. FIFO tax accounting 
 
 ## Market Data
 
-TradeMarker supports Financial Modeling Prep and Twelve Data for reference quotes and historical daily candles. Financial Modeling Prep is the recommended default because its free plan is better suited to end-of-day personal journaling. TradeMarker uses FMP's free `historical-price-eod/light` endpoint and can automatically use Twelve Data as a fallback for symbols outside FMP free coverage when both keys are configured. Select a provider and add your personal API keys on the Settings page. Keys stay in browser localStorage, are excluded from JSON exports, and are never committed to Git.
+TradeMarker uses Yahoo Finance as its default reference-data provider. Yahoo covers many US, Canadian, and international securities and supplies complete daily OHLCV without an API key. Yahoo Finance does not provide an official supported public API, so its unofficial chart and search endpoints may occasionally be blocked by CORS, changed, or rate-limited. FMP and Twelve Data remain available as optional providers in Settings.
 
 FMP's free light endpoint may provide closing prices without full daily OHLC fields. In that case, Daily displays an honest closing-price line chart; Weekly, Monthly, Quarterly, and Yearly aggregate those daily prices into candles.
 
-Use market-qualified symbols when the same ticker exists in multiple countries:
+Search by company name or ticker and choose the exact Yahoo symbol from the results. For example, `TSLA` is US Tesla and `TSLA.NE` is the Canadian Tesla CDR. TradeMarker keeps these securities, positions, and journal markers separate.
 
-- `TSLA` or `TSLA:US` represents the US-listed Tesla security.
-- `TSLA:CA` represents the Canadian TSX Tesla CDR in CAD.
-
-TradeMarker keeps these securities, their positions, and their journal markers separate. Provider adapters translate the market-qualified symbol into each API's required format.
+Yahoo's search returns up to 20 related stocks and ETFs for each query. Because the endpoints are unofficial, Yahoo may return `429 Too Many Requests` or block browser requests with CORS. Wait and retry later, or select FMP/Twelve Data in Settings when Yahoo is unavailable.
 
 Market data is used as reference context for the personal trade journal; it is not intended for live trade decisions. Availability, exchange coverage, refresh limits, and delays depend on the selected provider and plan. If no API key is configured or a request fails, TradeMarker displays an error instead of generating mock prices.
 

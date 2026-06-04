@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import IntervalSelector from '../components/IntervalSelector'
+import SymbolSearch from '../components/SymbolSearch'
 import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
 import { getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import { addSymbol, deleteTrade, getTrades, getWatchlist, normalizeSymbol, removeSymbol, saveTrade } from '../services/storage'
+import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 
 export default function Dashboard() {
-  const [symbol, setSymbol] = useState('')
   const [items, setItems] = useState([])
   const [selected, setSelected] = useState(null)
   const [candles, setCandles] = useState([])
@@ -64,14 +64,10 @@ export default function Dashboard() {
       ? { ...item, position: calculatePosition(nextTrades, item.quote.price) }
       : item))
   }
-  const submit = async (event) => {
-    event.preventDefault()
-    const clean = normalizeSymbol(symbol)
-    if (!/^[A-Z][A-Z0-9.-]{0,9}(:CA)?$/.test(clean)) return
-    addSymbol(clean)
-    setSymbol('')
-    await refresh([clean], false)
-    setSelected(clean)
+  const addSelectedSymbol = async (ticker) => {
+    addSymbol(ticker)
+    await refresh([ticker], false)
+    setSelected(ticker)
   }
   const remove = async (ticker) => {
     if (confirm(`Remove ${ticker} from your watchlist? Journal entries will be kept.`)) {
@@ -84,11 +80,7 @@ export default function Dashboard() {
   return (
     <section className="market-workspace">
       <div className="workspace-toolbar">
-        <form className="workspace-search" onSubmit={submit}>
-          <span>⌕</span>
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="Symbol · TSLA:US or TSLA:CA" aria-label="Stock symbol" />
-          <button type="submit">Add</button>
-        </form>
+        <SymbolSearch onSelect={addSelectedSymbol} />
         <div className="workspace-status">
           <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
           {updated ? `${getMarketDataProviderName()} · refreshed ${updated.toLocaleTimeString()}` : 'Loading reference market data'}

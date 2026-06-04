@@ -4,161 +4,115 @@ const round = (value) => Number(Number(value).toFixed(2))
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
 
-const resolveSymbol = (symbol, provider) => {
-  const [base, market = 'US'] = symbol.split(':')
-  if (market === 'CA') {
-    return provider === 'fmp'
-      ? { symbol: `${base}.TO`, exchange: 'TSX', currency: 'CAD' }
-      : { symbol: base, exchange: 'TSX', currency: 'CAD' }
-  }
-  return { symbol: base, exchange: 'US', currency: 'USD' }
-}
-
 const providerConfig = () => {
   const settings = getSettings()
-  const provider = settings.marketDataProvider || 'fmp'
+  const provider = settings.marketDataProviderChosen ? settings.marketDataProvider : 'yahoo'
   return {
     provider,
     apiKey: provider === 'fmp' ? settings.fmpApiKey?.trim() : settings.twelveDataApiKey?.trim(),
   }
 }
 
-export const getMarketDataProviderName = () => providerConfig().provider === 'fmp'
-  ? 'Financial Modeling Prep'
-  : 'Twelve Data'
+export const getMarketDataProviderName = () => ({
+  yahoo: 'Yahoo Finance',
+  fmp: 'Financial Modeling Prep',
+  twelveData: 'Twelve Data',
+})[providerConfig().provider]
 
-export const hasMarketDataApiKey = () => Boolean(providerConfig().apiKey)
+export const hasMarketDataApiKey = () => providerConfig().provider === 'yahoo' || Boolean(providerConfig().apiKey)
 
 async function fetchJson(url) {
-  const response = await fetch(url)
+  let response
+  try {
+    response = await fetch(url)
+  } catch {
+    throw new Error('Yahoo Finance could not be reached from this browser. Its unofficial API may be blocked by CORS or rate limiting.')
+  }
   const data = await response.json().catch(() => null)
   if (!response.ok) {
-    const detail = data?.['Error Message'] || data?.message
+    const detail = data?.chart?.error?.description || data?.finance?.error?.description || data?.['Error Message'] || data?.message
     throw new Error(detail || `Market data request failed (${response.status}).`)
   }
   return data
 }
 
+export async function searchSymbols(query) {
+  const clean = query.trim()
+  if (clean.length < 2) return []
+  const params = new URLSearchParams({ q: clean, quotesCount: '20', newsCount: '0', enableFuzzyQuery: 'true' })
+  const data = await fetchJson(`https://query1.finance.yahoo.com/v1/finance/search?${params}`)
+  return (data.quotes || []).filter((item) => item.symbol && ['EQUITY', 'ETF'].includes(item.quoteType)).map((item) => ({
+    symbol: item.symbol,
+    name: item.shortname || item.longname || item.symbol,
+    exchange: item.exchDisp || item.exchange || 'Unknown',
+    type: item.typeDisp || item.quoteType,
+  }))
+}
+
+async function fetchYahooSnapshot(symbol) {
+  const yahooSymbol = symbol.endsWith(':CA') ? `${symbol.slice(0, -3)}.NE` : symbol.endsWith(':US') ? symbol.slice(0, -3) : symbol
+  const params = new URLSearchParams({ interval: '1d', range: '2y', events: 'history', includeAdjustedClose: 'true' })
+  const data = await fetchJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${params}`)
+  const result = data.chart?.result?.[0]
+  const quote = result?.indicators?.quote?.[0]
+  if (!result || !quote || !Array.isArray(result.timestamp)) throw new Error(`No Yahoo Finance market data found for ${symbol}.`)
+
+  const candles = result.timestamp.map((timestamp, index) => ({
+    time: new Date(timestamp * 1000).toISOString().slice(0, 10),
+    open: Number(quote.open[index]),
+    high: Number(quote.high[index]),
+    low: Number(quote.low[index]),
+    close: Number(quote.close[index]),
+    volume: Number(quote.volume[index] || 0),
+  })).filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite))
+
+  if (candles.length < 2) throw new Error(`Yahoo Finance returned insufficient OHLC data for ${symbol}.`)
+  return createSnapshot(symbol, candles, {
+    exchange: result.meta.exchangeName || result.meta.exchange || 'Unknown',
+    currency: result.meta.currency || 'USD',
+    source: 'Yahoo Finance',
+    closeOnly: false,
+  })
+}
+
 async function fetchFmpSnapshot(symbol, apiKey) {
-  const resolved = resolveSymbol(symbol, 'fmp')
-  const query = new URLSearchParams({ symbol: resolved.symbol, apikey: apiKey })
+  const query = new URLSearchParams({ symbol, apikey: apiKey })
   const data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/light?${query}`)
   if (!Array.isArray(data) || data.length < 2) throw new Error(`No FMP end-of-day data found for ${symbol}.`)
-
   let closeOnly = false
   const candles = data.slice(0, 520).map((candle) => {
     const close = Number(candle.close ?? candle.price ?? candle.adjClose)
     const hasOhlc = candle.open != null && candle.high != null && candle.low != null
     if (!hasOhlc) closeOnly = true
-    return {
-    time: candle.date.slice(0, 10),
-    open: Number(candle.open ?? close),
-    high: Number(candle.high ?? close),
-    low: Number(candle.low ?? close),
-    close,
-    volume: Number(candle.volume || 0),
-  }}).filter((candle) => Number.isFinite(candle.close)).sort((a, b) => a.time.localeCompare(b.time))
-  if (candles.length < 2) throw new Error(`FMP returned insufficient end-of-day data for ${symbol}.`)
-  return createSnapshot(symbol, candles, {
-    exchange: resolved.exchange,
-    currency: resolved.currency,
-    source: 'FMP',
-    closeOnly,
-  })
+    return { time: candle.date.slice(0, 10), open: Number(candle.open ?? close), high: Number(candle.high ?? close), low: Number(candle.low ?? close), close, volume: Number(candle.volume || 0) }
+  }).filter((candle) => Number.isFinite(candle.close)).sort((a, b) => a.time.localeCompare(b.time))
+  return createSnapshot(symbol, candles, { exchange: 'US', currency: 'USD', source: 'FMP', closeOnly })
 }
 
 async function fetchTwelveDataSnapshot(symbol, apiKey) {
-  const resolved = resolveSymbol(symbol, 'twelveData')
-  const query = new URLSearchParams({
-    symbol: resolved.symbol,
-    ...(resolved.exchange === 'TSX' ? { exchange: 'TSX' } : {}),
-    interval: '1day',
-    outputsize: '520',
-    adjust: 'splits',
-    apikey: apiKey,
-  })
+  const query = new URLSearchParams({ symbol, interval: '1day', outputsize: '520', adjust: 'splits', apikey: apiKey })
   const data = await fetchJson(`https://api.twelvedata.com/time_series?${query}`)
   if (data.status === 'error' || data.code) throw new Error(data.message || 'Twelve Data returned an error.')
   if (!Array.isArray(data.values) || data.values.length < 2) throw new Error(`No Twelve Data market data found for ${symbol}.`)
-
-  const candles = data.values.map((candle) => ({
-    time: candle.datetime.slice(0, 10),
-    open: Number(candle.open),
-    high: Number(candle.high),
-    low: Number(candle.low),
-    close: Number(candle.close),
-    volume: Number(candle.volume || 0),
-  })).reverse()
-  return createSnapshot(symbol, candles, {
-    exchange: data.meta?.exchange || resolved.exchange,
-    currency: data.meta?.currency || resolved.currency,
-    source: 'Twelve Data',
-    closeOnly: false,
-  })
+  const candles = data.values.map((candle) => ({ time: candle.datetime.slice(0, 10), open: Number(candle.open), high: Number(candle.high), low: Number(candle.low), close: Number(candle.close), volume: Number(candle.volume || 0) })).reverse()
+  return createSnapshot(symbol, candles, { exchange: data.meta?.exchange || 'Unknown', currency: data.meta?.currency || 'USD', source: 'Twelve Data', closeOnly: false })
 }
 
 function createSnapshot(symbol, candles, metadata) {
   const latest = candles.at(-1)
   const previous = candles.at(-2)
   const change = latest.close - previous.close
-  return {
-    candles,
-    quote: {
-      symbol,
-      exchange: metadata.exchange,
-      currency: metadata.currency,
-      price: round(latest.close),
-      change: round(change),
-      changePercent: round((change / previous.close) * 100),
-      asOf: latest.time,
-      source: metadata.source,
-      closeOnly: metadata.closeOnly,
-    },
-  }
-}
-
-export async function getHistoricalDaily(symbol, options) {
-  const { candles } = await getMarketSnapshot(symbol, options)
-  return candles
-}
-
-export async function getLatestQuote(symbol, options) {
-  const { quote } = await getMarketSnapshot(symbol, options)
-  return quote
+  return { candles, quote: { symbol, exchange: metadata.exchange, currency: metadata.currency, price: round(latest.close), change: round(change), changePercent: round((change / previous.close) * 100), asOf: latest.time, source: metadata.source, closeOnly: metadata.closeOnly } }
 }
 
 export async function getMarketSnapshot(symbol, { force = false } = {}) {
   const { provider, apiKey } = providerConfig()
-  if (!apiKey) throw new Error(`Add a ${getMarketDataProviderName()} API key in Settings to load market data.`)
+  if (provider !== 'yahoo' && !apiKey) throw new Error(`Add a ${getMarketDataProviderName()} API key in Settings to load market data.`)
   const cacheKey = `${provider}:${symbol}`
   if (!force && snapshotCache.has(cacheKey)) return snapshotCache.get(cacheKey)
   if (pendingSnapshots.has(cacheKey)) return pendingSnapshots.get(cacheKey)
-
-  const pending = (provider === 'fmp' ? fetchFmpWithFallback(symbol, apiKey) : fetchTwelveDataSnapshot(symbol, apiKey))
-    .then((snapshot) => {
-      snapshotCache.set(cacheKey, snapshot)
-      return snapshot
-    })
-    .finally(() => pendingSnapshots.delete(cacheKey))
-
+  const fetcher = provider === 'yahoo' ? fetchYahooSnapshot(symbol) : provider === 'fmp' ? fetchFmpSnapshot(symbol, apiKey) : fetchTwelveDataSnapshot(symbol, apiKey)
+  const pending = fetcher.then((snapshot) => { snapshotCache.set(cacheKey, snapshot); return snapshot }).finally(() => pendingSnapshots.delete(cacheKey))
   pendingSnapshots.set(cacheKey, pending)
   return pending
-}
-
-async function fetchFmpWithFallback(symbol, apiKey) {
-  try {
-    return await fetchFmpSnapshot(symbol, apiKey)
-  } catch (fmpError) {
-    const twelveDataKey = getSettings().twelveDataApiKey?.trim()
-    if (!twelveDataKey) {
-      throw new Error(`${fmpError.message} Add a Twelve Data key in Settings to use it as fallback for symbols outside FMP free coverage.`)
-    }
-    try {
-      const snapshot = await fetchTwelveDataSnapshot(symbol, twelveDataKey)
-      snapshot.quote.source = 'Twelve Data fallback'
-      return snapshot
-    } catch {
-      throw fmpError
-    }
-  }
 }
