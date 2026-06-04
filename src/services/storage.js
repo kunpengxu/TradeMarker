@@ -66,7 +66,7 @@ export const exportData = () => ({
   watchlist: getWatchlist(),
   trades: getTrades(),
   plannedOrders: getOrders(),
-  settings: getSettings(),
+  settings: { ...getSettings(), twelveDataApiKey: undefined },
   exportedAt: new Date().toISOString(),
 })
 

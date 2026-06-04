@@ -4,7 +4,7 @@ import { resampleCandles } from '../services/resampleCandles'
 
 const day = (value) => new Date(value).toISOString().slice(0, 10)
 
-export default function StockChart({ candles, interval, trades, orders, averageCost }) {
+export default function StockChart({ candles, interval, trades, averageCost }) {
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -39,25 +39,52 @@ export default function StockChart({ candles, interval, trades, orders, averageC
       const target = day(date)
       return [...data].reverse().find((candle) => candle.time <= target)?.time || data[0].time
     }
-    series.setMarkers(trades.map((trade) => ({
-      time: markerTime(trade.date),
-      position: trade.side === 'BUY' ? 'belowBar' : 'aboveBar',
-      color: trade.side === 'BUY' ? '#2dd4bf' : '#fb7185',
-      shape: trade.side === 'BUY' ? 'arrowUp' : 'arrowDown',
-      text: `${trade.side[0]} ${trade.shares} @ $${Number(trade.price).toFixed(2)}${trade.note ? ` · ${trade.note}` : ''}`,
-    })).sort((a, b) => a.time.localeCompare(b.time)))
+    const markerLayer = document.createElement('div')
+    markerLayer.className = 'trade-marker-layer'
+    containerRef.current.appendChild(markerLayer)
+    const markerEntries = trades.map((trade) => {
+      const time = markerTime(trade.date)
+      const candle = data.find((item) => item.time === time)
+      const element = document.createElement('span')
+      element.className = `trade-chart-marker ${trade.side.toLowerCase()}`
+      element.textContent = trade.side[0]
+      markerLayer.appendChild(element)
+      return { trade, time, candle, element }
+    })
+    const positionMarkers = () => {
+      const stacks = new Map()
+      markerEntries.forEach(({ trade, time, candle, element }) => {
+        const x = chart.timeScale().timeToCoordinate(time)
+        const anchor = trade.side === 'BUY' ? candle?.low : candle?.high
+        const y = anchor == null ? null : series.priceToCoordinate(anchor)
+        if (x == null || y == null) {
+          element.style.display = 'none'
+          return
+        }
+        const key = `${time}-${trade.side}`
+        const stack = stacks.get(key) || 0
+        stacks.set(key, stack + 1)
+        const offset = 22 + stack * 28
+        element.style.display = 'grid'
+        element.style.left = `${x}px`
+        element.style.top = `${trade.side === 'BUY' ? y + offset : y - offset}px`
+      })
+    }
+    positionMarkers()
+    chart.timeScale().subscribeVisibleLogicalRangeChange(positionMarkers)
+    const resizeObserver = new ResizeObserver(positionMarkers)
+    resizeObserver.observe(containerRef.current)
     if (averageCost > 0) {
       series.createPriceLine({ price: averageCost, color: '#60a5fa', lineWidth: 2, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'Average cost' })
     }
-    orders.filter((order) => order.status === 'OPEN').forEach((order) => {
-      series.createPriceLine({
-        price: Number(order.price), color: order.side === 'BUY' ? '#a78bfa' : '#fbbf24',
-        lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: `Planned ${order.side}`,
-      })
-    })
     chart.timeScale().fitContent()
-    return () => chart.remove()
-  }, [candles, interval, trades, orders, averageCost])
+    return () => {
+      resizeObserver.disconnect()
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(positionMarkers)
+      markerLayer.remove()
+      chart.remove()
+    }
+  }, [candles, interval, trades, averageCost])
 
   return <div className="chart" ref={containerRef} />
 }

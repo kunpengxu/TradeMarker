@@ -1,6 +1,6 @@
 # TradeMarker
 
-TradeMarker is a personal US stock watchlist and visual trade journal. Add only the symbols you follow, record manual Buy/Sell journal entries, and see those entries as markers on deterministic mock candlestick charts.
+TradeMarker is a personal US stock watchlist and visual trade journal. Add only the symbols you follow, record manual Buy/Sell journal entries, and see those entries as markers on real market-data candlestick charts.
 
 > **Safety disclaimer:** TradeMarker is for personal journaling and visualization only. It is not financial advice, has no brokerage connection, and cannot place or execute orders.
 
@@ -10,7 +10,6 @@ TradeMarker is a personal US stock watchlist and visual trade journal. Add only 
 - Stock detail pages with daily, weekly, monthly, quarterly, and yearly candles
 - Manual Buy/Sell journal entries shown as B/S chart markers
 - Weighted-average position and unrealized P/L calculation
-- Planned-order notes shown as horizontal chart lines
 - Full trade log
 - Local JSON backup, restore, and clear-data controls
 - Responsive interface and GitHub Pages deployment
@@ -53,15 +52,16 @@ All data is stored in browser localStorage:
 
 - `watchlist`: uppercase stock-symbol strings
 - `trades`: manual Buy/Sell records with symbol, price, shares, date, and optional note
-- `plannedOrders`: planning notes with side, price, shares, status, note, and created date
 - `settings`: reserved preferences
 
 Position calculations use a simple weighted-average method. FIFO tax accounting and realized P/L are intentionally outside v1.
 
 ## Market Data
 
-`src/services/marketData.js` is the market-data abstraction. Its v1 provider creates deterministic, realistic-looking mock daily OHLCV candles per symbol. Replace this service later to connect a real market-data API without changing the UI. Do not put API secrets in frontend code.
+TradeMarker uses the documented Twelve Data `/quote` and `/time_series` endpoints for real quotes and historical daily OHLCV candles. Add your personal Twelve Data API key on the Settings page. The key stays in browser localStorage, is excluded from JSON exports, and is never committed to Git.
+
+Market-data availability, exchange coverage, refresh limits, and whether quotes are real-time or delayed depend on your Twelve Data plan. If no API key is configured or a request fails, TradeMarker displays an error instead of generating mock prices.
 
 ## Import and Export
 
-The Settings page exports all local data as JSON. Importing a valid TradeMarker JSON file replaces the current local watchlist, trades, planned orders, and settings. Keep backups somewhere private if journal notes are sensitive.
+The Settings page exports all local data as JSON. Importing a valid TradeMarker JSON file replaces the current local watchlist, trades, and settings. Keep backups somewhere private if journal notes are sensitive.

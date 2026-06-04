@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import IntervalSelector from '../components/IntervalSelector'
-import PlannedOrderModal from '../components/PlannedOrderModal'
-import PlannedOrders from '../components/PlannedOrders'
 import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { getHistoricalDaily, getLatestQuote } from '../services/marketData'
+import { getHistoricalDaily, getLatestQuote, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import {
-  addSymbol, deleteOrder, deleteTrade, getOrders, getTrades, getWatchlist,
-  removeSymbol, saveOrder, saveTrade, updateOrder,
-} from '../services/storage'
+import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 
 export default function Dashboard() {
@@ -20,20 +16,25 @@ export default function Dashboard() {
   const [selected, setSelected] = useState(null)
   const [candles, setCandles] = useState([])
   const [trades, setTrades] = useState([])
-  const [orders, setOrders] = useState([])
   const [interval, setInterval] = useState('daily')
+  const [activeSection, setActiveSection] = useState('chart')
   const [tradeSide, setTradeSide] = useState(null)
-  const [orderOpen, setOrderOpen] = useState(false)
   const [updated, setUpdated] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [marketError, setMarketError] = useState('')
 
   const refresh = useCallback(async (symbols = getWatchlist()) => {
     setLoading(true)
     const rows = await Promise.all(symbols.map(async (ticker) => {
-      const quote = await getLatestQuote(ticker)
-      return { symbol: ticker, quote, position: calculatePosition(getTrades(ticker), quote.price) }
+      try {
+        const quote = await getLatestQuote(ticker)
+        return { symbol: ticker, quote, position: calculatePosition(getTrades(ticker), quote.price) }
+      } catch (error) {
+        return { symbol: ticker, quote: null, position: calculatePosition(getTrades(ticker), 0), error: error.message }
+      }
     }))
     setItems(rows)
+    setMarketError(rows.find((row) => row.error)?.error || '')
     setSelected((current) => current && symbols.includes(current) ? current : symbols[0] || null)
     setUpdated(new Date())
     setLoading(false)
@@ -41,18 +42,19 @@ export default function Dashboard() {
 
   useEffect(() => { refresh() }, [refresh])
   useEffect(() => {
-    if (!selected) { setCandles([]); setTrades([]); setOrders([]); return }
-    getHistoricalDaily(selected).then(setCandles)
+    if (!selected) { setCandles([]); setTrades([]); return }
+    getHistoricalDaily(selected).then((data) => { setCandles(data); setMarketError('') }).catch((error) => { setCandles([]); setMarketError(error.message) })
     setTrades(getTrades(selected))
-    setOrders(getOrders(selected))
   }, [selected])
 
   const selectedItem = items.find((item) => item.symbol === selected)
-  const position = selectedItem ? calculatePosition(trades, selectedItem.quote.price) : null
+  const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
   const reloadJournal = () => {
-    setTrades(getTrades(selected))
-    setOrders(getOrders(selected))
-    refresh()
+    const nextTrades = getTrades(selected)
+    setTrades(nextTrades)
+    setItems((current) => current.map((item) => item.symbol === selected && item.quote
+      ? { ...item, position: calculatePosition(nextTrades, item.quote.price) }
+      : item))
   }
   const submit = async (event) => {
     event.preventDefault()
@@ -76,8 +78,8 @@ export default function Dashboard() {
           <button type="submit">Add</button>
         </form>
         <div className="workspace-status">
-          <span className={loading ? 'status-dot loading-dot' : 'status-dot'} />
-          {updated ? `Mock market data · ${updated.toLocaleTimeString()}` : 'Loading market data'}
+          <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
+          {updated ? `Twelve Data · may be delayed · ${updated.toLocaleTimeString()}` : 'Loading market data'}
           <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ Refresh</button>
         </div>
       </div>
@@ -92,12 +94,20 @@ export default function Dashboard() {
               <p>Add a symbol above or choose an example to open its chart and begin journaling.</p>
               <div className="examples">{['TSLL', 'RDW', 'QMCO', 'AAPL'].map((example) => <button className="secondary" key={example} onClick={async () => { await refresh(addSymbol(example)); setSelected(example) }}>{example}</button>)}</div>
             </div>
+          ) : !selectedItem.quote ? (
+            <div className="workspace-empty market-error-state">
+              <div className="empty-icon">!</div>
+              <h1>Real market data unavailable</h1>
+              <p>{marketError || selectedItem.error}</p>
+              {!hasMarketDataApiKey() && <Link className="settings-link" to="/settings">Configure Twelve Data API key</Link>}
+              <button className="secondary" onClick={() => refresh()}>Retry market data</button>
+            </div>
           ) : (
             <>
               <header className="quote-header">
                 <div className="quote-identity">
                   <span className="symbol-avatar">{selected.slice(0, 2)}</span>
-                  <div><h1>{selected}</h1><small>US · Mock market data</small></div>
+                  <div><h1>{selected}</h1><small>{selectedItem.quote.exchange} · {selectedItem.quote.source} · may be delayed</small></div>
                 </div>
                 <div className="quote-price">
                   <strong className={valueClass(selectedItem.quote.change)}>{money(selectedItem.quote.price)}</strong>
@@ -106,17 +116,21 @@ export default function Dashboard() {
                 <div className="action-group">
                   <button className="buy-button" onClick={() => setTradeSide('BUY')}>B&nbsp; Record Buy</button>
                   <button className="sell-button" onClick={() => setTradeSide('SELL')}>S&nbsp; Record Sell</button>
-                  <button className="secondary" onClick={() => setOrderOpen(true)}>+ Plan</button>
                 </div>
               </header>
 
-              <div className="market-tabs"><button className="active">Chart</button><button>Position</button><button>Journal</button><span>Journal-only workspace · no order execution</span></div>
+              <div className="market-tabs">
+                <button className={activeSection === 'chart' ? 'active' : ''} onClick={() => { setActiveSection('chart'); document.querySelector('.chart-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>Chart</button>
+                <button className={activeSection === 'position' ? 'active' : ''} onClick={() => { setActiveSection('position'); document.querySelector('.position-ribbon')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}>Position</button>
+                <button className={activeSection === 'journal' ? 'active' : ''} onClick={() => { setActiveSection('journal'); document.querySelector('.workspace-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>Journal</button>
+                <span>Journal-only workspace · no order execution</span>
+              </div>
 
               <div className="chart-toolbar">
                 <div className="chart-label"><strong>K-line chart</strong><span>OHLCV · B/S markers · average cost</span></div>
                 <IntervalSelector value={interval} onChange={setInterval} />
               </div>
-              <StockChart candles={candles} interval={interval} trades={trades} orders={orders} averageCost={position.averageCost} />
+              <StockChart candles={candles} interval={interval} trades={trades} averageCost={position.averageCost} />
 
               <div className="position-ribbon">
                 <span>Shares<strong>{number(position.shares, 4)}</strong></span>
@@ -125,16 +139,12 @@ export default function Dashboard() {
                 <span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
               </div>
 
-              <div className="journal-grid">
-                <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Buy and sell markers shown on the chart.</p></div></div><TradeLog trades={trades} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
-                <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Planned orders</h2><p>Planning notes only.</p></div><button onClick={() => setOrderOpen(true)}>Add</button></div><PlannedOrders orders={orders} onUpdate={(order) => { updateOrder(order); reloadJournal() }} onDelete={(id) => { deleteOrder(id); reloadJournal() }} /></div>
-              </div>
+              <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records shown as boxed markers on the chart.</p></div></div><TradeLog trades={trades} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
             </>
           )}
         </div>
       </div>
       {tradeSide && <TradeModal side={tradeSide} symbol={selected} defaultPrice={selectedItem.quote.price} onClose={() => setTradeSide(null)} onSave={(trade) => { saveTrade(trade); setTradeSide(null); reloadJournal() }} />}
-      {orderOpen && <PlannedOrderModal symbol={selected} defaultPrice={selectedItem.quote.price} onClose={() => setOrderOpen(false)} onSave={(order) => { saveOrder(order); setOrderOpen(false); reloadJournal() }} />}
     </section>
   )
 }
