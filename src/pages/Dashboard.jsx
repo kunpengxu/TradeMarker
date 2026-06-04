@@ -7,7 +7,7 @@ import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
 import { getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade } from '../services/storage'
+import { addSymbol, deleteTrade, getTrades, getWatchlist, normalizeSymbol, removeSymbol, saveTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 
 export default function Dashboard() {
@@ -66,8 +66,8 @@ export default function Dashboard() {
   }
   const submit = async (event) => {
     event.preventDefault()
-    const clean = symbol.trim().toUpperCase()
-    if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(clean)) return
+    const clean = normalizeSymbol(symbol)
+    if (!/^[A-Z][A-Z0-9.-]{0,9}(:CA)?$/.test(clean)) return
     addSymbol(clean)
     setSymbol('')
     await refresh([clean], false)
@@ -86,7 +86,7 @@ export default function Dashboard() {
       <div className="workspace-toolbar">
         <form className="workspace-search" onSubmit={submit}>
           <span>⌕</span>
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="Add symbol, e.g. RDW" aria-label="Stock symbol" />
+          <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="Symbol · TSLA:US or TSLA:CA" aria-label="Stock symbol" />
           <button type="submit">Add</button>
         </form>
         <div className="workspace-status">
@@ -122,8 +122,8 @@ export default function Dashboard() {
                   <div><h1>{selected}</h1><small>{selectedItem.quote.exchange} · {selectedItem.quote.source} · reference data</small></div>
                 </div>
                 <div className="quote-price">
-                  <strong className={valueClass(selectedItem.quote.change)}>{money(selectedItem.quote.price)}</strong>
-                  <span className={valueClass(selectedItem.quote.change)}>{selectedItem.quote.change >= 0 ? '+' : ''}{money(selectedItem.quote.change)} &nbsp; {percent(selectedItem.quote.changePercent)}</span>
+                  <strong className={valueClass(selectedItem.quote.change)}>{money(selectedItem.quote.price, selectedItem.quote.currency)}</strong>
+                  <span className={valueClass(selectedItem.quote.change)}>{selectedItem.quote.change >= 0 ? '+' : ''}{money(selectedItem.quote.change, selectedItem.quote.currency)} &nbsp; {percent(selectedItem.quote.changePercent)}</span>
                 </div>
                 <div className="action-group">
                   <button className="buy-button" onClick={() => setTradeSide('BUY')}>B&nbsp; Record Buy</button>
@@ -146,9 +146,9 @@ export default function Dashboard() {
 
               <div className="position-ribbon">
                 <span>Shares<strong>{number(position.shares, 4)}</strong></span>
-                <span>Average cost<strong>{money(position.averageCost)}</strong></span>
-                <span>Market value<strong>{money(position.marketValue)}</strong></span>
-                <span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
+                <span>Average cost<strong>{money(position.averageCost, selectedItem.quote.currency)}</strong></span>
+                <span>Market value<strong>{money(position.marketValue, selectedItem.quote.currency)}</strong></span>
+                <span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
               </div>
 
               <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records shown as boxed markers on the chart.</p></div></div><TradeLog trades={trades} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>

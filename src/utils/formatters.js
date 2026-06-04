@@ -1,4 +1,4 @@
-export const money = (value) => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+export const money = (value, currency = 'USD') => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency })
 export const number = (value, digits = 2) => Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: digits })
 export const percent = (value) => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(2)}%`
 export const dateTime = (value) => new Date(value).toLocaleString()

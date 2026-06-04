@@ -4,6 +4,16 @@ const round = (value) => Number(Number(value).toFixed(2))
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
 
+const resolveSymbol = (symbol, provider) => {
+  const [base, market = 'US'] = symbol.split(':')
+  if (market === 'CA') {
+    return provider === 'fmp'
+      ? { symbol: `${base}.TO`, exchange: 'TSX', currency: 'CAD' }
+      : { symbol: base, exchange: 'TSX', currency: 'CAD' }
+  }
+  return { symbol: base, exchange: 'US', currency: 'USD' }
+}
+
 const providerConfig = () => {
   const settings = getSettings()
   const provider = settings.marketDataProvider || 'fmp'
@@ -30,7 +40,8 @@ async function fetchJson(url) {
 }
 
 async function fetchFmpSnapshot(symbol, apiKey) {
-  const query = new URLSearchParams({ symbol, apikey: apiKey })
+  const resolved = resolveSymbol(symbol, 'fmp')
+  const query = new URLSearchParams({ symbol: resolved.symbol, apikey: apiKey })
   const data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/light?${query}`)
   if (!Array.isArray(data) || data.length < 2) throw new Error(`No FMP end-of-day data found for ${symbol}.`)
 
@@ -49,16 +60,18 @@ async function fetchFmpSnapshot(symbol, apiKey) {
   }}).filter((candle) => Number.isFinite(candle.close)).sort((a, b) => a.time.localeCompare(b.time))
   if (candles.length < 2) throw new Error(`FMP returned insufficient end-of-day data for ${symbol}.`)
   return createSnapshot(symbol, candles, {
-    exchange: 'US',
-    currency: 'USD',
+    exchange: resolved.exchange,
+    currency: resolved.currency,
     source: 'FMP',
     closeOnly,
   })
 }
 
 async function fetchTwelveDataSnapshot(symbol, apiKey) {
+  const resolved = resolveSymbol(symbol, 'twelveData')
   const query = new URLSearchParams({
-    symbol,
+    symbol: resolved.symbol,
+    ...(resolved.exchange === 'TSX' ? { exchange: 'TSX' } : {}),
     interval: '1day',
     outputsize: '520',
     adjust: 'splits',
@@ -77,8 +90,8 @@ async function fetchTwelveDataSnapshot(symbol, apiKey) {
     volume: Number(candle.volume || 0),
   })).reverse()
   return createSnapshot(symbol, candles, {
-    exchange: data.meta?.exchange || 'US',
-    currency: data.meta?.currency || 'USD',
+    exchange: data.meta?.exchange || resolved.exchange,
+    currency: data.meta?.currency || resolved.currency,
     source: 'Twelve Data',
     closeOnly: false,
   })

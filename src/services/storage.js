@@ -16,11 +16,15 @@ const read = (key, fallback) => {
 
 const write = (key, value) => localStorage.setItem(key, JSON.stringify(value))
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+export const normalizeSymbol = (symbol) => {
+  const clean = symbol.trim().toUpperCase()
+  return clean.endsWith(':US') ? clean.slice(0, -3) : clean
+}
 
 export const getWatchlist = () => read(KEYS.watchlist, [])
-export const saveWatchlist = (symbols) => write(KEYS.watchlist, [...new Set(symbols.map((s) => s.toUpperCase()))])
+export const saveWatchlist = (symbols) => write(KEYS.watchlist, [...new Set(symbols.map(normalizeSymbol))])
 export const addSymbol = (symbol) => {
-  const clean = symbol.trim().toUpperCase()
+  const clean = normalizeSymbol(symbol)
   if (!clean) return getWatchlist()
   const next = [...new Set([...getWatchlist(), clean])]
   saveWatchlist(next)

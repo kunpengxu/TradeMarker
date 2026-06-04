@@ -62,6 +62,13 @@ TradeMarker supports Financial Modeling Prep and Twelve Data for reference quote
 
 FMP's free light endpoint may provide closing prices without full daily OHLC fields. In that case, Daily displays an honest closing-price line chart; Weekly, Monthly, Quarterly, and Yearly aggregate those daily prices into candles.
 
+Use market-qualified symbols when the same ticker exists in multiple countries:
+
+- `TSLA` or `TSLA:US` represents the US-listed Tesla security.
+- `TSLA:CA` represents the Canadian TSX Tesla CDR in CAD.
+
+TradeMarker keeps these securities, their positions, and their journal markers separate. Provider adapters translate the market-qualified symbol into each API's required format.
+
 Market data is used as reference context for the personal trade journal; it is not intended for live trade decisions. Availability, exchange coverage, refresh limits, and delays depend on the selected provider and plan. If no API key is configured or a request fails, TradeMarker displays an error instead of generating mock prices.
 
 To conserve free API credits, TradeMarker refreshes reference data once when the page opens, once when Refresh is clicked, when a stock is added, and when a new Buy/Sell journal entry is saved. Selecting stocks and changing chart intervals use the current session cache without new API requests.

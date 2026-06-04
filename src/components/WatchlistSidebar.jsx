@@ -22,7 +22,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
               <strong>{item.symbol}</strong>
               <small>{item.error || (item.position.shares ? `${item.position.shares} shares` : 'No position')}</small>
             </span>
-            <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price) : '—'}</strong>
+            <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
             <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
             <span className="remove-watch" role="button" onClick={(event) => { event.stopPropagation(); onRemove(item.symbol) }}>×</span>
           </button>
