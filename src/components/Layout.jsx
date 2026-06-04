@@ -11,7 +11,7 @@ export default function Layout() {
           <NavLink to="/settings">Settings</NavLink>
         </nav>
       </header>
-      <main><Outlet /></main>
+      <main className="app-content"><Outlet /></main>
       <footer>For personal journaling and visualization only. Not financial advice. No brokerage connection. No order execution.</footer>
     </div>
   )

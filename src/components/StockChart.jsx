@@ -22,8 +22,19 @@ export default function StockChart({ candles, interval, trades, orders, averageC
       upColor: '#2dd4bf', downColor: '#fb7185', wickUpColor: '#2dd4bf', wickDownColor: '#fb7185',
       borderVisible: false,
     })
+    series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
     const data = resampleCandles(candles, interval)
     series.setData(data)
+    const volumeSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: '',
+    })
+    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+    volumeSeries.setData(data.map((candle) => ({
+      time: candle.time,
+      value: candle.volume,
+      color: candle.close >= candle.open ? '#14b8a655' : '#f43f5e55',
+    })))
     const markerTime = (date) => {
       const target = day(date)
       return [...data].reverse().find((candle) => candle.time <= target)?.time || data[0].time
