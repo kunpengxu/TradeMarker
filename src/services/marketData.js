@@ -21,25 +21,40 @@ export const hasMarketDataApiKey = () => Boolean(providerConfig().apiKey)
 
 async function fetchJson(url) {
   const response = await fetch(url)
-  if (!response.ok) throw new Error(`Market data request failed (${response.status}).`)
-  return response.json()
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    const detail = data?.['Error Message'] || data?.message
+    throw new Error(detail || `Market data request failed (${response.status}).`)
+  }
+  return data
 }
 
 async function fetchFmpSnapshot(symbol, apiKey) {
   const query = new URLSearchParams({ symbol, apikey: apiKey })
-  const data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/full?${query}`)
-  if (!Array.isArray(data) || data.length < 2) {
-    const message = data?.['Error Message'] || data?.message
-    throw new Error(message || `No FMP market data found for ${symbol}.`)
+  let data
+  try {
+    data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/light?${query}`)
+  } catch (lightError) {
+    try {
+      const legacy = await fetchJson(`https://financialmodelingprep.com/api/v3/historical-price-full/${encodeURIComponent(symbol)}?apikey=${encodeURIComponent(apiKey)}`)
+      data = legacy?.historical
+    } catch {
+      throw lightError
+    }
   }
-  const candles = data.slice(0, 520).map((candle) => ({
+  if (!Array.isArray(data) || data.length < 2) throw new Error(`No FMP end-of-day data found for ${symbol}.`)
+
+  const candles = data.slice(0, 520).map((candle) => {
+    const close = Number(candle.close ?? candle.price ?? candle.adjClose)
+    return {
     time: candle.date.slice(0, 10),
-    open: Number(candle.open),
-    high: Number(candle.high),
-    low: Number(candle.low),
-    close: Number(candle.close),
+    open: Number(candle.open ?? close),
+    high: Number(candle.high ?? close),
+    low: Number(candle.low ?? close),
+    close,
     volume: Number(candle.volume || 0),
-  })).sort((a, b) => a.time.localeCompare(b.time))
+  }}).filter((candle) => Number.isFinite(candle.close)).sort((a, b) => a.time.localeCompare(b.time))
+  if (candles.length < 2) throw new Error(`FMP returned insufficient end-of-day data for ${symbol}.`)
   return createSnapshot(symbol, candles, {
     exchange: 'US',
     currency: 'USD',
