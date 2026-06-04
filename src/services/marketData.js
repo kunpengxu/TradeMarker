@@ -3,11 +3,13 @@ import { getSettings } from './storage.js'
 const round = (value) => Number(Number(value).toFixed(2))
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
+const DEFAULT_YAHOO_PROXY = 'https://trademarker-yahoo-proxy.kunp-xu.workers.dev'
 
-const yahooUrl = (path, alternate = false) => {
-  if (import.meta.env.DEV) return `${alternate ? '/api/yahoo2' : '/api/yahoo'}${path}`
-  const proxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '')
-  return proxy ? `${proxy}${path}` : `https://query1.finance.yahoo.com${path}`
+const yahooUrls = (path) => {
+  const proxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '') || DEFAULT_YAHOO_PROXY
+  const urls = [`${proxy}${path}`]
+  if (import.meta.env.DEV) urls.push(`/api/yahoo${path}`, `/api/yahoo2${path}`)
+  return urls
 }
 
 const providerConfig = () => {
@@ -32,7 +34,7 @@ async function fetchJson(url) {
   try {
     response = await fetch(url)
   } catch {
-    throw new Error('Yahoo Finance could not be reached. Local development uses the Vite proxy; GitHub Pages requires a Yahoo proxy URL in Settings.')
+    throw new Error('Yahoo Finance could not be reached through the configured proxy.')
   }
   const data = await response.json().catch(() => null)
   if (!response.ok) {
@@ -43,16 +45,18 @@ async function fetchJson(url) {
 }
 
 async function fetchYahooJson(path) {
-  try {
-    return await fetchJson(yahooUrl(path))
-  } catch (error) {
-    if (!import.meta.env.DEV || !error.message.includes('429')) throw error
+  const errors = []
+  for (const url of yahooUrls(path)) {
     try {
-      return await fetchJson(yahooUrl(path, true))
-    } catch {
-      throw new Error('Yahoo Finance rate-limited both public endpoints (429). Wait before retrying or select another provider in Settings.')
+      return await fetchJson(url)
+    } catch (error) {
+      errors.push(error)
     }
   }
+  if (errors.some((error) => error.message.includes('429'))) {
+    throw new Error('Yahoo Finance rate-limited the proxy and public endpoints (429). Wait before retrying or select another provider in Settings.')
+  }
+  throw errors[0] || new Error('Yahoo Finance could not be reached.')
 }
 
 export async function searchSymbols(query) {

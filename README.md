@@ -66,7 +66,7 @@ Search by company name or ticker and choose the exact Yahoo symbol from the resu
 
 Yahoo's search returns up to 20 related stocks and ETFs for each query. Because the endpoints are unofficial, Yahoo may return `429 Too Many Requests` or block browser requests with CORS. Wait and retry later, or select FMP/Twelve Data in Settings when Yahoo is unavailable.
 
-During local development, Vite proxies `/api/yahoo/*` to Yahoo Finance, avoiding browser CORS restrictions. GitHub Pages cannot run a server-side proxy; configure a personal Yahoo proxy URL in Settings for the deployed site, or select FMP/Twelve Data there.
+TradeMarker uses its Cloudflare Worker proxy by default in both local development and GitHub Pages. During local development, Vite's `/api/yahoo/*` proxies are used as fallbacks if the Worker is unavailable. You can override the Worker URL in Settings.
 
 `workers/yahoo-proxy.js` is a minimal Cloudflare Worker proxy template for personal use. Create a free Cloudflare Worker, paste the file as its code, deploy it, then enter the resulting `https://...workers.dev` URL under **Settings → Yahoo proxy URL**. It only permits Yahoo search and chart paths, adds CORS headers, and caches responses for five minutes. Yahoo may still rate-limit requests because its Finance endpoints are unofficial.
 
