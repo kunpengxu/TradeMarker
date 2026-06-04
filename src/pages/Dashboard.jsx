@@ -5,7 +5,7 @@ import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
+import { getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
@@ -91,7 +91,7 @@ export default function Dashboard() {
         </form>
         <div className="workspace-status">
           <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
-          {updated ? `Reference market data · refreshed ${updated.toLocaleTimeString()}` : 'Loading reference market data'}
+          {updated ? `${getMarketDataProviderName()} · refreshed ${updated.toLocaleTimeString()}` : 'Loading reference market data'}
           <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ Refresh</button>
         </div>
       </div>
@@ -111,7 +111,7 @@ export default function Dashboard() {
               <div className="empty-icon">!</div>
               <h1>Real market data unavailable</h1>
               <p>{marketError || selectedItem.error}</p>
-              {!hasMarketDataApiKey() && <Link className="settings-link" to="/settings">Configure Twelve Data API key</Link>}
+              {!hasMarketDataApiKey() && <Link className="settings-link" to="/settings">Configure market data API key</Link>}
               <button className="secondary" onClick={() => refresh()}>Retry market data</button>
             </div>
           ) : (

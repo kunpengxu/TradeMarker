@@ -1,24 +1,96 @@
 import { getSettings } from './storage.js'
 
-const API_BASE = 'https://api.twelvedata.com'
 const round = (value) => Number(Number(value).toFixed(2))
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
 
-const getApiKey = () => getSettings().twelveDataApiKey?.trim()
+const providerConfig = () => {
+  const settings = getSettings()
+  const provider = settings.marketDataProvider || 'fmp'
+  return {
+    provider,
+    apiKey: provider === 'fmp' ? settings.fmpApiKey?.trim() : settings.twelveDataApiKey?.trim(),
+  }
+}
 
-export const hasMarketDataApiKey = () => Boolean(getApiKey())
+export const getMarketDataProviderName = () => providerConfig().provider === 'fmp'
+  ? 'Financial Modeling Prep'
+  : 'Twelve Data'
 
-async function request(endpoint, parameters) {
-  const apiKey = getApiKey()
-  if (!apiKey) throw new Error('Add a Twelve Data API key in Settings to load real market data.')
+export const hasMarketDataApiKey = () => Boolean(providerConfig().apiKey)
 
-  const query = new URLSearchParams({ ...parameters, apikey: apiKey })
-  const response = await fetch(`${API_BASE}/${endpoint}?${query}`)
+async function fetchJson(url) {
+  const response = await fetch(url)
   if (!response.ok) throw new Error(`Market data request failed (${response.status}).`)
-  const data = await response.json()
-  if (data.status === 'error' || data.code) throw new Error(data.message || 'Market data provider returned an error.')
-  return data
+  return response.json()
+}
+
+async function fetchFmpSnapshot(symbol, apiKey) {
+  const query = new URLSearchParams({ symbol, apikey: apiKey })
+  const data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/full?${query}`)
+  if (!Array.isArray(data) || data.length < 2) {
+    const message = data?.['Error Message'] || data?.message
+    throw new Error(message || `No FMP market data found for ${symbol}.`)
+  }
+  const candles = data.slice(0, 520).map((candle) => ({
+    time: candle.date.slice(0, 10),
+    open: Number(candle.open),
+    high: Number(candle.high),
+    low: Number(candle.low),
+    close: Number(candle.close),
+    volume: Number(candle.volume || 0),
+  })).sort((a, b) => a.time.localeCompare(b.time))
+  return createSnapshot(symbol, candles, {
+    exchange: 'US',
+    currency: 'USD',
+    source: 'FMP',
+  })
+}
+
+async function fetchTwelveDataSnapshot(symbol, apiKey) {
+  const query = new URLSearchParams({
+    symbol,
+    interval: '1day',
+    outputsize: '520',
+    adjust: 'splits',
+    apikey: apiKey,
+  })
+  const data = await fetchJson(`https://api.twelvedata.com/time_series?${query}`)
+  if (data.status === 'error' || data.code) throw new Error(data.message || 'Twelve Data returned an error.')
+  if (!Array.isArray(data.values) || data.values.length < 2) throw new Error(`No Twelve Data market data found for ${symbol}.`)
+
+  const candles = data.values.map((candle) => ({
+    time: candle.datetime.slice(0, 10),
+    open: Number(candle.open),
+    high: Number(candle.high),
+    low: Number(candle.low),
+    close: Number(candle.close),
+    volume: Number(candle.volume || 0),
+  })).reverse()
+  return createSnapshot(symbol, candles, {
+    exchange: data.meta?.exchange || 'US',
+    currency: data.meta?.currency || 'USD',
+    source: 'Twelve Data',
+  })
+}
+
+function createSnapshot(symbol, candles, metadata) {
+  const latest = candles.at(-1)
+  const previous = candles.at(-2)
+  const change = latest.close - previous.close
+  return {
+    candles,
+    quote: {
+      symbol,
+      exchange: metadata.exchange,
+      currency: metadata.currency,
+      price: round(latest.close),
+      change: round(change),
+      changePercent: round((change / previous.close) * 100),
+      asOf: latest.time,
+      source: metadata.source,
+    },
+  }
 }
 
 export async function getHistoricalDaily(symbol, options) {
@@ -32,45 +104,19 @@ export async function getLatestQuote(symbol, options) {
 }
 
 export async function getMarketSnapshot(symbol, { force = false } = {}) {
-  if (!force && snapshotCache.has(symbol)) return snapshotCache.get(symbol)
-  if (pendingSnapshots.has(symbol)) return pendingSnapshots.get(symbol)
+  const { provider, apiKey } = providerConfig()
+  if (!apiKey) throw new Error(`Add a ${getMarketDataProviderName()} API key in Settings to load market data.`)
+  const cacheKey = `${provider}:${symbol}`
+  if (!force && snapshotCache.has(cacheKey)) return snapshotCache.get(cacheKey)
+  if (pendingSnapshots.has(cacheKey)) return pendingSnapshots.get(cacheKey)
 
-  const pending = request('time_series', {
-    symbol,
-    interval: '1day',
-    outputsize: '520',
-    adjust: 'splits',
-  }).then((data) => {
-    if (!Array.isArray(data.values) || data.values.length < 2) throw new Error(`No historical market data found for ${symbol}.`)
-    const candles = data.values.map((candle) => ({
-      time: candle.datetime.slice(0, 10),
-      open: Number(candle.open),
-      high: Number(candle.high),
-      low: Number(candle.low),
-      close: Number(candle.close),
-      volume: Number(candle.volume || 0),
-    })).reverse()
-    const latest = candles.at(-1)
-    const previous = candles.at(-2)
-    const change = latest.close - previous.close
-    const snapshot = {
-      candles,
-      quote: {
-        symbol,
-        name: data.meta?.symbol || symbol,
-        exchange: data.meta?.exchange || 'US',
-        currency: data.meta?.currency || 'USD',
-        price: round(latest.close),
-        change: round(change),
-        changePercent: round((change / previous.close) * 100),
-        asOf: latest.time,
-        source: 'Twelve Data',
-      },
-    }
-    snapshotCache.set(symbol, snapshot)
-    return snapshot
-  }).finally(() => pendingSnapshots.delete(symbol))
+  const pending = (provider === 'fmp' ? fetchFmpSnapshot(symbol, apiKey) : fetchTwelveDataSnapshot(symbol, apiKey))
+    .then((snapshot) => {
+      snapshotCache.set(cacheKey, snapshot)
+      return snapshot
+    })
+    .finally(() => pendingSnapshots.delete(cacheKey))
 
-  pendingSnapshots.set(symbol, pending)
+  pendingSnapshots.set(cacheKey, pending)
   return pending
 }

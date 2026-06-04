@@ -58,9 +58,9 @@ Position calculations use a simple weighted-average method. FIFO tax accounting 
 
 ## Market Data
 
-TradeMarker uses the documented Twelve Data `/quote` and `/time_series` endpoints for real quotes and historical daily OHLCV candles. Add your personal Twelve Data API key on the Settings page. The key stays in browser localStorage, is excluded from JSON exports, and is never committed to Git.
+TradeMarker supports Financial Modeling Prep and Twelve Data for reference quotes and historical daily OHLCV candles. Financial Modeling Prep is the recommended default because its free plan is better suited to end-of-day personal journaling. Select a provider and add your personal API key on the Settings page. Keys stay in browser localStorage, are excluded from JSON exports, and are never committed to Git.
 
-Market data is used as reference context for the personal trade journal; it is not intended for live trade decisions. Availability, exchange coverage, refresh limits, and delays depend on your Twelve Data plan. If no API key is configured or a request fails, TradeMarker displays an error instead of generating mock prices.
+Market data is used as reference context for the personal trade journal; it is not intended for live trade decisions. Availability, exchange coverage, refresh limits, and delays depend on the selected provider and plan. If no API key is configured or a request fails, TradeMarker displays an error instead of generating mock prices.
 
 To conserve free API credits, TradeMarker refreshes reference data once when the page opens, once when Refresh is clicked, when a stock is added, and when a new Buy/Sell journal entry is saved. Selecting stocks and changing chart intervals use the current session cache without new API requests.
 
