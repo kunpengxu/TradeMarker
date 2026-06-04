@@ -57,16 +57,18 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     const tradeBounds = new Map()
     markerEntries.forEach(({ trade, time }) => {
       const price = Number(trade.price)
+      if (!Number.isFinite(price)) return
       const bounds = tradeBounds.get(time) || { min: price, max: price }
       bounds.min = Math.min(bounds.min, price)
       bounds.max = Math.max(bounds.max, price)
       tradeBounds.set(time, bounds)
     })
+    const sortedTradeBounds = [...tradeBounds].sort(([firstTime], [secondTime]) => firstTime.localeCompare(secondTime))
     const hiddenSeriesOptions = { color: 'rgba(0, 0, 0, 0)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }
     const tradeMinSeries = chart.addLineSeries(hiddenSeriesOptions)
     const tradeMaxSeries = chart.addLineSeries(hiddenSeriesOptions)
-    tradeMinSeries.setData([...tradeBounds].map(([time, bounds]) => ({ time, value: bounds.min })))
-    tradeMaxSeries.setData([...tradeBounds].map(([time, bounds]) => ({ time, value: bounds.max })))
+    tradeMinSeries.setData(sortedTradeBounds.map(([time, bounds]) => ({ time, value: bounds.min })))
+    tradeMaxSeries.setData(sortedTradeBounds.map(([time, bounds]) => ({ time, value: bounds.max })))
     const positionMarkers = () => {
       const stacks = new Map()
       markerEntries.forEach(({ trade, time, element }) => {
