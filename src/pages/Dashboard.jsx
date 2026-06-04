@@ -5,7 +5,7 @@ import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { getHistoricalDaily, getLatestQuote, hasMarketDataApiKey } from '../services/marketData'
+import { getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [items, setItems] = useState([])
   const [selected, setSelected] = useState(null)
   const [candles, setCandles] = useState([])
+  const [historyCache, setHistoryCache] = useState({})
   const [trades, setTrades] = useState([])
   const [interval, setInterval] = useState('daily')
   const [activeSection, setActiveSection] = useState('chart')
@@ -23,19 +24,26 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [marketError, setMarketError] = useState('')
 
-  const refresh = useCallback(async (symbols = getWatchlist()) => {
+  const refresh = useCallback(async (symbols = getWatchlist(), replace = true) => {
     setLoading(true)
     const rows = await Promise.all(symbols.map(async (ticker) => {
       try {
-        const quote = await getLatestQuote(ticker)
-        return { symbol: ticker, quote, position: calculatePosition(getTrades(ticker), quote.price) }
+        const snapshot = await getMarketSnapshot(ticker, { force: true })
+        return { symbol: ticker, quote: snapshot.quote, candles: snapshot.candles, position: calculatePosition(getTrades(ticker), snapshot.quote.price) }
       } catch (error) {
         return { symbol: ticker, quote: null, position: calculatePosition(getTrades(ticker), 0), error: error.message }
       }
     }))
-    setItems(rows)
+    setItems((current) => replace ? rows : [
+      ...current.filter((item) => !symbols.includes(item.symbol)),
+      ...rows,
+    ])
+    setHistoryCache((current) => ({
+      ...current,
+      ...Object.fromEntries(rows.filter((row) => row.candles).map((row) => [row.symbol, row.candles])),
+    }))
     setMarketError(rows.find((row) => row.error)?.error || '')
-    setSelected((current) => current && symbols.includes(current) ? current : symbols[0] || null)
+    setSelected((current) => current && getWatchlist().includes(current) ? current : getWatchlist()[0] || null)
     setUpdated(new Date())
     setLoading(false)
   }, [])
@@ -43,9 +51,9 @@ export default function Dashboard() {
   useEffect(() => { refresh() }, [refresh])
   useEffect(() => {
     if (!selected) { setCandles([]); setTrades([]); return }
-    getHistoricalDaily(selected).then((data) => { setCandles(data); setMarketError('') }).catch((error) => { setCandles([]); setMarketError(error.message) })
+    setCandles(historyCache[selected] || [])
     setTrades(getTrades(selected))
-  }, [selected])
+  }, [selected, historyCache])
 
   const selectedItem = items.find((item) => item.symbol === selected)
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
@@ -60,13 +68,17 @@ export default function Dashboard() {
     event.preventDefault()
     const clean = symbol.trim().toUpperCase()
     if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(clean)) return
-    const next = addSymbol(clean)
+    addSymbol(clean)
     setSymbol('')
-    await refresh(next)
+    await refresh([clean], false)
     setSelected(clean)
   }
   const remove = async (ticker) => {
-    if (confirm(`Remove ${ticker} from your watchlist? Journal entries will be kept.`)) await refresh(removeSymbol(ticker))
+    if (confirm(`Remove ${ticker} from your watchlist? Journal entries will be kept.`)) {
+      const next = removeSymbol(ticker)
+      setItems((current) => current.filter((item) => item.symbol !== ticker))
+      setSelected((current) => current === ticker ? next[0] || null : current)
+    }
   }
 
   return (
@@ -92,7 +104,7 @@ export default function Dashboard() {
               <div className="empty-icon">+</div>
               <h1>Your watchlist is empty</h1>
               <p>Add a symbol above or choose an example to open its chart and begin journaling.</p>
-              <div className="examples">{['TSLL', 'RDW', 'QMCO', 'AAPL'].map((example) => <button className="secondary" key={example} onClick={async () => { await refresh(addSymbol(example)); setSelected(example) }}>{example}</button>)}</div>
+              <div className="examples">{['TSLL', 'RDW', 'QMCO', 'AAPL'].map((example) => <button className="secondary" key={example} onClick={async () => { addSymbol(example); await refresh([example], false); setSelected(example) }}>{example}</button>)}</div>
             </div>
           ) : !selectedItem.quote ? (
             <div className="workspace-empty market-error-state">
@@ -144,7 +156,7 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-      {tradeSide && <TradeModal side={tradeSide} symbol={selected} defaultPrice={selectedItem.quote.price} onClose={() => setTradeSide(null)} onSave={(trade) => { saveTrade(trade); setTradeSide(null); reloadJournal() }} />}
+      {tradeSide && <TradeModal side={tradeSide} symbol={selected} defaultPrice={selectedItem.quote.price} onClose={() => setTradeSide(null)} onSave={async (trade) => { saveTrade(trade); setTradeSide(null); reloadJournal(); await refresh([selected], false) }} />}
     </section>
   )
 }

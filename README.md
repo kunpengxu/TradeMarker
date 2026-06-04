@@ -62,6 +62,8 @@ TradeMarker uses the documented Twelve Data `/quote` and `/time_series` endpoint
 
 Market data is used as reference context for the personal trade journal; it is not intended for live trade decisions. Availability, exchange coverage, refresh limits, and delays depend on your Twelve Data plan. If no API key is configured or a request fails, TradeMarker displays an error instead of generating mock prices.
 
+To conserve free API credits, TradeMarker refreshes reference data once when the page opens, once when Refresh is clicked, when a stock is added, and when a new Buy/Sell journal entry is saved. Selecting stocks and changing chart intervals use the current session cache without new API requests.
+
 ## Import and Export
 
 The Settings page exports all local data as JSON. Importing a valid TradeMarker JSON file replaces the current local watchlist, trades, and settings. Keep backups somewhere private if journal notes are sensitive.

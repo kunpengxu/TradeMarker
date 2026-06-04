@@ -4,7 +4,7 @@ import IntervalSelector from '../components/IntervalSelector'
 import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
-import { getHistoricalDaily, getLatestQuote } from '../services/marketData'
+import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { deleteTrade, getTrades, saveTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
@@ -21,15 +21,15 @@ export default function StockDetail() {
 
   const load = useCallback(async () => {
     try {
-      const [nextQuote, nextCandles] = await Promise.all([getLatestQuote(symbol), getHistoricalDaily(symbol)])
-      setQuote(nextQuote); setCandles(nextCandles); setError('')
+      const snapshot = await getMarketSnapshot(symbol, { force: true })
+      setQuote(snapshot.quote); setCandles(snapshot.candles); setError('')
     } catch (requestError) {
       setError(requestError.message)
     }
   }, [symbol])
   useEffect(() => { load() }, [load])
 
-  const recordTrade = (trade) => { saveTrade(trade); setTrades(getTrades(symbol)); setTradeSide(null) }
+  const recordTrade = async (trade) => { saveTrade(trade); setTrades(getTrades(symbol)); setTradeSide(null); await load() }
   if (error) return <div className="loading"><strong>Real market data unavailable.</strong><br />{error}<br /><Link to="/settings">Configure market data in Settings</Link></div>
   if (!quote) return <div className="loading">Loading real market data for {symbol}…</div>
 
