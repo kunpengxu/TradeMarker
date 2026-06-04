@@ -139,10 +139,10 @@ export default function Dashboard() {
               </div>
 
               <div className="chart-toolbar">
-                <div className="chart-label"><strong>K-line chart</strong><span>B/S markers use each journal entry's date and price</span></div>
+                <div className="chart-label"><strong>{selectedItem.quote.closeOnly && interval === 'daily' ? 'Daily closing-price chart' : 'K-line chart'}</strong><span>B/S markers use each journal entry's date and price</span></div>
                 <IntervalSelector value={interval} onChange={setInterval} />
               </div>
-              <StockChart candles={candles} interval={interval} trades={trades} averageCost={position.averageCost} />
+              <StockChart candles={candles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} />
 
               <div className="position-ribbon">
                 <span>Shares<strong>{number(position.shares, 4)}</strong></span>

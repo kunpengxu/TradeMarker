@@ -31,21 +31,14 @@ async function fetchJson(url) {
 
 async function fetchFmpSnapshot(symbol, apiKey) {
   const query = new URLSearchParams({ symbol, apikey: apiKey })
-  let data
-  try {
-    data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/light?${query}`)
-  } catch (lightError) {
-    try {
-      const legacy = await fetchJson(`https://financialmodelingprep.com/api/v3/historical-price-full/${encodeURIComponent(symbol)}?apikey=${encodeURIComponent(apiKey)}`)
-      data = legacy?.historical
-    } catch {
-      throw lightError
-    }
-  }
+  const data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/light?${query}`)
   if (!Array.isArray(data) || data.length < 2) throw new Error(`No FMP end-of-day data found for ${symbol}.`)
 
+  let closeOnly = false
   const candles = data.slice(0, 520).map((candle) => {
     const close = Number(candle.close ?? candle.price ?? candle.adjClose)
+    const hasOhlc = candle.open != null && candle.high != null && candle.low != null
+    if (!hasOhlc) closeOnly = true
     return {
     time: candle.date.slice(0, 10),
     open: Number(candle.open ?? close),
@@ -59,6 +52,7 @@ async function fetchFmpSnapshot(symbol, apiKey) {
     exchange: 'US',
     currency: 'USD',
     source: 'FMP',
+    closeOnly,
   })
 }
 
@@ -86,6 +80,7 @@ async function fetchTwelveDataSnapshot(symbol, apiKey) {
     exchange: data.meta?.exchange || 'US',
     currency: data.meta?.currency || 'USD',
     source: 'Twelve Data',
+    closeOnly: false,
   })
 }
 
@@ -104,6 +99,7 @@ function createSnapshot(symbol, candles, metadata) {
       changePercent: round((change / previous.close) * 100),
       asOf: latest.time,
       source: metadata.source,
+      closeOnly: metadata.closeOnly,
     },
   }
 }
@@ -125,7 +121,7 @@ export async function getMarketSnapshot(symbol, { force = false } = {}) {
   if (!force && snapshotCache.has(cacheKey)) return snapshotCache.get(cacheKey)
   if (pendingSnapshots.has(cacheKey)) return pendingSnapshots.get(cacheKey)
 
-  const pending = (provider === 'fmp' ? fetchFmpSnapshot(symbol, apiKey) : fetchTwelveDataSnapshot(symbol, apiKey))
+  const pending = (provider === 'fmp' ? fetchFmpWithFallback(symbol, apiKey) : fetchTwelveDataSnapshot(symbol, apiKey))
     .then((snapshot) => {
       snapshotCache.set(cacheKey, snapshot)
       return snapshot
@@ -134,4 +130,22 @@ export async function getMarketSnapshot(symbol, { force = false } = {}) {
 
   pendingSnapshots.set(cacheKey, pending)
   return pending
+}
+
+async function fetchFmpWithFallback(symbol, apiKey) {
+  try {
+    return await fetchFmpSnapshot(symbol, apiKey)
+  } catch (fmpError) {
+    const twelveDataKey = getSettings().twelveDataApiKey?.trim()
+    if (!twelveDataKey) {
+      throw new Error(`${fmpError.message} Add a Twelve Data key in Settings to use it as fallback for symbols outside FMP free coverage.`)
+    }
+    try {
+      const snapshot = await fetchTwelveDataSnapshot(symbol, twelveDataKey)
+      snapshot.quote.source = 'Twelve Data fallback'
+      return snapshot
+    } catch {
+      throw fmpError
+    }
+  }
 }

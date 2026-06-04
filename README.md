@@ -58,7 +58,9 @@ Position calculations use a simple weighted-average method. FIFO tax accounting 
 
 ## Market Data
 
-TradeMarker supports Financial Modeling Prep and Twelve Data for reference quotes and historical daily candles. Financial Modeling Prep is the recommended default because its free plan is better suited to end-of-day personal journaling. TradeMarker uses FMP's free `historical-price-eod/light` endpoint and falls back to its legacy daily-history endpoint when available. Select a provider and add your personal API key on the Settings page. Keys stay in browser localStorage, are excluded from JSON exports, and are never committed to Git.
+TradeMarker supports Financial Modeling Prep and Twelve Data for reference quotes and historical daily candles. Financial Modeling Prep is the recommended default because its free plan is better suited to end-of-day personal journaling. TradeMarker uses FMP's free `historical-price-eod/light` endpoint and can automatically use Twelve Data as a fallback for symbols outside FMP free coverage when both keys are configured. Select a provider and add your personal API keys on the Settings page. Keys stay in browser localStorage, are excluded from JSON exports, and are never committed to Git.
+
+FMP's free light endpoint may provide closing prices without full daily OHLC fields. In that case, Daily displays an honest closing-price line chart; Weekly, Monthly, Quarterly, and Yearly aggregate those daily prices into candles.
 
 Market data is used as reference context for the personal trade journal; it is not intended for live trade decisions. Availability, exchange coverage, refresh limits, and delays depend on the selected provider and plan. If no API key is configured or a request fails, TradeMarker displays an error instead of generating mock prices.
 

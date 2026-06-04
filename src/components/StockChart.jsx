@@ -4,7 +4,7 @@ import { resampleCandles } from '../services/resampleCandles'
 
 const day = (value) => new Date(value).toISOString().slice(0, 10)
 
-export default function StockChart({ candles, interval, trades, averageCost }) {
+export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false }) {
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -18,13 +18,16 @@ export default function StockChart({ candles, interval, trades, averageCost }) {
       timeScale: { borderColor: '#263650', timeVisible: true },
       rightPriceScale: { borderColor: '#263650' },
     })
-    const series = chart.addCandlestickSeries({
-      upColor: '#2dd4bf', downColor: '#fb7185', wickUpColor: '#2dd4bf', wickDownColor: '#fb7185',
-      borderVisible: false,
-    })
+    const showCloseLine = interval === 'daily' && closeOnly
+    const series = showCloseLine
+      ? chart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: true })
+      : chart.addCandlestickSeries({
+        upColor: '#2dd4bf', downColor: '#fb7185', wickUpColor: '#2dd4bf', wickDownColor: '#fb7185',
+        borderVisible: false,
+      })
     series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
     const data = resampleCandles(candles, interval)
-    series.setData(data)
+    series.setData(showCloseLine ? data.map((candle) => ({ time: candle.time, value: candle.close })) : data)
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
       priceScaleId: '',
@@ -95,7 +98,7 @@ export default function StockChart({ candles, interval, trades, averageCost }) {
       markerLayer.remove()
       chart.remove()
     }
-  }, [candles, interval, trades, averageCost])
+  }, [candles, interval, trades, averageCost, closeOnly])
 
   return <div className="chart" ref={containerRef} />
 }
