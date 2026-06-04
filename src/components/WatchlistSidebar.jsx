@@ -6,7 +6,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
   const [groups, setGroups] = useState(getWatchlistGroups)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
-  const [sort, setSort] = useState('manual')
+  const [sort, setSort] = useState({ key: 'manual', direction: 'desc' })
 
   useEffect(() => setGroups(getWatchlistGroups()), [items])
   const itemMap = useMemo(() => new Map(items.map((item) => [item.symbol, item])), [items])
@@ -16,14 +16,22 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
     return filter === 'all' || item.position.shares > 0
   }
   const sortSymbols = (symbols) => {
-    if (sort === 'manual') return symbols
+    if (sort.key === 'manual') return symbols
     return [...symbols].sort((a, b) => {
       const first = itemMap.get(a)
       const second = itemMap.get(b)
-      if (sort === 'change') return (second?.quote?.changePercent || 0) - (first?.quote?.changePercent || 0)
-      return (second?.position?.unrealizedPL || 0) - (first?.position?.unrealizedPL || 0)
+      const direction = sort.direction === 'asc' ? 1 : -1
+      if (sort.key === 'symbol') return a.localeCompare(b) * direction
+      if (sort.key === 'price') return ((first?.quote?.price || 0) - (second?.quote?.price || 0)) * direction
+      if (sort.key === 'change') return ((first?.quote?.changePercent || 0) - (second?.quote?.changePercent || 0)) * direction
+      return ((first?.position?.unrealizedPL || 0) - (second?.position?.unrealizedPL || 0)) * direction
     })
   }
+  const toggleSort = (key) => setSort((current) => ({
+    key,
+    direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc',
+  }))
+  const sortArrow = (key) => sort.key === key ? (sort.direction === 'desc' ? ' ↓' : ' ↑') : ''
   const persist = (next) => {
     setGroups(next)
     saveWatchlistGroups(next)
@@ -50,9 +58,9 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
       <div className="watch-tools">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter symbols" />
         <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">All stocks</option><option value="positions">Positions only</option></select>
-        <select value={sort} onChange={(event) => setSort(event.target.value)}><option value="manual">Manual order</option><option value="change">% change</option><option value="pl">Profit / loss</option></select>
+        <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">Manual order</option><option value="change">% change</option><option value="pl">Profit / loss</option></select>
       </div>
-      <div className="watch-columns"><span>Symbol</span><span>Price</span><span>% Chg</span></div>
+      <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>Symbol{sortArrow('symbol')}</button><button onClick={() => toggleSort('price')}>Price{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>% Chg{sortArrow('change')}</button></div>
       <div className="watch-rows">
         {groups.map((group) => {
           const symbols = sortSymbols(group.symbols.filter(visible))
@@ -65,7 +73,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
                 key={symbol}
                 role="button"
                 tabIndex="0"
-                draggable={sort === 'manual'}
+                draggable={sort.key === 'manual'}
                 onDragStart={(event) => event.dataTransfer.setData('text/plain', symbol)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => { event.stopPropagation(); moveSymbol(event.dataTransfer.getData('text/plain'), group.id, symbol) }}
