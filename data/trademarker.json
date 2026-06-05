@@ -30,7 +30,10 @@
     "KULR",
     "AVGO.NE",
     "IBM.NE",
-    "XE"
+    "XE",
+    "LULU.NE",
+    "DVLT",
+    "RBLX"
   ],
   "watchlistGroups": [
     {
@@ -67,7 +70,10 @@
         "KULR",
         "AVGO.NE",
         "IBM.NE",
-        "XE"
+        "XE",
+        "LULU.NE",
+        "DVLT",
+        "RBLX"
       ]
     }
   ],
@@ -341,6 +347,24 @@
       "id": "1780620727088-5yb8dw8",
       "side": "BUY",
       "symbol": "XE"
+    },
+    {
+      "price": 10.6,
+      "shares": 120,
+      "date": "2025-07-03T00:52:00.000Z",
+      "note": "",
+      "id": "1780620751267-zthu069",
+      "side": "BUY",
+      "symbol": "LULU.NE"
+    },
+    {
+      "price": 1.49,
+      "shares": 990.9855,
+      "date": "2025-10-07T00:52:00.000Z",
+      "note": "",
+      "id": "1780620776300-an3gw3g",
+      "side": "BUY",
+      "symbol": "DVLT"
     }
   ],
   "plannedOrders": [],
@@ -353,5 +377,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:52:07.088Z"
+  "updatedAt": "2026-06-05T00:53:20.418Z"
 }
