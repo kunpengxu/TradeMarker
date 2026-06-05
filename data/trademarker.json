@@ -20,7 +20,9 @@
     "PLTR.NE",
     "MSFT.NE",
     "SMCL",
-    "AMD"
+    "AMD",
+    "QBTS",
+    "ASTS"
   ],
   "watchlistGroups": [
     {
@@ -47,7 +49,9 @@
         "PLTR.NE",
         "MSFT.NE",
         "SMCL",
-        "AMD"
+        "AMD",
+        "QBTS",
+        "ASTS"
       ]
     }
   ],
@@ -222,6 +226,33 @@
       "id": "1780620434315-dtdc46m",
       "side": "BUY",
       "symbol": "SMCL"
+    },
+    {
+      "price": 210.77,
+      "shares": 2,
+      "date": "2026-01-09T01:47:00.000Z",
+      "note": "",
+      "id": "1780620476613-fdbn1jl",
+      "side": "BUY",
+      "symbol": "AMD"
+    },
+    {
+      "price": 32.03,
+      "shares": 30,
+      "date": "2025-10-04T00:48:00.000Z",
+      "note": "",
+      "id": "1780620502038-dzgfli9",
+      "side": "BUY",
+      "symbol": "QBTS"
+    },
+    {
+      "price": 74.37,
+      "shares": 7,
+      "date": "2026-06-05T00:48:00.000Z",
+      "note": "",
+      "id": "1780620520641-hhh1f8t",
+      "side": "BUY",
+      "symbol": "ASTS"
     }
   ],
   "plannedOrders": [],
@@ -234,5 +265,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:47:39.977Z"
+  "updatedAt": "2026-06-05T00:48:40.641Z"
 }
