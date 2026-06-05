@@ -25,7 +25,9 @@
     "ASTS",
     "VFV.TO",
     "ORCL",
-    "IONQ"
+    "IONQ",
+    "AAPL.NE",
+    "KULR"
   ],
   "watchlistGroups": [
     {
@@ -57,7 +59,9 @@
         "ASTS",
         "VFV.TO",
         "ORCL",
-        "IONQ"
+        "IONQ",
+        "AAPL.NE",
+        "KULR"
       ]
     }
   ],
@@ -277,6 +281,33 @@
       "id": "1780620578542-n9hh7mm",
       "side": "BUY",
       "symbol": "ORCL"
+    },
+    {
+      "price": 57.41,
+      "shares": 10,
+      "date": "2025-10-24T00:49:00.000Z",
+      "note": "",
+      "id": "1780620607418-jrvdsiv",
+      "side": "BUY",
+      "symbol": "IONQ"
+    },
+    {
+      "price": 38.51,
+      "shares": 20,
+      "date": "2026-04-18T00:50:00.000Z",
+      "note": "",
+      "id": "1780620639323-xtan4ws",
+      "side": "BUY",
+      "symbol": "AAPL.NE"
+    },
+    {
+      "price": 3.54,
+      "shares": 130,
+      "date": "2026-01-13T01:50:00.000Z",
+      "note": "",
+      "id": "1780620658113-c1vsusx",
+      "side": "BUY",
+      "symbol": "KULR"
     }
   ],
   "plannedOrders": [],
@@ -289,5 +320,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:49:52.787Z"
+  "updatedAt": "2026-06-05T00:50:58.113Z"
 }
