@@ -211,6 +211,15 @@
       "id": "1780605473925-k8m0bo1",
       "side": "BUY",
       "symbol": "PLTR.NE"
+    },
+    {
+      "price": 203.23,
+      "shares": 9,
+      "date": "2025-05-13T00:46:00.000Z",
+      "note": "",
+      "id": "1780620434315-dtdc46m",
+      "side": "BUY",
+      "symbol": "SMCL"
     }
   ],
   "plannedOrders": [],
@@ -223,5 +232,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:42:14.631Z"
+  "updatedAt": "2026-06-05T00:47:14.316Z"
 }
