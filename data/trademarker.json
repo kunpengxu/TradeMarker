@@ -33,7 +33,9 @@
     "XE",
     "LULU.NE",
     "DVLT",
-    "RBLX"
+    "RBLX",
+    "NFLX.NE",
+    "AMZU"
   ],
   "watchlistGroups": [
     {
@@ -73,7 +75,9 @@
         "XE",
         "LULU.NE",
         "DVLT",
-        "RBLX"
+        "RBLX",
+        "NFLX.NE",
+        "AMZU"
       ]
     }
   ],
@@ -365,6 +369,24 @@
       "id": "1780620776300-an3gw3g",
       "side": "BUY",
       "symbol": "DVLT"
+    },
+    {
+      "price": 93.49,
+      "shares": 10,
+      "date": "2025-06-10T00:53:00.000Z",
+      "note": "",
+      "id": "1780620814973-6dt5y0x",
+      "side": "BUY",
+      "symbol": "RBLX"
+    },
+    {
+      "price": 36.82,
+      "shares": 18,
+      "date": "2025-12-18T01:53:00.000Z",
+      "note": "",
+      "id": "1780620842482-q9z1pko",
+      "side": "BUY",
+      "symbol": "NFLX.NE"
     }
   ],
   "plannedOrders": [],
@@ -377,5 +399,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:53:20.418Z"
+  "updatedAt": "2026-06-05T00:54:21.753Z"
 }
