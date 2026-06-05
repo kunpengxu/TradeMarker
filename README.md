@@ -82,7 +82,9 @@ The watchlist supports custom groups, drag-and-drop manual ordering, symbol filt
 
 ## GitHub Backup
 
-Settings can connect TradeMarker to a JSON file in a GitHub repository. When configured, the app loads newer remote data on startup and automatically saves local watchlist, group, and journal changes. Use a fine-grained token restricted to the selected repository with **Contents: Read and write**. The token stays in the current browser and is excluded from exported and synchronized data. Use a private repository if journal data should remain private.
+Settings can connect TradeMarker to a JSON file in a GitHub repository. The recommended setup is to keep this `TradeMarker` app repository public for GitHub Pages and create a separate private `TradeMarkerData` repository for personal journal data. Configure sync with `Repository: TradeMarkerData` and `JSON file path: data/trademarker.json`.
+
+When configured, the app loads newer remote data on startup and automatically saves local watchlist, group, and journal changes. Use a fine-grained token restricted to the private data repository with **Contents: Read and write**. The token stays in the current browser and is excluded from exported and synchronized data.
 
 ## Import and Export
 
