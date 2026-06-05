@@ -19,7 +19,8 @@
     "AMZN.NE",
     "PLTR.NE",
     "MSFT.NE",
-    "SMCL"
+    "SMCL",
+    "AMD"
   ],
   "watchlistGroups": [
     {
@@ -45,7 +46,8 @@
         "AMZN.NE",
         "PLTR.NE",
         "MSFT.NE",
-        "SMCL"
+        "SMCL",
+        "AMD"
       ]
     }
   ],
@@ -232,5 +234,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:47:14.316Z"
+  "updatedAt": "2026-06-05T00:47:39.977Z"
 }
