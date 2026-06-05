@@ -27,7 +27,10 @@
     "ORCL",
     "IONQ",
     "AAPL.NE",
-    "KULR"
+    "KULR",
+    "AVGO.NE",
+    "IBM.NE",
+    "XE"
   ],
   "watchlistGroups": [
     {
@@ -61,7 +64,10 @@
         "ORCL",
         "IONQ",
         "AAPL.NE",
-        "KULR"
+        "KULR",
+        "AVGO.NE",
+        "IBM.NE",
+        "XE"
       ]
     }
   ],
@@ -308,6 +314,33 @@
       "id": "1780620658113-c1vsusx",
       "side": "BUY",
       "symbol": "KULR"
+    },
+    {
+      "price": 15.86,
+      "shares": 49,
+      "date": "2026-06-05T00:51:00.000Z",
+      "note": "",
+      "id": "1780620683766-ws8qhok",
+      "side": "BUY",
+      "symbol": "AVGO.NE"
+    },
+    {
+      "price": 46.77,
+      "shares": 15,
+      "date": "2026-06-03T00:51:00.000Z",
+      "note": "",
+      "id": "1780620708952-qaduoqc",
+      "side": "BUY",
+      "symbol": "IBM.NE"
+    },
+    {
+      "price": 28.85,
+      "shares": 20,
+      "date": "2026-05-28T00:51:00.000Z",
+      "note": "",
+      "id": "1780620727088-5yb8dw8",
+      "side": "BUY",
+      "symbol": "XE"
     }
   ],
   "plannedOrders": [],
@@ -320,5 +353,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:50:58.113Z"
+  "updatedAt": "2026-06-05T00:52:07.088Z"
 }
