@@ -70,6 +70,14 @@ export const saveTrade = (trade) => {
   write(KEYS.trades, next)
   return next
 }
+export const saveTrades = (trades) => {
+  const next = [
+    ...getTrades(),
+    ...trades.map((trade) => ({ ...trade, id: trade.id || uid(), symbol: trade.symbol.toUpperCase() })),
+  ]
+  write(KEYS.trades, next)
+  return next
+}
 export const updateTrade = (updated) => {
   const next = getTrades().map((trade) => trade.id === updated.id ? { ...trade, ...updated, symbol: updated.symbol.toUpperCase() } : trade)
   write(KEYS.trades, next)
