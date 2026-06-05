@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { getTrades, getWatchlist } from '../services/storage'
@@ -28,6 +29,44 @@ export default function Portfolio() {
     result[currency] = current
     return result
   }, {}), [positions])
+  const portfolioSummary = useMemo(() => {
+    const totalNominalMarketValue = Object.values(totals).reduce((sum, item) => sum + item.value, 0)
+    return {
+      generatedAt: new Date().toISOString(),
+      source: 'TradeMarker',
+      note: 'Currency totals are nominal by quote currency and are not converted through foreign exchange.',
+      totalsByCurrency: Object.values(totals).map((total) => ({
+        currency: total.currency,
+        totalCost: Number(total.cost.toFixed(4)),
+        marketValue: Number(total.value.toFixed(4)),
+        unrealizedPL: Number(total.pl.toFixed(4)),
+        unrealizedPLPercent: total.cost ? Number(((total.pl / total.cost) * 100).toFixed(4)) : 0,
+        positionCount: positions.filter((position) => position.quote.currency === total.currency).length,
+      })),
+      currencyDistribution: Object.values(totals).map((total) => ({
+        currency: total.currency,
+        marketValue: Number(total.value.toFixed(4)),
+        nominalSharePercent: totalNominalMarketValue ? Number(((total.value / totalNominalMarketValue) * 100).toFixed(4)) : 0,
+      })),
+      positions: positions.map((position) => ({
+        symbol: position.symbol,
+        currency: position.quote.currency,
+        exchange: position.quote.exchange,
+        source: position.quote.source,
+        asOf: position.quote.asOf,
+        latestPrice: position.quote.price,
+        shares: Number(position.shares.toFixed(6)),
+        averageCost: Number(position.averageCost.toFixed(4)),
+        totalCost: Number(position.costBasis.toFixed(4)),
+        marketValue: Number(position.marketValue.toFixed(4)),
+        unrealizedPL: Number(position.unrealizedPL.toFixed(4)),
+        unrealizedPLPercent: Number(position.unrealizedPLPercent.toFixed(4)),
+      })).sort((a, b) => a.symbol.localeCompare(b.symbol)),
+    }
+  }, [positions, totals])
+  useEffect(() => {
+    if (!loading && positions.length) savePortfolioSummaryToGitHub(portfolioSummary).catch(() => {})
+  }, [loading, positions.length, portfolioSummary])
   const sortedPositions = useMemo(() => [...positions].sort((a, b) => {
     const direction = sort.direction === 'asc' ? 1 : -1
     if (sort.key === 'symbol') return a.symbol.localeCompare(b.symbol) * direction

@@ -88,6 +88,8 @@ When configured, the app loads newer remote data on startup and automatically sa
 
 To prevent accidental data loss, TradeMarker skips automatic GitHub saves when the current browser has no watchlist or trades, and skips loading an empty remote file over a browser that already has local data. If you ever need to recover a previous backup, open `data/trademarker.json` in GitHub and use **History** to restore a non-empty version.
 
+When you open the Portfolio page, TradeMarker also writes `data/portfolio-summary.json` to the same private data repository. This file summarizes open positions, cost basis, market value, unrealized profit/loss, and nominal currency distribution so it can be shared with analysis tools without sending the full app state.
+
 ## Import and Export
 
 The Settings page exports all local data as JSON. Importing a valid TradeMarker JSON file replaces the current local watchlist, trades, and settings. Keep backups somewhere private if journal notes are sensitive.

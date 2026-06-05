@@ -15,6 +15,11 @@ const apiUrl = ({ owner, repo, path }) => `https://api.github.com/repos/${owner}
 const headers = (token) => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' })
 const encode = (value) => btoa(unescape(encodeURIComponent(value)))
 const decode = (value) => decodeURIComponent(escape(atob(value.replace(/\n/g, ''))))
+const siblingPath = (path, filename) => {
+  const parts = path.split('/')
+  parts[parts.length - 1] = filename
+  return parts.join('/')
+}
 const hasUserData = (data) => Boolean(
   data?.watchlist?.length ||
   data?.trades?.length ||
@@ -24,13 +29,29 @@ const hasUserData = (data) => Boolean(
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
 
-async function getRemote() {
-  const settings = config()
+async function getRemote(path = config().path) {
+  const settings = { ...config(), path }
   const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}`, { headers: headers(settings.token) })
   if (response.status === 404) return null
   const result = await response.json()
   if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
   return { sha: result.sha, data: JSON.parse(decode(result.content)) }
+}
+
+async function saveJsonFile(path, data, message) {
+  if (!isGitHubSyncConfigured()) return { status: 'disabled' }
+  const settings = { ...config(), path }
+  const remote = await getRemote(path)
+  const body = {
+    message,
+    content: encode(JSON.stringify(data, null, 2)),
+    branch: settings.branch,
+    ...(remote?.sha ? { sha: remote.sha } : {}),
+  }
+  const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
+  return { status: 'saved', path }
 }
 
 export async function loadFromGitHub({ force = false } = {}) {
@@ -53,14 +74,11 @@ export async function saveToGitHub() {
   const local = exportData()
   if (!hasUserData(local)) return { status: 'skipped-empty-local' }
   if (remote && hasUserData(remote.data) && !hasUserData(local)) return { status: 'skipped-empty-local' }
-  const body = {
-    message: 'Update TradeMarker data',
-    content: encode(JSON.stringify(local, null, 2)),
-    branch: settings.branch,
-    ...(remote?.sha ? { sha: remote.sha } : {}),
-  }
-  const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  const result = await response.json()
-  if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
-  return { status: 'saved' }
+  return saveJsonFile(settings.path, local, 'Update TradeMarker data')
+}
+
+export async function savePortfolioSummaryToGitHub(summary) {
+  const settings = config()
+  const path = siblingPath(settings.path, 'portfolio-summary.json')
+  return saveJsonFile(path, summary, 'Update TradeMarker portfolio summary')
 }
