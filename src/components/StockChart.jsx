@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts'
 import { resampleCandles } from '../services/resampleCandles'
+import { ema, macd, rsi, sma, vwap } from '../services/technicalIndicators'
 
 const day = (value) => new Date(value).toISOString().slice(0, 10)
 
@@ -28,6 +29,34 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
     const data = resampleCandles(candles, interval)
     series.setData(showCloseLine ? data.map((candle) => ({ time: candle.time, value: candle.close })) : data)
+    const overlayLines = [
+      { label: 'VWAP', data: vwap(data), color: '#60a5fa' },
+      { label: 'SMA 20', data: sma(data, 20), color: '#facc15' },
+      { label: 'SMA 50', data: sma(data, 50), color: '#a78bfa' },
+      { label: 'SMA 200', data: sma(data, 200), color: '#f472b6' },
+      { label: 'EMA 50', data: ema(data, 50), color: '#22c55e' },
+    ]
+    const latestIndicatorValues = []
+    overlayLines.forEach((line) => {
+      if (!line.data.length) return
+      chart.addLineSeries({ color: line.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false }).setData(line.data)
+      latestIndicatorValues.push({ label: line.label, value: line.data.at(-1).value, color: line.color })
+    })
+    const rsiSeries = chart.addLineSeries({ color: '#93c5fd', lineWidth: 2, priceScaleId: 'rsi', priceLineVisible: false })
+    rsiSeries.setData(rsi(data))
+    chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.68, bottom: 0.17 }, borderVisible: false })
+    rsiSeries.createPriceLine({ price: 70, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
+    rsiSeries.createPriceLine({ price: 30, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
+    const macdValues = macd(data)
+    const macdHistogram = chart.addHistogramSeries({ priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false })
+    macdHistogram.setData(macdValues.histogram)
+    chart.addLineSeries({ color: '#22c55e', lineWidth: 1, priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false }).setData(macdValues.macdLine)
+    chart.addLineSeries({ color: '#ef4444', lineWidth: 1, priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false }).setData(macdValues.signalLine)
+    chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 }, borderVisible: false })
+    const legend = document.createElement('div')
+    legend.className = 'indicator-legend'
+    legend.innerHTML = `<strong>Indicators</strong>${latestIndicatorValues.map((item) => `<span style="color:${item.color}">${item.label} ${item.value.toFixed(2)}</span>`).join('')}<span style="color:#93c5fd">RSI 14</span><span style="color:#22c55e">MACD</span>`
+    containerRef.current.appendChild(legend)
     const tooltip = document.createElement('div')
     tooltip.className = 'chart-tooltip'
     containerRef.current.appendChild(tooltip)
@@ -120,6 +149,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(positionMarkers)
       chart.unsubscribeCrosshairMove(showTooltip)
       tooltip.remove()
+      legend.remove()
       markerLayer.remove()
       chart.remove()
     }
