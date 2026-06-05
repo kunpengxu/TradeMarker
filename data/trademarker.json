@@ -1,0 +1,227 @@
+{
+  "watchlist": [
+    "RDW",
+    "TSLA.NE",
+    "AMD.NE",
+    "UNH.NE",
+    "VDY.TO",
+    "TSLL",
+    "TSLU.TO",
+    "NVDA.NE",
+    "QMCO",
+    "RKLB",
+    "GOOG.NE",
+    "TSLA",
+    "META.NE",
+    "OSCR",
+    "SMCI.NE",
+    "ASML.NE",
+    "AMZN.NE",
+    "PLTR.NE",
+    "MSFT.NE",
+    "SMCL"
+  ],
+  "watchlistGroups": [
+    {
+      "id": "default",
+      "name": "Watchlist",
+      "symbols": [
+        "TSLA.NE",
+        "AMD.NE",
+        "RDW",
+        "UNH.NE",
+        "VDY.TO",
+        "TSLL",
+        "TSLU.TO",
+        "NVDA.NE",
+        "QMCO",
+        "RKLB",
+        "GOOG.NE",
+        "TSLA",
+        "META.NE",
+        "OSCR",
+        "SMCI.NE",
+        "ASML.NE",
+        "AMZN.NE",
+        "PLTR.NE",
+        "MSFT.NE",
+        "SMCL"
+      ]
+    }
+  ],
+  "trades": [
+    {
+      "price": 7.97,
+      "shares": 150,
+      "date": "2026-03-30T16:01:00.000Z",
+      "note": "",
+      "side": "BUY",
+      "symbol": "RDW",
+      "id": "1780603334657-i6dxa8l"
+    },
+    {
+      "price": 33.81,
+      "shares": 309.9,
+      "date": "2026-04-15T16:03:00.000Z",
+      "note": "",
+      "side": "BUY",
+      "symbol": "TSLA.NE",
+      "id": "1780603402025-uhyyoha"
+    },
+    {
+      "price": 38.19,
+      "shares": 156.5941,
+      "date": "2026-04-02T16:04:00.000Z",
+      "note": "",
+      "side": "BUY",
+      "symbol": "AMD.NE",
+      "id": "1780603459491-tqkgr2z"
+    },
+    {
+      "price": 13.7,
+      "shares": 317.894,
+      "date": "2026-01-27T17:20:00.000Z",
+      "note": "",
+      "id": "1780604444765-proqj8g",
+      "side": "BUY",
+      "symbol": "UNH.NE"
+    },
+    {
+      "price": 65.04,
+      "shares": 176.6649,
+      "date": "2026-02-12T17:21:00.000Z",
+      "note": "",
+      "id": "1780604487200-k91r7hp",
+      "side": "BUY",
+      "symbol": "VDY.TO"
+    },
+    {
+      "price": 12.72,
+      "shares": 490,
+      "date": "2026-03-26T16:25:00.000Z",
+      "note": "",
+      "id": "1780604728361-0ypmktf",
+      "side": "BUY",
+      "symbol": "TSLL"
+    },
+    {
+      "price": 27.28,
+      "shares": 392.3488,
+      "date": "2026-01-22T17:26:00.000Z",
+      "note": "",
+      "id": "1780604807529-wzh92jo",
+      "side": "BUY",
+      "symbol": "TSLU.TO"
+    },
+    {
+      "price": 41.61,
+      "shares": 133,
+      "date": "2026-04-10T18:29:00.000Z",
+      "note": "",
+      "id": "1780604970924-amz8i61",
+      "side": "BUY",
+      "symbol": "NVDA.NE"
+    },
+    {
+      "price": 9.29,
+      "shares": 191,
+      "date": "2026-05-06T17:29:00.000Z",
+      "note": "",
+      "id": "1780605012589-jom8u9e",
+      "side": "BUY",
+      "symbol": "QMCO"
+    },
+    {
+      "price": 47.98,
+      "shares": 25,
+      "date": "2025-08-29T18:30:00.000Z",
+      "note": "",
+      "id": "1780605068005-3ma7hsn",
+      "side": "BUY",
+      "symbol": "RKLB"
+    },
+    {
+      "price": 49,
+      "shares": 61.0095,
+      "date": "2026-02-19T21:32:00.000Z",
+      "note": "",
+      "id": "1780605134104-hyipty4",
+      "side": "BUY",
+      "symbol": "GOOG.NE"
+    },
+    {
+      "price": 427.15,
+      "shares": 5.4794,
+      "date": "2026-02-03T21:32:00.000Z",
+      "note": "",
+      "id": "1780605174440-blusltx",
+      "side": "BUY",
+      "symbol": "TSLA"
+    },
+    {
+      "price": 36.02,
+      "shares": 92.6658,
+      "date": "2026-04-24T20:33:00.000Z",
+      "note": "",
+      "id": "1780605220249-68uhuz0",
+      "side": "BUY",
+      "symbol": "META.NE"
+    },
+    {
+      "price": 16.22,
+      "shares": 90,
+      "date": "2026-04-20T20:34:00.000Z",
+      "note": "",
+      "id": "1780605262952-1otoyoh",
+      "side": "BUY",
+      "symbol": "OSCR"
+    },
+    {
+      "price": 13.23,
+      "shares": 191.5637,
+      "date": "2026-05-28T20:34:00.000Z",
+      "note": "",
+      "id": "1780605312212-ai1hofu",
+      "side": "BUY",
+      "symbol": "SMCI.NE"
+    },
+    {
+      "price": 19.75,
+      "shares": 50.0881,
+      "date": "2025-08-07T20:35:00.000Z",
+      "note": "",
+      "id": "1780605376862-m1o17az",
+      "side": "BUY",
+      "symbol": "ASML.NE"
+    },
+    {
+      "price": 24.86,
+      "shares": 70,
+      "date": "2025-06-05T20:36:00.000Z",
+      "note": "",
+      "id": "1780605429885-urp23f9",
+      "side": "BUY",
+      "symbol": "AMZN.NE"
+    },
+    {
+      "price": 13.46,
+      "shares": 160,
+      "date": "2025-11-13T21:37:00.000Z",
+      "note": "",
+      "id": "1780605473925-k8m0bo1",
+      "side": "BUY",
+      "symbol": "PLTR.NE"
+    }
+  ],
+  "plannedOrders": [],
+  "settings": {
+    "marketDataProvider": "yahoo",
+    "marketDataProviderChosen": true,
+    "yahooProxyUrl": "https://trademarker-yahoo-proxy.kunp-xu.workers.dev",
+    "githubOwner": "kunpengxu",
+    "githubRepo": "TradeMarker",
+    "githubBranch": "main",
+    "githubDataPath": "data/trademarker.json"
+  },
+  "updatedAt": "2026-06-05T00:42:14.631Z"
+}
