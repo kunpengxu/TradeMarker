@@ -36,14 +36,13 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       { label: 'SMA 200', data: sma(data, 200), color: '#f472b6' },
       { label: 'EMA 50', data: ema(data, 50), color: '#22c55e' },
     ]
-    const latestIndicatorValues = []
     overlayLines.forEach((line) => {
       if (!line.data.length) return
       chart.addLineSeries({ color: line.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false }).setData(line.data)
-      latestIndicatorValues.push({ label: line.label, value: line.data.at(-1).value, color: line.color })
     })
+    const rsiValues = rsi(data)
     const rsiSeries = chart.addLineSeries({ color: '#93c5fd', lineWidth: 2, priceScaleId: 'rsi', priceLineVisible: false })
-    rsiSeries.setData(rsi(data))
+    rsiSeries.setData(rsiValues)
     chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.68, bottom: 0.17 }, borderVisible: false })
     rsiSeries.createPriceLine({ price: 70, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
     rsiSeries.createPriceLine({ price: 30, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
@@ -55,8 +54,18 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 }, borderVisible: false })
     const legend = document.createElement('div')
     legend.className = 'indicator-legend'
-    legend.innerHTML = `<strong>Indicators</strong>${latestIndicatorValues.map((item) => `<span style="color:${item.color}">${item.label} ${item.value.toFixed(2)}</span>`).join('')}<span style="color:#93c5fd">RSI 14</span><span style="color:#22c55e">MACD</span>`
     containerRef.current.appendChild(legend)
+    const indicatorLookup = Object.fromEntries([
+      ...overlayLines.map((line) => [line.label, new Map(line.data.map((point) => [point.time, point.value]))]),
+      ['RSI 14', new Map(rsiValues.map((point) => [point.time, point.value]))],
+      ['MACD', new Map(macdValues.macdLine.map((point) => [point.time, point.value]))],
+    ])
+    const indicatorColors = { ...Object.fromEntries(overlayLines.map((line) => [line.label, line.color])), 'RSI 14': '#93c5fd', MACD: '#22c55e' }
+    const formatIndicator = (value) => Number.isFinite(value) ? value.toFixed(2) : '—'
+    const renderLegend = (time = data.at(-1)?.time) => {
+      legend.innerHTML = `<strong>Indicators ${time || ''}</strong>${Object.entries(indicatorLookup).map(([label, values]) => `<span style="color:${indicatorColors[label]}">${label} ${formatIndicator(values.get(time))}</span>`).join('')}`
+    }
+    renderLegend()
     const tooltip = document.createElement('div')
     tooltip.className = 'chart-tooltip'
     containerRef.current.appendChild(tooltip)
@@ -64,10 +73,12 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     const showTooltip = (param) => {
       if (!param.time || !param.point) {
         tooltip.style.display = 'none'
+        renderLegend()
         return
       }
       const entry = candleByTime.get(param.time)
       if (!entry) return
+      renderLegend(param.time)
       const { candle, previous } = entry
       const change = previous ? candle.close - previous.close : 0
       const changePercent = previous?.close ? (change / previous.close) * 100 : 0
