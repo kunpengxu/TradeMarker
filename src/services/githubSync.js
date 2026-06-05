@@ -15,6 +15,12 @@ const apiUrl = ({ owner, repo, path }) => `https://api.github.com/repos/${owner}
 const headers = (token) => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' })
 const encode = (value) => btoa(unescape(encodeURIComponent(value)))
 const decode = (value) => decodeURIComponent(escape(atob(value.replace(/\n/g, ''))))
+const hasUserData = (data) => Boolean(
+  data?.watchlist?.length ||
+  data?.trades?.length ||
+  data?.plannedOrders?.length ||
+  data?.watchlistGroups?.some((group) => group.symbols?.length),
+)
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
 
@@ -31,6 +37,8 @@ export async function loadFromGitHub({ force = false } = {}) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const remote = await getRemote()
   if (!remote) return { status: 'empty' }
+  const local = exportData()
+  if (!hasUserData(remote.data) && hasUserData(local)) return { status: 'skipped-empty-remote' }
   if (force || !getDataUpdatedAt() || new Date(remote.data.updatedAt) > new Date(getDataUpdatedAt())) {
     importData(remote.data)
     return { status: 'loaded', updatedAt: remote.data.updatedAt }
@@ -42,9 +50,12 @@ export async function saveToGitHub() {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const settings = config()
   const remote = await getRemote()
+  const local = exportData()
+  if (!hasUserData(local)) return { status: 'skipped-empty-local' }
+  if (remote && hasUserData(remote.data) && !hasUserData(local)) return { status: 'skipped-empty-local' }
   const body = {
     message: 'Update TradeMarker data',
-    content: encode(JSON.stringify(exportData(), null, 2)),
+    content: encode(JSON.stringify(local, null, 2)),
     branch: settings.branch,
     ...(remote?.sha ? { sha: remote.sha } : {}),
   }

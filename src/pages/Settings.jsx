@@ -54,7 +54,12 @@ export default function Settings() {
     try {
       setMessage(direction === 'load' ? 'Loading data from GitHub…' : 'Saving data to GitHub…')
       const result = direction === 'load' ? await loadFromGitHub({ force: true }) : await saveToGitHub()
-      setMessage(result.status === 'empty' ? 'No TradeMarker data file exists in GitHub yet.' : `GitHub sync ${result.status}.`)
+      const labels = {
+        empty: 'No TradeMarker data file exists in GitHub yet.',
+        'skipped-empty-local': 'Skipped GitHub save because this browser has no watchlist or trades.',
+        'skipped-empty-remote': 'Skipped GitHub load because the remote file is empty and local data exists.',
+      }
+      setMessage(labels[result.status] || `GitHub sync ${result.status}.`)
       if (result.status === 'loaded') window.location.reload()
     } catch (error) { setMessage(error.message) }
   }
