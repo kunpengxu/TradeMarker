@@ -40,7 +40,8 @@
     "CLSK",
     "NOK",
     "ORCX",
-    "ETHU"
+    "ETHU",
+    "GLDU.NE"
   ],
   "watchlistGroups": [
     {
@@ -87,7 +88,8 @@
         "CLSK",
         "NOK",
         "ORCX",
-        "ETHU"
+        "ETHU",
+        "GLDU.NE"
       ]
     }
   ],
@@ -463,5 +465,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:56:43.789Z"
+  "updatedAt": "2026-06-05T01:01:28.633Z"
 }
