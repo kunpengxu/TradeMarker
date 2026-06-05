@@ -22,7 +22,10 @@
     "SMCL",
     "AMD",
     "QBTS",
-    "ASTS"
+    "ASTS",
+    "VFV.TO",
+    "ORCL",
+    "IONQ"
   ],
   "watchlistGroups": [
     {
@@ -51,7 +54,10 @@
         "SMCL",
         "AMD",
         "QBTS",
-        "ASTS"
+        "ASTS",
+        "VFV.TO",
+        "ORCL",
+        "IONQ"
       ]
     }
   ],
@@ -253,6 +259,24 @@
       "id": "1780620520641-hhh1f8t",
       "side": "BUY",
       "symbol": "ASTS"
+    },
+    {
+      "price": 178.87,
+      "shares": 5.2151,
+      "date": "2026-05-13T00:48:00.000Z",
+      "note": "",
+      "id": "1780620556551-73a4qdy",
+      "side": "BUY",
+      "symbol": "VFV.TO"
+    },
+    {
+      "price": 189.67,
+      "shares": 3,
+      "date": "2026-01-16T01:49:00.000Z",
+      "note": "",
+      "id": "1780620578542-n9hh7mm",
+      "side": "BUY",
+      "symbol": "ORCL"
     }
   ],
   "plannedOrders": [],
@@ -265,5 +289,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:48:40.641Z"
+  "updatedAt": "2026-06-05T00:49:52.787Z"
 }
