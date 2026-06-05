@@ -24,16 +24,30 @@ const write = (key, value, notify = true) => {
   }
 }
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-export const REASON_TYPES = ['Earnings', 'Swing Trade', 'Long-term', 'Dip Buy', 'Technical Breakout', 'AI Suggestion', 'Rebalance', 'Other']
+export const REASON_TYPES = ['Earnings', 'Swing Trade', 'Long-term', 'Dip Buy', 'Technical Breakout', 'AI Suggestion', 'Rebalance', 'Take Profit', 'Stop Loss', 'Macro Event', 'News Event', 'Sector Rotation', 'Other']
+export const EMOTION_TYPES = ['Very confident', 'Confident', 'Neutral', 'Nervous', 'Panic', 'FOMO', 'Regret', 'Other']
 export const TRADE_DEFAULTS = {
   reasonType: '',
-  confidence: '',
+  reasonTags: [],
+  confidence: null,
   targetPrice: null,
   stopLoss: null,
   takeProfit: null,
+  targets: [],
   thesis: '',
   invalidation: '',
   riskNote: '',
+  marketContext: '',
+  emotion: null,
+}
+const normalizeTargets = (trade) => {
+  if (Array.isArray(trade.targets)) return [...new Set(trade.targets.map(Number).filter((value) => Number.isFinite(value) && value > 0))]
+  const legacy = [trade.targetPrice, trade.takeProfit].map(Number).filter((value) => Number.isFinite(value) && value > 0)
+  return [...new Set(legacy)]
+}
+const normalizeConfidence = (value) => {
+  const confidence = Number(value)
+  return Number.isInteger(confidence) && confidence >= 1 && confidence <= 5 ? confidence : null
 }
 export const normalizeSymbol = (symbol) => {
   const clean = symbol.trim().toUpperCase()
@@ -46,13 +60,17 @@ export const normalizeTrade = (trade) => ({
   side: trade.side || 'BUY',
   price: Number(trade.price || 0),
   shares: Number(trade.shares || 0),
-  confidence: trade.confidence === '' || trade.confidence == null ? '' : Number(trade.confidence),
+  reasonTags: Array.isArray(trade.reasonTags) ? trade.reasonTags.filter(Boolean) : trade.reasonType ? [trade.reasonType] : [],
+  confidence: normalizeConfidence(trade.confidence),
   targetPrice: trade.targetPrice == null || trade.targetPrice === '' ? null : Number(trade.targetPrice),
   stopLoss: trade.stopLoss == null || trade.stopLoss === '' ? null : Number(trade.stopLoss),
   takeProfit: trade.takeProfit == null || trade.takeProfit === '' ? null : Number(trade.takeProfit),
+  targets: normalizeTargets(trade),
   thesis: trade.thesis || '',
   invalidation: trade.invalidation || '',
   riskNote: trade.riskNote || '',
+  marketContext: trade.marketContext || '',
+  emotion: trade.emotion || null,
 })
 
 export const getWatchlist = () => read(KEYS.watchlist, [])

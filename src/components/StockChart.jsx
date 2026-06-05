@@ -1,11 +1,17 @@
 import { useEffect, useRef } from 'react'
 import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts'
+import { calculateRealizedPLByTrade } from '../services/positionCalculator'
 import { resampleCandles } from '../services/resampleCandles'
 import { ema, macd, rsi, sma, vwap } from '../services/technicalIndicators'
+import { money, number } from '../utils/formatters'
 
 const day = (value) => new Date(value).toISOString().slice(0, 10)
+const stars = (confidence) => confidence ? `${'★'.repeat(confidence)}${'☆'.repeat(5 - confidence)}` : '—'
+const preview = (value, length = 74) => value && value.length > length ? `${value.slice(0, length)}…` : value
+const targetsText = (targets = [], currency) => targets.length ? targets.map((target, index) => `TP${index + 1} ${money(target, currency)}`).join(', ') : '—'
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
 
-export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false }) {
+export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD' }) {
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -69,6 +75,9 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     const tooltip = document.createElement('div')
     tooltip.className = 'chart-tooltip'
     containerRef.current.appendChild(tooltip)
+    const markerTooltip = document.createElement('div')
+    markerTooltip.className = 'marker-tooltip'
+    containerRef.current.appendChild(markerTooltip)
     const candleByTime = new Map(data.map((candle, index) => [candle.time, { candle, previous: data[index - 1] }]))
     const showTooltip = (param) => {
       if (!param.time || !param.point) {
@@ -106,12 +115,40 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     const markerLayer = document.createElement('div')
     markerLayer.className = 'trade-marker-layer'
     containerRef.current.appendChild(markerLayer)
+    const realizedPL = calculateRealizedPLByTrade(trades)
+    const hideMarkerTooltip = () => { markerTooltip.style.display = 'none' }
+    const showMarkerTooltip = (trade, element) => {
+      const tradeCurrency = trade.currency || currency
+      const soldPL = trade.side === 'SELL' ? realizedPL.get(trade.id) : null
+      markerTooltip.innerHTML = `
+        <strong class="${trade.side.toLowerCase()}">${trade.side}</strong>
+        <span>${day(trade.date)}</span>
+        <span>Price <b>${money(trade.price, tradeCurrency)}</b></span>
+        <span>Shares <b>${number(trade.shares, 4)}</b></span>
+        ${soldPL != null ? `<span>Sold P/L <b class="${soldPL >= 0 ? 'positive' : 'negative'}">${money(soldPL, tradeCurrency)}</b></span>` : ''}
+        <span>Tags <b>${escapeHtml(trade.reasonTags?.join(', ') || '—')}</b></span>
+        <span>Confidence <b>${stars(trade.confidence)}</b></span>
+        <span>Targets <b>${targetsText(trade.targets, tradeCurrency)}</b></span>
+        <span>Stop <b>${trade.stopLoss ? money(trade.stopLoss, tradeCurrency) : '—'}</b></span>
+        ${trade.thesis ? `<p>Thesis: ${escapeHtml(preview(trade.thesis))}</p>` : ''}
+        ${trade.marketContext ? `<p>Context: ${escapeHtml(preview(trade.marketContext))}</p>` : ''}
+      `
+      markerTooltip.style.display = 'block'
+      const rect = element.getBoundingClientRect()
+      const parent = containerRef.current.getBoundingClientRect()
+      const left = rect.left - parent.left
+      markerTooltip.style.left = `${Math.min(Math.max(left + 14, 8), parent.width - 260)}px`
+      markerTooltip.style.top = `${Math.max(rect.top - parent.top - 10, 8)}px`
+    }
     const markerEntries = trades.map((trade) => {
       const time = markerTime(trade.date)
       const element = document.createElement('span')
       element.className = `trade-chart-marker ${trade.side.toLowerCase()}`
       element.textContent = trade.side[0]
       element.title = `${trade.side} ${trade.shares} shares at $${Number(trade.price).toFixed(2)} on ${day(trade.date)}`
+      element.addEventListener('mouseenter', () => showMarkerTooltip(trade, element))
+      element.addEventListener('click', () => showMarkerTooltip(trade, element))
+      element.addEventListener('mouseleave', hideMarkerTooltip)
       markerLayer.appendChild(element)
       return { trade, time, element }
     })
@@ -160,11 +197,12 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(positionMarkers)
       chart.unsubscribeCrosshairMove(showTooltip)
       tooltip.remove()
+      markerTooltip.remove()
       legend.remove()
       markerLayer.remove()
       chart.remove()
     }
-  }, [candles, interval, trades, averageCost, closeOnly])
+  }, [candles, interval, trades, averageCost, closeOnly, currency])
 
   return <div className="chart" ref={containerRef} />
 }

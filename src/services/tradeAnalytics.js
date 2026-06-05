@@ -30,6 +30,28 @@ export const calculateTradingStatistics = (positions, trades) => {
   }
 }
 
+const realizedTrades = (trades) => {
+  const realizedByTrade = calculateRealizedPLByTrade(trades)
+  return trades.filter((trade) => trade.side === 'SELL' && realizedByTrade.has(trade.id)).map((trade) => ({
+    ...trade,
+    realizedPL: realizedByTrade.get(trade.id),
+  }))
+}
+
+export const getTradesByTag = (tag) => getTrades().filter((trade) => trade.reasonTags?.includes(tag))
+
+export const getTradesByEmotion = (emotion) => getTrades().filter((trade) => trade.emotion === emotion)
+
+export const getAverageReturnByTag = (tag) => {
+  const matching = realizedTrades(getTrades()).filter((trade) => trade.reasonTags?.includes(tag))
+  return matching.length ? matching.reduce((sum, trade) => sum + trade.realizedPL, 0) / matching.length : null
+}
+
+export const getAverageReturnByEmotion = (emotion) => {
+  const matching = realizedTrades(getTrades()).filter((trade) => trade.emotion === emotion)
+  return matching.length ? matching.reduce((sum, trade) => sum + trade.realizedPL, 0) / matching.length : null
+}
+
 export const getSymbolMemory = (symbol, latestPrice = 0) => {
   const trades = getTrades(symbol)
   const position = calculatePosition(trades, latestPrice)
@@ -37,9 +59,14 @@ export const getSymbolMemory = (symbol, latestPrice = 0) => {
   const realizedPL = [...realizedByTrade.values()].reduce((sum, value) => sum + value, 0)
   return {
     symbol,
+    reasonTags: [...new Set(trades.flatMap((trade) => trade.reasonTags || []))],
+    targets: trades.map((trade) => ({ date: trade.date, side: trade.side, targets: trade.targets || [] })).filter((item) => item.targets.length),
+    marketContext: trades.filter((trade) => trade.marketContext).map((trade) => ({ date: trade.date, side: trade.side, marketContext: trade.marketContext })),
+    emotion: trades.filter((trade) => trade.emotion).map((trade) => ({ date: trade.date, side: trade.side, emotion: trade.emotion })),
     position,
     trades,
-    thesisHistory: trades.filter((trade) => trade.thesis).map((trade) => ({ date: trade.date, side: trade.side, thesis: trade.thesis, reasonType: trade.reasonType })),
+    thesisHistory: trades.filter((trade) => trade.thesis).map((trade) => ({ date: trade.date, side: trade.side, thesis: trade.thesis, reasonType: trade.reasonType, reasonTags: trade.reasonTags })),
+    invalidationHistory: trades.filter((trade) => trade.invalidation).map((trade) => ({ date: trade.date, side: trade.side, invalidation: trade.invalidation })),
     averageCost: position.averageCost,
     realizedPL,
     unrealizedPL: position.unrealizedPL,
