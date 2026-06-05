@@ -19,7 +19,29 @@
     "AMZN.NE",
     "PLTR.NE",
     "MSFT.NE",
-    "SMCL"
+    "SMCL",
+    "AMD",
+    "QBTS",
+    "ASTS",
+    "VFV.TO",
+    "ORCL",
+    "IONQ",
+    "AAPL.NE",
+    "KULR",
+    "AVGO.NE",
+    "IBM.NE",
+    "XE",
+    "LULU.NE",
+    "DVLT",
+    "RBLX",
+    "NFLX.NE",
+    "AMZU",
+    "LAES",
+    "CLSK",
+    "NOK",
+    "ORCX",
+    "ETHU",
+    "GLDU.NE"
   ],
   "watchlistGroups": [
     {
@@ -45,7 +67,29 @@
         "AMZN.NE",
         "PLTR.NE",
         "MSFT.NE",
-        "SMCL"
+        "SMCL",
+        "AMD",
+        "QBTS",
+        "ASTS",
+        "VFV.TO",
+        "ORCL",
+        "IONQ",
+        "AAPL.NE",
+        "KULR",
+        "AVGO.NE",
+        "IBM.NE",
+        "XE",
+        "LULU.NE",
+        "DVLT",
+        "RBLX",
+        "NFLX.NE",
+        "AMZU",
+        "LAES",
+        "CLSK",
+        "NOK",
+        "ORCX",
+        "ETHU",
+        "GLDU.NE"
       ]
     }
   ],
@@ -211,6 +255,204 @@
       "id": "1780605473925-k8m0bo1",
       "side": "BUY",
       "symbol": "PLTR.NE"
+    },
+    {
+      "price": 203.23,
+      "shares": 9,
+      "date": "2025-05-13T00:46:00.000Z",
+      "note": "",
+      "id": "1780620434315-dtdc46m",
+      "side": "BUY",
+      "symbol": "SMCL"
+    },
+    {
+      "price": 210.77,
+      "shares": 2,
+      "date": "2026-01-09T01:47:00.000Z",
+      "note": "",
+      "id": "1780620476613-fdbn1jl",
+      "side": "BUY",
+      "symbol": "AMD"
+    },
+    {
+      "price": 32.03,
+      "shares": 30,
+      "date": "2025-10-04T00:48:00.000Z",
+      "note": "",
+      "id": "1780620502038-dzgfli9",
+      "side": "BUY",
+      "symbol": "QBTS"
+    },
+    {
+      "price": 74.37,
+      "shares": 7,
+      "date": "2026-06-05T00:48:00.000Z",
+      "note": "",
+      "id": "1780620520641-hhh1f8t",
+      "side": "BUY",
+      "symbol": "ASTS"
+    },
+    {
+      "price": 178.87,
+      "shares": 5.2151,
+      "date": "2026-05-13T00:48:00.000Z",
+      "note": "",
+      "id": "1780620556551-73a4qdy",
+      "side": "BUY",
+      "symbol": "VFV.TO"
+    },
+    {
+      "price": 189.67,
+      "shares": 3,
+      "date": "2026-01-16T01:49:00.000Z",
+      "note": "",
+      "id": "1780620578542-n9hh7mm",
+      "side": "BUY",
+      "symbol": "ORCL"
+    },
+    {
+      "price": 57.41,
+      "shares": 10,
+      "date": "2025-10-24T00:49:00.000Z",
+      "note": "",
+      "id": "1780620607418-jrvdsiv",
+      "side": "BUY",
+      "symbol": "IONQ"
+    },
+    {
+      "price": 38.51,
+      "shares": 20,
+      "date": "2026-04-18T00:50:00.000Z",
+      "note": "",
+      "id": "1780620639323-xtan4ws",
+      "side": "BUY",
+      "symbol": "AAPL.NE"
+    },
+    {
+      "price": 3.54,
+      "shares": 130,
+      "date": "2026-01-13T01:50:00.000Z",
+      "note": "",
+      "id": "1780620658113-c1vsusx",
+      "side": "BUY",
+      "symbol": "KULR"
+    },
+    {
+      "price": 15.86,
+      "shares": 49,
+      "date": "2026-06-05T00:51:00.000Z",
+      "note": "",
+      "id": "1780620683766-ws8qhok",
+      "side": "BUY",
+      "symbol": "AVGO.NE"
+    },
+    {
+      "price": 46.77,
+      "shares": 15,
+      "date": "2026-06-03T00:51:00.000Z",
+      "note": "",
+      "id": "1780620708952-qaduoqc",
+      "side": "BUY",
+      "symbol": "IBM.NE"
+    },
+    {
+      "price": 28.85,
+      "shares": 20,
+      "date": "2026-05-28T00:51:00.000Z",
+      "note": "",
+      "id": "1780620727088-5yb8dw8",
+      "side": "BUY",
+      "symbol": "XE"
+    },
+    {
+      "price": 10.6,
+      "shares": 120,
+      "date": "2025-07-03T00:52:00.000Z",
+      "note": "",
+      "id": "1780620751267-zthu069",
+      "side": "BUY",
+      "symbol": "LULU.NE"
+    },
+    {
+      "price": 1.49,
+      "shares": 990.9855,
+      "date": "2025-10-07T00:52:00.000Z",
+      "note": "",
+      "id": "1780620776300-an3gw3g",
+      "side": "BUY",
+      "symbol": "DVLT"
+    },
+    {
+      "price": 93.49,
+      "shares": 10,
+      "date": "2025-06-10T00:53:00.000Z",
+      "note": "",
+      "id": "1780620814973-6dt5y0x",
+      "side": "BUY",
+      "symbol": "RBLX"
+    },
+    {
+      "price": 36.82,
+      "shares": 18,
+      "date": "2025-12-18T01:53:00.000Z",
+      "note": "",
+      "id": "1780620842482-q9z1pko",
+      "side": "BUY",
+      "symbol": "NFLX.NE"
+    },
+    {
+      "price": 36.2,
+      "shares": 10,
+      "date": "2025-11-26T01:54:00.000Z",
+      "note": "",
+      "id": "1780620872976-97zxfra",
+      "side": "BUY",
+      "symbol": "AMZU"
+    },
+    {
+      "price": 5.02,
+      "shares": 96.8593,
+      "date": "2025-10-07T00:54:00.000Z",
+      "note": "",
+      "id": "1780620895548-s6f1nkc",
+      "side": "BUY",
+      "symbol": "LAES"
+    },
+    {
+      "price": 12.09,
+      "shares": 20,
+      "date": "2026-01-14T01:55:00.000Z",
+      "note": "",
+      "id": "1780620933336-d0b8wkd",
+      "side": "BUY",
+      "symbol": "CLSK"
+    },
+    {
+      "price": 15.74,
+      "shares": 20,
+      "date": "2026-05-23T00:55:00.000Z",
+      "note": "",
+      "id": "1780620954669-tx6o7an",
+      "side": "BUY",
+      "symbol": "NOK"
+    },
+    {
+      "price": 75.8,
+      "shares": 5,
+      "date": "2025-06-21T00:56:00.000Z",
+      "note": "",
+      "id": "1780620976148-ymuygzw",
+      "side": "BUY",
+      "symbol": "ORCX"
+    },
+    {
+      "price": 74.48,
+      "shares": 18.0182,
+      "date": "2025-11-05T01:56:00.000Z",
+      "note": "",
+      "id": "1780621003789-xugqbtc",
+      "side": "BUY",
+      "symbol": "ETHU"
     }
   ],
   "plannedOrders": [],
@@ -223,5 +465,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:42:14.631Z"
+  "updatedAt": "2026-06-05T01:01:28.633Z"
 }
