@@ -37,7 +37,10 @@
     "NFLX.NE",
     "AMZU",
     "LAES",
-    "CLSK"
+    "CLSK",
+    "NOK",
+    "ORCX",
+    "ETHU"
   ],
   "watchlistGroups": [
     {
@@ -81,7 +84,10 @@
         "NFLX.NE",
         "AMZU",
         "LAES",
-        "CLSK"
+        "CLSK",
+        "NOK",
+        "ORCX",
+        "ETHU"
       ]
     }
   ],
@@ -418,6 +424,33 @@
       "id": "1780620933336-d0b8wkd",
       "side": "BUY",
       "symbol": "CLSK"
+    },
+    {
+      "price": 15.74,
+      "shares": 20,
+      "date": "2026-05-23T00:55:00.000Z",
+      "note": "",
+      "id": "1780620954669-tx6o7an",
+      "side": "BUY",
+      "symbol": "NOK"
+    },
+    {
+      "price": 75.8,
+      "shares": 5,
+      "date": "2025-06-21T00:56:00.000Z",
+      "note": "",
+      "id": "1780620976148-ymuygzw",
+      "side": "BUY",
+      "symbol": "ORCX"
+    },
+    {
+      "price": 74.48,
+      "shares": 18.0182,
+      "date": "2025-11-05T01:56:00.000Z",
+      "note": "",
+      "id": "1780621003789-xugqbtc",
+      "side": "BUY",
+      "symbol": "ETHU"
     }
   ],
   "plannedOrders": [],
@@ -430,5 +463,5 @@
     "githubBranch": "main",
     "githubDataPath": "data/trademarker.json"
   },
-  "updatedAt": "2026-06-05T00:55:33.336Z"
+  "updatedAt": "2026-06-05T00:56:43.789Z"
 }
