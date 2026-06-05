@@ -144,7 +144,7 @@ export default function Dashboard() {
                 <span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
               </div>
 
-              <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records shown as boxed markers on the chart.</p></div></div><TradeLog trades={trades} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
+              <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records shown as boxed markers on the chart.</p></div></div><TradeLog trades={trades} currency={selectedItem.quote.currency} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
             </>
           )}
         </div>

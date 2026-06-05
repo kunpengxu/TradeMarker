@@ -22,3 +22,27 @@ export function calculatePosition(trades, latestPrice = 0) {
   const unrealizedPLPercent = averageCost > 0 ? ((latestPrice - averageCost) / averageCost) * 100 : 0
   return { shares, costBasis, averageCost, marketValue, unrealizedPL, unrealizedPLPercent }
 }
+
+export function calculateRealizedPLByTrade(trades) {
+  let shares = 0
+  let costBasis = 0
+  const realized = new Map()
+
+  const sortedTrades = [...trades].sort((a, b) => new Date(a.date) - new Date(b.date))
+  sortedTrades.forEach((trade) => {
+    const quantity = Number(trade.shares)
+    const price = Number(trade.price)
+    if (!Number.isFinite(quantity) || !Number.isFinite(price)) return
+    if (trade.side === 'BUY') {
+      costBasis += quantity * price
+      shares += quantity
+    } else {
+      const averageCost = shares > 0 ? costBasis / shares : 0
+      realized.set(trade.id, (price - averageCost) * quantity)
+      costBasis = Math.max(0, costBasis - quantity * averageCost)
+      shares -= quantity
+    }
+  })
+
+  return realized
+}
