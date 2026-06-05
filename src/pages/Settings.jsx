@@ -1,14 +1,16 @@
 import { useRef, useState } from 'react'
-import { clearData, exportData, getSettings, getWatchlist, importData, saveSettings, saveTrades, saveWatchlist } from '../services/storage'
+import { clearData, exportData, getSettings, getTrades, getWatchlist, importData, saveSettings, saveTrades, saveWatchlist } from '../services/storage'
 import { loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
-import { buildWealthsimpleHoldings, createImportedTrade } from '../services/wealthsimpleImport'
+import { buildWealthsimpleActivities, buildWealthsimpleHoldings, createImportedTrade } from '../services/wealthsimpleImport'
 
 export default function Settings() {
   const fileRef = useRef()
   const wealthsimpleRef = useRef()
+  const wealthsimpleActivitiesRef = useRef()
   const [message, setMessage] = useState('')
   const [isImportingWealthsimple, setIsImportingWealthsimple] = useState(false)
+  const [isImportingActivities, setIsImportingActivities] = useState(false)
   const [provider, setProvider] = useState(() => getSettings().marketDataProviderChosen ? getSettings().marketDataProvider : 'yahoo')
   const [fmpApiKey, setFmpApiKey] = useState(() => getSettings().fmpApiKey || '')
   const [twelveDataApiKey, setTwelveDataApiKey] = useState(() => getSettings().twelveDataApiKey || '')
@@ -75,6 +77,27 @@ export default function Settings() {
       event.target.value = ''
     }
   }
+  const importWealthsimpleActivities = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+    try {
+      setIsImportingActivities(true)
+      const { trades, symbols, totalRows, skippedRows, skippedDuplicates } = buildWealthsimpleActivities(await file.text(), getTrades())
+      if (!trades.length) {
+        setMessage(`No new Wealthsimple trades to import. Skipped ${skippedDuplicates} duplicates and ${skippedRows} non-trade rows.`)
+        return
+      }
+      saveWatchlist([...getWatchlist(), ...symbols])
+      saveTrades(trades)
+      window.dispatchEvent(new CustomEvent('trademarker:data-imported'))
+      setMessage(`Imported ${trades.length} Wealthsimple trades from ${totalRows} activity rows. Added ${symbols.length} symbols to Watchlist if missing. Skipped ${skippedDuplicates} duplicates and ${skippedRows} non-trade rows.`)
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setIsImportingActivities(false)
+      event.target.value = ''
+    }
+  }
   const clear = () => {
     if (confirm('Permanently clear your entire TradeMarker watchlist, journal, and settings?')) {
       clearData(); setMessage('All local data cleared.')
@@ -124,7 +147,8 @@ export default function Settings() {
           <small>The token stays only in this browser. Give it access only to the private data repository with Contents: Read and write. Do not point this at the public TradeMarker app repo if your journal data should remain private.</small><button type="submit">Save GitHub sync settings</button>
           <div className="sync-actions"><button type="button" className="secondary" onClick={() => runGitHubSync('load')}>Load from GitHub</button><button type="button" className="secondary" onClick={() => runGitHubSync('save')}>Save now</button></div>
         </form>
-        <div className="panel"><h2>Import Wealthsimple holdings</h2><p>Upload a Wealthsimple holdings CSV to add only symbols that are not already in your Watchlist. Each new symbol gets one imported BUY record using Book Value (Market) / Quantity as avg cost.</p><input ref={wealthsimpleRef} hidden type="file" accept=".csv,text/csv" onChange={importWealthsimple} /><button className="secondary" disabled={isImportingWealthsimple} onClick={() => wealthsimpleRef.current.click()}>{isImportingWealthsimple ? 'Importing…' : 'Choose Wealthsimple CSV'}</button></div>
+        <div className="panel"><h2>Import Wealthsimple holdings</h2><p>Upload a Wealthsimple holdings CSV to add only symbols that are not already in your Watchlist. Each new symbol gets one imported BUY record using Book Value (Market) / Quantity as avg cost.</p><input ref={wealthsimpleRef} hidden type="file" accept=".csv,text/csv" onChange={importWealthsimple} /><button className="secondary" disabled={isImportingWealthsimple} onClick={() => wealthsimpleRef.current.click()}>{isImportingWealthsimple ? 'Importing…' : 'Choose Wealthsimple holdings CSV'}</button></div>
+        <div className="panel"><h2>Import Wealthsimple activities</h2><p>Upload activities after your holdings baseline to append new BUY and SELL trades. Re-importing the same CSV is safe, but importing old overlapping activities after a holdings snapshot may double-count positions.</p><input ref={wealthsimpleActivitiesRef} hidden type="file" accept=".csv,text/csv" onChange={importWealthsimpleActivities} /><button className="secondary" disabled={isImportingActivities} onClick={() => wealthsimpleActivitiesRef.current.click()}>{isImportingActivities ? 'Importing…' : 'Choose Wealthsimple activities CSV'}</button></div>
         <div className="panel"><h2>Export data</h2><p>Download a JSON backup containing your watchlist, trades, and settings. Your API key is excluded.</p><button onClick={download}>Export JSON backup</button></div>
         <div className="panel"><h2>Import data</h2><p>Restore a TradeMarker JSON backup. Existing local data will be replaced.</p><input ref={fileRef} hidden type="file" accept="application/json" onChange={upload} /><button className="secondary" onClick={() => fileRef.current.click()}>Choose JSON file</button></div>
         <div className="panel danger-zone"><h2>Clear local data</h2><p>Permanently remove all TradeMarker data stored in this browser.</p><button className="danger-button" onClick={clear}>Clear all local data</button></div></div>
