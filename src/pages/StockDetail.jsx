@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import IntervalSelector from '../components/IntervalSelector'
 import StockChart from '../components/StockChart'
+import TradeJournalTimeline, { DecisionTimeline } from '../components/TradeJournalTimeline'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import { getMarketSnapshot } from '../services/marketData'
@@ -43,7 +44,8 @@ export default function StockDetail() {
       <p className="safety-strip">All actions on this page are journal notes only. TradeMarker has no brokerage connection and cannot execute orders.</p>
       <div className="stat-strip"><span>Current shares<strong>{number(position.shares, 4)}</strong></span><span>Average cost<strong>{money(position.averageCost, quote.currency)}</strong></span><span>Market value<strong>{money(position.marketValue, quote.currency)}</strong></span><span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, quote.currency)} · {percent(position.unrealizedPLPercent)}</strong></span></div>
       <div className="panel chart-panel"><div className="panel-head"><div><h2>{quote.closeOnly && interval === 'daily' ? 'Daily closing-price chart' : 'Candlestick chart'}</h2><p>Each candle represents one selected interval.</p></div><IntervalSelector value={interval} onChange={setInterval} /></div><StockChart candles={candles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={quote.closeOnly} /></div>
-      <div className="panel"><div className="panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records for {symbol}.</p></div></div><TradeLog trades={trades} currency={quote.currency} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); setTrades(getTrades(symbol)) }} /></div>
+      <div className="panel"><div className="panel-head"><div><h2>Trade journal</h2><p>Richer journal cards with thesis, risk, targets, and compact table actions.</p></div></div><TradeJournalTimeline trades={trades} currency={quote.currency} /><TradeLog trades={trades} currency={quote.currency} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); setTrades(getTrades(symbol)) }} /></div>
+      <div className="panel"><div className="panel-head"><div><h2>Decision Timeline</h2><p>A chronological investment story generated only from your stored journal data.</p></div></div><DecisionTimeline trades={trades} currency={quote.currency} /></div>
       {tradeSide && <TradeModal side={tradeSide} symbol={symbol} defaultPrice={quote.price} candles={candles} onClose={() => setTradeSide(null)} onSave={recordTrade} />}
       {editingTrade && <TradeModal side={editingTrade.side} symbol={symbol} defaultPrice={editingTrade.price} candles={candles} initialTrade={editingTrade} onClose={() => setEditingTrade(null)} onSave={(trade) => { updateTrade(trade); setTrades(getTrades(symbol)); setEditingTrade(null) }} />}
     </section>

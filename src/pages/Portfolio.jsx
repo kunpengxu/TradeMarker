@@ -3,6 +3,7 @@ import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { getTrades, getWatchlist } from '../services/storage'
+import { calculateTradingStatistics } from '../services/tradeAnalytics'
 import { money, number, percent, valueClass } from '../utils/formatters'
 
 export default function Portfolio() {
@@ -29,6 +30,11 @@ export default function Portfolio() {
     result[currency] = current
     return result
   }, {}), [positions])
+  const allTrades = useMemo(() => getTrades(), [])
+  const tradingStats = useMemo(() => calculateTradingStatistics(positions, allTrades), [positions, allTrades])
+  const currencies = Object.keys(totals)
+  const singleCurrency = currencies.length === 1 ? currencies[0] : null
+  const moneyOrNA = (value) => value == null || !singleCurrency ? 'N/A' : money(value, singleCurrency)
   const portfolioSummary = useMemo(() => {
     const totalNominalMarketValue = Object.values(totals).reduce((sum, item) => sum + item.value, 0)
     return {
@@ -48,6 +54,36 @@ export default function Portfolio() {
         marketValue: Number(total.value.toFixed(4)),
         nominalSharePercent: totalNominalMarketValue ? Number(((total.value / totalNominalMarketValue) * 100).toFixed(4)) : 0,
       })),
+      tradingStatistics: {
+        totalUnrealizedPL: singleCurrency ? Number(tradingStats.totalUnrealizedPL.toFixed(4)) : null,
+        totalRealizedPL: singleCurrency && tradingStats.totalRealizedPL != null ? Number(tradingStats.totalRealizedPL.toFixed(4)) : null,
+        openPositions: tradingStats.openPositions,
+        closedTrades: tradingStats.closedTrades,
+        bestRealizedTrade: tradingStats.bestRealizedTrade ? {
+          symbol: tradingStats.bestRealizedTrade.symbol,
+          side: tradingStats.bestRealizedTrade.side,
+          price: tradingStats.bestRealizedTrade.price,
+          shares: tradingStats.bestRealizedTrade.shares,
+          date: tradingStats.bestRealizedTrade.date,
+          realizedPL: Number(tradingStats.bestRealizedTrade.realizedPL.toFixed(4)),
+        } : null,
+        worstRealizedTrade: tradingStats.worstRealizedTrade ? {
+          symbol: tradingStats.worstRealizedTrade.symbol,
+          side: tradingStats.worstRealizedTrade.side,
+          price: tradingStats.worstRealizedTrade.price,
+          shares: tradingStats.worstRealizedTrade.shares,
+          date: tradingStats.worstRealizedTrade.date,
+          realizedPL: Number(tradingStats.worstRealizedTrade.realizedPL.toFixed(4)),
+        } : null,
+        averageRealizedPL: singleCurrency && tradingStats.averageRealizedPL != null ? Number(tradingStats.averageRealizedPL.toFixed(4)) : null,
+        winRate: tradingStats.winRate == null ? null : Number(tradingStats.winRate.toFixed(4)),
+        largestPosition: tradingStats.largestPosition ? {
+          symbol: tradingStats.largestPosition.symbol,
+          currency: tradingStats.largestPosition.quote.currency,
+          marketValue: Number(tradingStats.largestPosition.marketValue.toFixed(4)),
+        } : null,
+        currencyExposure: Object.fromEntries(Object.entries(tradingStats.currencyExposure).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
+      },
       positions: positions.map((position) => ({
         symbol: position.symbol,
         currency: position.quote.currency,
@@ -63,7 +99,7 @@ export default function Portfolio() {
         unrealizedPLPercent: Number(position.unrealizedPLPercent.toFixed(4)),
       })).sort((a, b) => a.symbol.localeCompare(b.symbol)),
     }
-  }, [positions, totals])
+  }, [positions, singleCurrency, totals, tradingStats])
   useEffect(() => {
     if (!loading && positions.length) savePortfolioSummaryToGitHub(portfolioSummary).catch(() => {})
   }, [loading, positions.length, portfolioSummary])
@@ -82,6 +118,18 @@ export default function Portfolio() {
   if (loading) return <div className="loading">Loading portfolio…</div>
   return <section><div className="page-head"><div><p className="eyebrow">All current positions</p><h1>Portfolio</h1><p>Total cost, market value, unrealized profit/loss, and currency distribution.</p></div></div>
     <div className="portfolio-summary">{Object.values(totals).map((total) => <div className="panel portfolio-card" key={total.currency}><span>{total.currency} portfolio</span><strong>{money(total.value, total.currency)}</strong><div><small>Total cost {money(total.cost, total.currency)}</small><small className={valueClass(total.pl)}>P/L {money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</small></div></div>)}</div>
+    <div className="panel trading-stats"><h2>Trading Statistics</h2><div className="stats-grid">
+      <span>Total unrealized P/L<strong className={valueClass(singleCurrency ? tradingStats.totalUnrealizedPL : 0)}>{moneyOrNA(tradingStats.totalUnrealizedPL)}</strong></span>
+      <span>Total realized P/L<strong className={valueClass(singleCurrency ? tradingStats.totalRealizedPL : 0)}>{moneyOrNA(tradingStats.totalRealizedPL)}</strong></span>
+      <span>Open positions<strong>{tradingStats.openPositions}</strong></span>
+      <span>Closed trades<strong>{tradingStats.closedTrades || 'N/A'}</strong></span>
+      <span>Best realized trade<strong>{tradingStats.bestRealizedTrade ? `${tradingStats.bestRealizedTrade.symbol} ${money(tradingStats.bestRealizedTrade.realizedPL, tradingStats.bestRealizedTrade.currency || singleCurrency || 'USD')}` : 'N/A'}</strong></span>
+      <span>Worst realized trade<strong>{tradingStats.worstRealizedTrade ? `${tradingStats.worstRealizedTrade.symbol} ${money(tradingStats.worstRealizedTrade.realizedPL, tradingStats.worstRealizedTrade.currency || singleCurrency || 'USD')}` : 'N/A'}</strong></span>
+      <span>Average realized P/L<strong>{moneyOrNA(tradingStats.averageRealizedPL)}</strong></span>
+      <span>Win rate<strong>{tradingStats.winRate == null ? 'N/A' : `${tradingStats.winRate.toFixed(2)}%`}</strong></span>
+      <span>Largest position<strong>{tradingStats.largestPosition ? `${tradingStats.largestPosition.symbol} ${money(tradingStats.largestPosition.marketValue, tradingStats.largestPosition.quote.currency)}` : 'N/A'}</strong></span>
+      <span>Currency exposure<strong>{Object.entries(tradingStats.currencyExposure).map(([currency, value]) => `${currency} ${money(value, currency)}`).join(' · ') || 'N/A'}</strong></span>
+    </div><p className="portfolio-note">Mixed-currency totals show N/A unless they can be calculated in one quote currency without FX conversion.</p></div>
     <div className="portfolio-grid">
       <div className="panel"><h2>Current positions</h2>{positions.length ? <div className="table-wrap"><table className="portfolio-table"><thead><tr><th><button onClick={() => toggleSort('symbol')}>Symbol{sortArrow('symbol')}</button></th><th><button onClick={() => toggleSort('currency')}>Currency{sortArrow('currency')}</button></th><th><button onClick={() => toggleSort('shares')}>Shares{sortArrow('shares')}</button></th><th><button onClick={() => toggleSort('averageCost')}>Avg cost{sortArrow('averageCost')}</button></th><th><button onClick={() => toggleSort('costBasis')}>Total cost{sortArrow('costBasis')}</button></th><th><button onClick={() => toggleSort('marketValue')}>Market value{sortArrow('marketValue')}</button></th><th><button onClick={() => toggleSort('unrealizedPL')}>P/L{sortArrow('unrealizedPL')}</button></th></tr></thead><tbody>{sortedPositions.map((position) => <tr key={position.symbol}><td><strong>{position.symbol}</strong></td><td>{position.quote.currency}</td><td>{number(position.shares, 4)}</td><td>{money(position.averageCost, position.quote.currency)}</td><td>{money(position.costBasis, position.quote.currency)}</td><td>{money(position.marketValue, position.quote.currency)}</td><td className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, position.quote.currency)} · {percent(position.unrealizedPLPercent)}</td></tr>)}</tbody></table></div> : <div className="empty-inline">No open positions yet.</div>}</div>
       <div className="panel"><h2>Currency distribution</h2><div className="currency-list">{Object.values(totals).map((total) => { const all = Object.values(totals).reduce((sum, item) => sum + item.value, 0); const share = all ? total.value / all * 100 : 0; return <div key={total.currency}><span><strong>{total.currency}</strong>{percent(share)}</span><div><i style={{ width: `${share}%` }} /></div><small>{money(total.value, total.currency)}</small></div> })}</div><p className="portfolio-note">Currency percentages compare nominal amounts and do not apply foreign-exchange conversion.</p></div>

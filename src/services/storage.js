@@ -24,10 +24,36 @@ const write = (key, value, notify = true) => {
   }
 }
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+export const REASON_TYPES = ['Earnings', 'Swing Trade', 'Long-term', 'Dip Buy', 'Technical Breakout', 'AI Suggestion', 'Rebalance', 'Other']
+export const TRADE_DEFAULTS = {
+  reasonType: '',
+  confidence: '',
+  targetPrice: null,
+  stopLoss: null,
+  takeProfit: null,
+  thesis: '',
+  invalidation: '',
+  riskNote: '',
+}
 export const normalizeSymbol = (symbol) => {
   const clean = symbol.trim().toUpperCase()
   return clean.endsWith(':US') ? clean.slice(0, -3) : clean
 }
+export const normalizeTrade = (trade) => ({
+  ...TRADE_DEFAULTS,
+  ...trade,
+  symbol: trade.symbol?.toUpperCase() || '',
+  side: trade.side || 'BUY',
+  price: Number(trade.price || 0),
+  shares: Number(trade.shares || 0),
+  confidence: trade.confidence === '' || trade.confidence == null ? '' : Number(trade.confidence),
+  targetPrice: trade.targetPrice == null || trade.targetPrice === '' ? null : Number(trade.targetPrice),
+  stopLoss: trade.stopLoss == null || trade.stopLoss === '' ? null : Number(trade.stopLoss),
+  takeProfit: trade.takeProfit == null || trade.takeProfit === '' ? null : Number(trade.takeProfit),
+  thesis: trade.thesis || '',
+  invalidation: trade.invalidation || '',
+  riskNote: trade.riskNote || '',
+})
 
 export const getWatchlist = () => read(KEYS.watchlist, [])
 export const saveWatchlist = (symbols) => write(KEYS.watchlist, [...new Set(symbols.map(normalizeSymbol))])
@@ -62,24 +88,24 @@ export const saveWatchlistGroups = (groups) => {
 }
 
 export const getTrades = (symbol) => {
-  const trades = read(KEYS.trades, [])
+  const trades = read(KEYS.trades, []).map(normalizeTrade)
   return symbol ? trades.filter((trade) => trade.symbol === symbol) : trades
 }
 export const saveTrade = (trade) => {
-  const next = [...getTrades(), { ...trade, id: trade.id || uid(), symbol: trade.symbol.toUpperCase() }]
+  const next = [...getTrades(), normalizeTrade({ ...trade, id: trade.id || uid() })]
   write(KEYS.trades, next)
   return next
 }
 export const saveTrades = (trades) => {
   const next = [
     ...getTrades(),
-    ...trades.map((trade) => ({ ...trade, id: trade.id || uid(), symbol: trade.symbol.toUpperCase() })),
+    ...trades.map((trade) => normalizeTrade({ ...trade, id: trade.id || uid() })),
   ]
   write(KEYS.trades, next)
   return next
 }
 export const updateTrade = (updated) => {
-  const next = getTrades().map((trade) => trade.id === updated.id ? { ...trade, ...updated, symbol: updated.symbol.toUpperCase() } : trade)
+  const next = getTrades().map((trade) => trade.id === updated.id ? normalizeTrade({ ...trade, ...updated }) : trade)
   write(KEYS.trades, next)
   return next
 }
@@ -119,7 +145,7 @@ export const importData = (data) => {
   }
   saveWatchlist(data.watchlist)
   write(KEYS.watchlistGroups, data.watchlistGroups || [{ id: 'default', name: 'Watchlist', symbols: data.watchlist }], false)
-  write(KEYS.trades, data.trades, false)
+  write(KEYS.trades, data.trades.map(normalizeTrade), false)
   write(KEYS.plannedOrders, data.plannedOrders, false)
   write(KEYS.settings, { ...getSettings(), ...(data.settings || {}) }, false)
   write(KEYS.updatedAt, data.updatedAt || new Date().toISOString(), false)
