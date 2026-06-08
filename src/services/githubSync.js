@@ -29,19 +29,21 @@ const hasUserData = (data) => Boolean(
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
 
-async function getRemote(path = config().path) {
+async function getRemote(path = config().path, { parseData = true } = {}) {
   const settings = { ...config(), path }
   const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}`, { headers: headers(settings.token) })
   if (response.status === 404) return null
   const result = await response.json()
   if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
+  if (!parseData) return { sha: result.sha }
+  if (!result.content) throw new Error(`GitHub file ${path} is too large to load through the Contents API. Use the raw file or overwrite it from TradeMarker.`)
   return { sha: result.sha, data: JSON.parse(decode(result.content)) }
 }
 
 async function saveJsonFile(path, data, message) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const settings = { ...config(), path }
-  const remote = await getRemote(path)
+  const remote = await getRemote(path, { parseData: false })
   const body = {
     message,
     content: encode(JSON.stringify(data, null, 2)),
