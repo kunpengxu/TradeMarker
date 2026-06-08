@@ -152,7 +152,8 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       const time = markerTime(trade.date)
       const element = document.createElement('span')
       element.className = `trade-chart-marker ${trade.side.toLowerCase()}`
-      element.textContent = trade.side[0]
+      element.innerHTML = '<i></i><b></b><em></em>'
+      element.querySelector('i').textContent = trade.side[0]
       element.title = `${trade.side} ${trade.shares} shares at $${Number(trade.price).toFixed(2)} on ${day(trade.date)}`
       element.addEventListener('mouseenter', () => showMarkerTooltip(trade, element))
       element.addEventListener('click', () => showMarkerTooltip(trade, element))
@@ -184,21 +185,30 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       markerEntries.forEach(({ trade, time, element }, index) => {
         const x = chart.timeScale().timeToCoordinate(time)
         const candle = candleOnlyByTime.get(time)
-        const y = interval === '1m'
-          ? series.priceToCoordinate(Number(trade.price))
+        const priceY = series.priceToCoordinate(Number(trade.price))
+        const anchorY = interval === '1m'
+          ? priceY
           : series.priceToCoordinate(trade.side === 'BUY' ? Number(candle?.low) : Number(candle?.high))
-        if (x == null || y == null || !candle) {
+        if (x == null || priceY == null || anchorY == null || !candle) {
           element.style.display = 'none'
           return
         }
         const siblings = grouped.get(`${time}-${trade.side}`) || []
         const groupIndex = siblings.findIndex((entry) => entry.element === element)
         const centeredIndex = groupIndex - (siblings.length - 1) / 2
-        const horizontalOffset = interval === '1m' ? centeredIndex * 10 : centeredIndex * 28
-        const verticalOffset = interval === '1m' ? groupIndex * (trade.side === 'BUY' ? 10 : -10) : trade.side === 'BUY' ? 24 : -24
+        const horizontalOffset = interval === '1m' ? centeredIndex * 10 : centeredIndex * 24
+        const labelY = interval === '1m'
+          ? priceY + groupIndex * (trade.side === 'BUY' ? 10 : -10)
+          : anchorY + (trade.side === 'BUY' ? 34 : -34)
+        const line = element.querySelector('b')
+        const dot = element.querySelector('em')
+        const lineHeight = Math.max(Math.abs(priceY - labelY) - 12, 8)
+        line.style.height = `${lineHeight}px`
+        line.style.top = trade.side === 'BUY' ? '-2px' : `${14}px`
+        dot.style.top = `${priceY - labelY + 8}px`
         element.style.display = 'grid'
         element.style.left = `${x + horizontalOffset}px`
-        element.style.top = `${Math.min(Math.max(y + verticalOffset, 14), containerRef.current.clientHeight - 18)}px`
+        element.style.top = `${Math.min(Math.max(labelY, 14), containerRef.current.clientHeight - 18)}px`
         element.style.zIndex = String(10 + index)
       })
     }
