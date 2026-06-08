@@ -5,10 +5,15 @@ import { getWatchlist } from '../services/storage'
 
 const badgeClass = (type) => type.replace(/[^a-z]/gi, '-').toLowerCase()
 const formatDate = (date) => date ? new Date(date).toLocaleString([], { dateStyle: 'medium', timeStyle: date.includes('T') || date.includes(':') ? 'short' : undefined }) : 'No date'
+const eventSymbols = (event) => {
+  const symbols = event.symbol ? [event.symbol] : event.symbols || []
+  return [...new Set(symbols)].slice(0, 4)
+}
 
 function EventCard({ event }) {
+  const symbols = eventSymbols(event)
   return <article className="event-card">
-    <div><span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span><strong>{formatDate(event.date)}</strong></div>
+    <div><span className="event-badges"><span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>{symbols.length ? symbols.map((symbol) => <span className="event-symbol" key={symbol}>{symbol}</span>) : event.query ? <span className="event-symbol muted">query: {event.query}</span> : null}</span><strong>{formatDate(event.date)}</strong></div>
     <h3>{event.title}</h3>
     <p>{event.symbol ? `${event.symbol} · ` : ''}{event.country ? `${event.country} · ` : ''}{event.site || event.source}</p>
     {event.description && <p className="event-description">{event.description}</p>}
