@@ -44,7 +44,7 @@ export default function TradeModal({ side, symbol, defaultPrice, candles = [], i
       return Number.isFinite(price) && price >= Number(candle.low) && price <= Number(candle.high)
     })
     .sort((a, b) => b.time.localeCompare(a.time))
-    .slice(0, 10)
+    .slice(0, 5)
   const submit = (event) => {
     event.preventDefault()
     const { time, targetsInput, ...trade } = form
@@ -77,7 +77,7 @@ export default function TradeModal({ side, symbol, defaultPrice, candles = [], i
           <button type="button" className="advanced-toggle" onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? 'Hide' : 'Show'} advanced journal</button>
           {showAdvanced && <div className="advanced-journal">
             <label>Reason tags<div className="chip-grid">{REASON_TYPES.map((reason) => <button type="button" key={reason} className={form.reasonTags.includes(reason) ? 'chip selected' : 'chip'} onClick={() => toggleTag(reason)}>{reason}</button>)}</div></label>
-            <label>Confidence<div className="star-rating"><button type="button" className="clear-rating" onClick={() => setConfidence(null)}>Not set</button>{[1, 2, 3, 4, 5].map((score) => <button type="button" key={score} onClick={() => setConfidence(score)} aria-label={`Confidence ${score}`}>{score <= Number(form.confidence || 0) ? '★' : '☆'}</button>)}</div></label>
+            <label>Confidence<div className="star-rating"><button type="button" className="clear-rating" onClick={() => setConfidence(null)}>Not set</button>{[1, 2, 3, 4, 5].map((score) => <button type="button" key={score} className={score <= Number(form.confidence || 0) ? 'filled' : ''} onClick={() => setConfidence(score)} aria-label={`Confidence ${score}`}>{score <= Number(form.confidence || 0) ? '★' : '☆'}</button>)}</div></label>
             <label>Emotion<div className="chip-grid">{EMOTION_TYPES.map((emotion) => <button type="button" key={emotion} className={form.emotion === emotion ? 'chip selected emotion-chip' : 'chip emotion-chip'} onClick={() => setEmotion(emotion)}>{emotion}</button>)}</div></label>
             <div className="form-row"><label>Target prices<input name="targetsInput" value={form.targetsInput} onChange={update} placeholder="15.5, 16.5, 18" /></label><label>Stop loss<input name="stopLoss" type="number" min="0" step="0.01" value={form.stopLoss} onChange={update} /></label></div>
             <label>Market context<textarea name="marketContext" value={form.marketContext} onChange={update} placeholder="Nonfarm payroll selloff, FOMC reaction, earnings day, sector rotation, market-wide risk-off, etc." /></label>

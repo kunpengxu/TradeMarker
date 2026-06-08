@@ -6,7 +6,7 @@ import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
+import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState(null)
   const [candles, setCandles] = useState([])
   const [historyCache, setHistoryCache] = useState({})
+  const [intradayCache, setIntradayCache] = useState({})
   const [trades, setTrades] = useState([])
   const [interval, setInterval] = useState('daily')
   const [activeSection, setActiveSection] = useState('chart')
@@ -55,8 +56,16 @@ export default function Dashboard() {
     setCandles(historyCache[selected] || [])
     setTrades(getTrades(selected))
   }, [selected, historyCache])
+  useEffect(() => {
+    if (interval !== '1m' || !selected || intradayCache[selected]) return
+    getIntradayCandles(selected)
+      .then((rows) => setIntradayCache((current) => ({ ...current, [selected]: rows })))
+      .catch(() => setIntradayCache((current) => ({ ...current, [selected]: [] })))
+  }, [interval, selected, intradayCache])
 
   const selectedItem = items.find((item) => item.symbol === selected)
+  const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
+  const chartCandles = interval === '1m' ? intradayCache[selected] || [] : candles
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
   const reloadJournal = () => {
     const nextTrades = getTrades(selected)
@@ -132,10 +141,10 @@ export default function Dashboard() {
               </div>
 
               <div className="chart-toolbar">
-                <div className="chart-label"><strong>{selectedItem.quote.closeOnly && interval === 'daily' ? 'Daily closing-price chart' : 'K-line chart'}</strong><span>B/S markers use each journal entry's date and price</span></div>
+                <div className="chart-label"><strong>{interval === '1m' ? 'Intraday 1m chart' : selectedItem.quote.closeOnly && interval === 'daily' ? 'Daily closing-price chart' : 'K-line chart'}</strong><span>{interval === '1m' ? 'Yahoo intraday reference data; markers use trade time when available' : 'B/S markers use each journal entry’s date and price'}</span></div>
                 <IntervalSelector value={interval} onChange={setInterval} />
               </div>
-              <StockChart candles={candles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} />
+              {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>Loading intraday data</h1><p>Fetching Yahoo 1-minute candles for {selected}…</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>No intraday data</h1><p>Yahoo did not return 1-minute data for this symbol right now.</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} />}
 
               <div className="position-ribbon">
                 <span>Shares<strong>{number(position.shares, 4)}</strong></span>

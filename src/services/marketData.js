@@ -99,6 +99,24 @@ async function fetchYahooSnapshot(symbol) {
   })
 }
 
+export async function getIntradayCandles(symbol) {
+  const { provider } = providerConfig()
+  if (provider !== 'yahoo') return []
+  const yahooSymbol = symbol.endsWith(':CA') ? `${symbol.slice(0, -3)}.NE` : symbol.endsWith(':US') ? symbol.slice(0, -3) : symbol
+  const params = new URLSearchParams({ interval: '1m', range: '1d', includePrePost: 'false' })
+  const data = await fetchYahooJson(`/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${params}`)
+  const result = data.chart?.result?.[0]
+  const quote = result?.indicators?.quote?.[0]
+  return result?.timestamp?.map((timestamp, index) => ({
+    time: timestamp,
+    open: Number(quote.open[index]),
+    high: Number(quote.high[index]),
+    low: Number(quote.low[index]),
+    close: Number(quote.close[index]),
+    volume: Number(quote.volume[index] || 0),
+  })).filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite)) || []
+}
+
 async function fetchFmpSnapshot(symbol, apiKey) {
   const query = new URLSearchParams({ symbol, apikey: apiKey })
   const data = await fetchJson(`https://financialmodelingprep.com/stable/historical-price-eod/light?${query}`)
@@ -126,7 +144,7 @@ function createSnapshot(symbol, candles, metadata) {
   const latest = candles.at(-1)
   const previous = candles.at(-2)
   const change = latest.close - previous.close
-  return { candles, quote: { symbol, exchange: metadata.exchange, currency: metadata.currency, price: round(latest.close), change: round(change), changePercent: round((change / previous.close) * 100), asOf: latest.time, source: metadata.source, closeOnly: metadata.closeOnly } }
+  return { candles, intradayCandles: [], quote: { symbol, exchange: metadata.exchange, currency: metadata.currency, price: round(latest.close), change: round(change), changePercent: round((change / previous.close) * 100), asOf: latest.time, source: metadata.source, closeOnly: metadata.closeOnly } }
 }
 
 export async function getMarketSnapshot(symbol, { force = false } = {}) {

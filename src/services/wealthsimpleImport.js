@@ -127,6 +127,7 @@ export const createImportedTrade = (holding, date) => ({
   shares: Number(holding.shares.toFixed(6)),
   date: new Date(`${date}T12:00`).toISOString(),
   note: holding.note,
+  currency: holding.currency,
   importSource: HOLDINGS_IMPORT_SOURCE,
 })
 
@@ -192,6 +193,7 @@ export const buildWealthsimpleActivities = (text, existingTrades = []) => {
         row.currency ? `Currency: ${row.currency}.` : '',
         row.net_cash_amount ? `Net cash: ${row.net_cash_amount}.` : '',
       ].filter(Boolean).join(' '),
+      currency: row.currency || null,
       importSource: ACTIVITIES_IMPORT_SOURCE,
       importKey,
     })

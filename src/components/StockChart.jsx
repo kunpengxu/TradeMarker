@@ -6,6 +6,8 @@ import { ema, macd, rsi, sma, vwap } from '../services/technicalIndicators'
 import { money, number } from '../utils/formatters'
 
 const day = (value) => new Date(value).toISOString().slice(0, 10)
+const candleDay = (value) => typeof value === 'number' ? new Date(value * 1000).toISOString().slice(0, 10) : day(value)
+const displayTime = (value) => typeof value === 'number' ? new Date(value * 1000).toLocaleString() : value
 const stars = (confidence) => confidence ? `${'★'.repeat(confidence)}${'☆'.repeat(5 - confidence)}` : '—'
 const preview = (value, length = 74) => value && value.length > length ? `${value.slice(0, length)}…` : value
 const targetsText = (targets = [], currency) => targets.length ? targets.map((target, index) => `TP${index + 1} ${money(target, currency)}`).join(', ') : '—'
@@ -33,7 +35,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
         borderVisible: false,
       })
     series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
-    const data = resampleCandles(candles, interval)
+    const data = interval === '1m' ? candles : resampleCandles(candles, interval)
     series.setData(showCloseLine ? data.map((candle) => ({ time: candle.time, value: candle.close })) : data)
     const overlayLines = [
       { label: 'VWAP', data: vwap(data), color: '#60a5fa' },
@@ -69,7 +71,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     const indicatorColors = { ...Object.fromEntries(overlayLines.map((line) => [line.label, line.color])), 'RSI 14': '#93c5fd', MACD: '#22c55e' }
     const formatIndicator = (value) => Number.isFinite(value) ? value.toFixed(2) : '—'
     const renderLegend = (time = data.at(-1)?.time) => {
-      legend.innerHTML = `<strong>Indicators ${time || ''}</strong>${Object.entries(indicatorLookup).map(([label, values]) => `<span style="color:${indicatorColors[label]}">${label} ${formatIndicator(values.get(time))}</span>`).join('')}`
+      legend.innerHTML = `<strong>Indicators ${time ? displayTime(time) : ''}</strong>${Object.entries(indicatorLookup).map(([label, values]) => `<span style="color:${indicatorColors[label]}">${label} ${formatIndicator(values.get(time))}</span>`).join('')}`
     }
     renderLegend()
     const tooltip = document.createElement('div')
@@ -92,7 +94,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       const change = previous ? candle.close - previous.close : 0
       const changePercent = previous?.close ? (change / previous.close) * 100 : 0
       const changeClass = change >= 0 ? 'positive' : 'negative'
-      tooltip.innerHTML = `<strong>${candle.time}</strong><span>Open <b>${candle.open.toFixed(2)}</b></span><span>High <b>${candle.high.toFixed(2)}</b></span><span>Low <b>${candle.low.toFixed(2)}</b></span><span>Close <b>${candle.close.toFixed(2)}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
+      tooltip.innerHTML = `<strong>${displayTime(candle.time)}</strong><span>Open <b>${candle.open.toFixed(2)}</b></span><span>High <b>${candle.high.toFixed(2)}</b></span><span>Low <b>${candle.low.toFixed(2)}</b></span><span>Close <b>${candle.close.toFixed(2)}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
       tooltip.style.display = 'grid'
       tooltip.style.left = `${param.point.x > containerRef.current.clientWidth / 2 ? 14 : containerRef.current.clientWidth - 214}px`
       tooltip.style.top = '14px'
@@ -109,8 +111,13 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       color: candle.close >= candle.open ? '#14b8a655' : '#f43f5e55',
     })))
     const markerTime = (date) => {
-      const target = day(date)
-      return [...data].reverse().find((candle) => candle.time <= target)?.time || data[0].time
+      const targetDay = day(date)
+      if (typeof data[0]?.time === 'number') {
+        const targetSeconds = Math.floor(new Date(date).getTime() / 1000)
+        const sameDay = data.filter((candle) => candleDay(candle.time) === targetDay)
+        return [...sameDay].reverse().find((candle) => candle.time <= targetSeconds)?.time || sameDay[0]?.time || data[0].time
+      }
+      return [...data].reverse().find((candle) => candle.time <= targetDay)?.time || data[0].time
     }
     const markerLayer = document.createElement('div')
     markerLayer.className = 'trade-marker-layer'
@@ -168,20 +175,28 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     tradeMinSeries.setData(sortedTradeBounds.map(([time, bounds]) => ({ time, value: bounds.min })))
     tradeMaxSeries.setData(sortedTradeBounds.map(([time, bounds]) => ({ time, value: bounds.max })))
     const positionMarkers = () => {
-      const stacks = new Map()
-      markerEntries.forEach(({ trade, time, element }) => {
+      const placed = new Map()
+      markerEntries.forEach(({ trade, time, element }, index) => {
         const x = chart.timeScale().timeToCoordinate(time)
         const y = series.priceToCoordinate(Number(trade.price))
         if (x == null || y == null) {
           element.style.display = 'none'
           return
         }
-        const key = `${time}-${Number(trade.price).toFixed(4)}`
-        const stack = stacks.get(key) || 0
-        stacks.set(key, stack + 1)
+        const key = String(time)
+        const siblings = placed.get(key) || []
+        let adjustedY = y
+        siblings.sort((first, second) => first - second).forEach((usedY) => {
+          if (Math.abs(adjustedY - usedY) < 30) adjustedY = usedY + 30
+        })
+        placed.set(key, [...siblings, adjustedY])
+        const lane = siblings.length
+        const sideOffset = trade.side === 'BUY' ? -1 : 1
+        const horizontalOffset = lane ? sideOffset * (18 + (lane % 3) * 8) : 0
         element.style.display = 'grid'
-        element.style.left = `${x + stack * 10}px`
-        element.style.top = `${y - stack * 10}px`
+        element.style.left = `${x + horizontalOffset}px`
+        element.style.top = `${Math.min(Math.max(adjustedY, 14), containerRef.current.clientHeight - 18)}px`
+        element.style.zIndex = String(10 + index)
       })
     }
     positionMarkers()
