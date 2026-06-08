@@ -82,3 +82,9 @@ export async function savePortfolioSummaryToGitHub(summary) {
   const path = siblingPath(settings.path, 'portfolio-summary.json')
   return saveJsonFile(path, summary, 'Update TradeMarker portfolio summary')
 }
+
+export async function saveMarketAnalysisToGitHub(analysis) {
+  const settings = config()
+  const path = siblingPath(settings.path, 'market-analysis.json')
+  return saveJsonFile(path, analysis, 'Update TradeMarker market analysis')
+}
