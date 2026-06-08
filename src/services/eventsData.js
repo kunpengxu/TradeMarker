@@ -1,6 +1,7 @@
 import { getSettings, getWatchlist } from './storage'
 
 const FMP_ORIGIN = 'https://financialmodelingprep.com/stable'
+const DEFAULT_YAHOO_PROXY = 'https://trademarker-yahoo-proxy.kunp-xu.workers.dev'
 const DAY_MS = 24 * 60 * 60 * 1000
 const MACRO_KEYWORDS = [
   'cpi', 'inflation', 'pce', 'nonfarm', 'payroll', 'unemployment', 'jobs',
@@ -27,13 +28,33 @@ const symbolAliases = (symbols) => new Set(symbols.flatMap((symbol) => {
 }))
 const eventTimestamp = (event) => new Date(event.date || event.publishedAt || event.datetime || 0).getTime()
 const eventDirection = (event, now = today()) => eventTimestamp(event) >= now.getTime() ? 'upcoming' : 'recent'
+const yahooProxyUrls = (path) => {
+  const customProxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '')
+  return [...new Set([customProxy, DEFAULT_YAHOO_PROXY].filter(Boolean))].map((proxy) => `${proxy}${path}`)
+}
 
 async function fetchFmp(path, params, apiKey) {
   const query = new URLSearchParams({ ...params, apikey: apiKey })
   const response = await fetch(`${FMP_ORIGIN}${path}?${query}`)
   const data = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(data?.message || `FMP events request failed (${response.status}).`)
+  if (!response.ok) throw new Error(data?.message || data?.['Error Message'] || `FMP events request failed (${response.status}).`)
   return Array.isArray(data) ? data : []
+}
+
+async function fetchYahooFinanceNews(query, count = 8) {
+  const params = new URLSearchParams({ q: query, quotesCount: '0', newsCount: String(count), enableFuzzyQuery: 'true' })
+  const errors = []
+  for (const url of yahooProxyUrls(`/v1/finance/search?${params}`)) {
+    try {
+      const response = await fetch(url)
+      const data = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(data?.message || data?.finance?.error?.description || `Yahoo news request failed (${response.status}).`)
+      return Array.isArray(data?.news) ? data.news : []
+    } catch (error) {
+      errors.push(error)
+    }
+  }
+  throw errors[0] || new Error('Yahoo Finance news could not be reached.')
 }
 
 const normalizeEconomicEvent = (item) => ({
@@ -88,6 +109,39 @@ const normalizeNewsEvent = (item, watchAliases, type) => {
   }
 }
 
+const normalizeYahooNewsEvent = (item, watchAliases, type, query) => {
+  const title = first(item.title, item.headline, 'Market news')
+  const symbols = (item.relatedTickers || item.symbols || []).map((symbol) => String(symbol).toUpperCase())
+  const matchedSymbols = symbols.filter((symbol) => watchAliases.has(symbol) || watchAliases.has(symbol.replace(/\.(NE|TO|V)$/i, '')))
+  return {
+    id: `yahoo-${type}:${first(item.uuid, item.link, title)}`,
+    type,
+    date: item.providerPublishTime ? new Date(item.providerPublishTime * 1000).toISOString() : first(item.publishedDate, item.date),
+    direction: 'recent',
+    title,
+    site: first(item.publisher, item.site, 'Yahoo Finance'),
+    url: first(item.link, item.url),
+    query,
+    symbols: matchedSymbols.length ? matchedSymbols : symbols,
+    source: 'Yahoo Finance',
+  }
+}
+
+async function fetchYahooFallbackEvents(symbols, watchAliases) {
+  const baseSymbols = symbols.map((symbol) => symbol.replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')).filter(Boolean)
+  const stockQueries = [...new Set(baseSymbols)].slice(0, 20)
+  const macroQueries = ['Federal Reserve market', 'inflation CPI market', 'jobs report nonfarm payrolls', 'Iran oil market']
+  const requests = [
+    ...stockQueries.map((query) => fetchYahooFinanceNews(query, 5).then((items) => items.map((item) => normalizeYahooNewsEvent(item, watchAliases, 'stock-news', query)))),
+    ...macroQueries.map((query) => fetchYahooFinanceNews(query, 6).then((items) => items.map((item) => normalizeYahooNewsEvent(item, watchAliases, 'market-news', query)))),
+  ]
+  const settled = await Promise.allSettled(requests)
+  return {
+    events: settled.flatMap((result) => result.status === 'fulfilled' ? result.value : []),
+    errors: settled.filter((result) => result.status === 'rejected').map((result) => result.reason?.message || 'Yahoo news request failed.'),
+  }
+}
+
 export async function buildEventsCalendarExport(symbols = getWatchlist(), { pastDays = 30, futureDays = 31 } = {}) {
   const settings = getSettings()
   const apiKey = settings.fmpApiKey?.trim()
@@ -109,11 +163,12 @@ export async function buildEventsCalendarExport(symbols = getWatchlist(), { past
     return { ...base, status: 'disabled', note: `${base.note} Add an FMP API key in Settings to generate this file.` }
   }
 
-  const [economic, earnings, stockNews, generalNews] = await Promise.all([
+  const [economic, earnings, stockNews, generalNews, yahooFallback] = await Promise.all([
     fetchFmp('/economic-calendar', { from, to }, apiKey).catch((error) => ({ error })),
     fetchFmp('/earnings-calendar', { from, to }, apiKey).catch((error) => ({ error })),
     fetchFmp('/news/stock-latest', { symbols: [...watchAliases].slice(0, 80).join(','), limit: '80' }, apiKey).catch((error) => ({ error })),
     fetchFmp('/news/general-latest', { limit: '80' }, apiKey).catch((error) => ({ error })),
+    fetchYahooFallbackEvents(symbols, watchAliases).catch((error) => ({ error, events: [], errors: [error.message] })),
   ])
 
   const collect = (label, value, mapper) => {
@@ -130,7 +185,10 @@ export async function buildEventsCalendarExport(symbols = getWatchlist(), { past
     ...collect('earnings-calendar', earnings, (item) => normalizeEarningsEvent(item, watchAliases)),
     ...collect('stock-news', stockNews, (item) => normalizeNewsEvent(item, watchAliases, 'stock-news')),
     ...collect('general-news', generalNews, (item) => normalizeNewsEvent(item, watchAliases, 'market-news')),
+    ...(yahooFallback.events || []),
   ]
+  if (yahooFallback.error) base.errors.push({ source: 'yahoo-news-fallback', message: yahooFallback.error.message })
+  ;(yahooFallback.errors || []).slice(0, 5).forEach((message) => base.errors.push({ source: 'yahoo-news-fallback', message }))
 
   const unique = new Map()
   events.forEach((event) => {

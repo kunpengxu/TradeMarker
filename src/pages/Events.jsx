@@ -49,6 +49,7 @@ export default function Events() {
       <span>Recent<strong>{calendar.recent?.length || 0}</strong></span>
       <span>Status<strong>{calendar.status}</strong></span>
     </div>}
+    {calendar?.errors?.length ? <div className="panel event-errors"><h2>Unavailable sources</h2>{calendar.errors.map((error, index) => <p key={`${error.source}-${index}`}><strong>{error.source}</strong>: {error.message}</p>)}</div> : null}
     {loading ? <div className="loading">Loading events…</div> : events.length ? <div className="events-list">{events.map((event) => <EventCard event={event} key={event.id} />)}</div> : <div className="empty-inline">No events loaded yet.</div>}
   </section>
 }
