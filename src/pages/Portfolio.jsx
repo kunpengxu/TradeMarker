@@ -35,9 +35,9 @@ export default function Portfolio() {
   const currencies = Object.keys(totals)
   const singleCurrency = currencies.length === 1 ? currencies[0] : null
   const moneyOrNA = (value) => value == null || !singleCurrency ? 'N/A' : money(value, singleCurrency)
-  const moneyByCurrency = (values) => {
+  const currencyLines = (values) => {
     const entries = Object.entries(values || {})
-    return entries.length ? entries.map(([currency, value]) => `${money(value, currency)}`).join(' · ') : 'N/A'
+    return entries.length ? entries.map(([currency, value]) => <em className={valueClass(value)} key={currency}>{currency} {money(value, currency)}</em>) : 'N/A'
   }
   const portfolioSummary = useMemo(() => {
     const totalNominalMarketValue = Object.values(totals).reduce((sum, item) => sum + item.value, 0)
@@ -126,13 +126,13 @@ export default function Portfolio() {
   return <section><div className="page-head"><div><p className="eyebrow">All current positions</p><h1>Portfolio</h1><p>Total cost, market value, unrealized profit/loss, and currency distribution.</p></div></div>
     <div className="portfolio-summary">{Object.values(totals).map((total) => <div className="panel portfolio-card" key={total.currency}><span>{total.currency} portfolio</span><strong>{money(total.value, total.currency)}</strong><div><small>Total cost {money(total.cost, total.currency)}</small><small className={valueClass(total.pl)}>P/L {money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</small></div></div>)}</div>
     <div className="panel trading-stats"><h2>Trading Statistics</h2><div className="stats-grid">
-      <span>Total unrealized P/L<strong className={valueClass(singleCurrency ? tradingStats.totalUnrealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalUnrealizedPL) : moneyByCurrency(tradingStats.unrealizedByCurrency)}</strong></span>
-      <span>Total realized P/L<strong className={valueClass(singleCurrency ? tradingStats.totalRealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalRealizedPL) : moneyByCurrency(tradingStats.realizedByCurrency)}</strong></span>
+      <span>Total unrealized P/L<strong className={valueClass(singleCurrency ? tradingStats.totalUnrealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalUnrealizedPL) : currencyLines(tradingStats.unrealizedByCurrency)}</strong></span>
+      <span>Total realized P/L<strong className={valueClass(singleCurrency ? tradingStats.totalRealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalRealizedPL) : currencyLines(tradingStats.realizedByCurrency)}</strong></span>
       <span>Open positions<strong>{tradingStats.openPositions}</strong></span>
       <span>Closed trades<strong>{tradingStats.closedTrades || 'N/A'}</strong></span>
       <span>Best realized trade<strong>{tradingStats.bestRealizedTrade ? `${tradingStats.bestRealizedTrade.symbol} ${money(tradingStats.bestRealizedTrade.realizedPL, tradingStats.bestRealizedTrade.currency || singleCurrency || 'USD')}` : 'N/A'}</strong></span>
       <span>Worst realized trade<strong>{tradingStats.worstRealizedTrade ? `${tradingStats.worstRealizedTrade.symbol} ${money(tradingStats.worstRealizedTrade.realizedPL, tradingStats.worstRealizedTrade.currency || singleCurrency || 'USD')}` : 'N/A'}</strong></span>
-      <span>Average realized P/L<strong>{singleCurrency ? moneyOrNA(tradingStats.averageRealizedPL) : moneyByCurrency(tradingStats.averageRealizedByCurrency)}</strong></span>
+      <span>Average realized P/L<strong>{singleCurrency ? moneyOrNA(tradingStats.averageRealizedPL) : currencyLines(tradingStats.averageRealizedByCurrency)}</strong></span>
       <span>Win rate<strong>{tradingStats.winRate == null ? 'N/A' : `${tradingStats.winRate.toFixed(2)}%`}</strong></span>
       <span>Largest position<strong>{tradingStats.largestPosition ? `${tradingStats.largestPosition.symbol} ${money(tradingStats.largestPosition.marketValue, tradingStats.largestPosition.quote.currency)}` : 'N/A'}</strong></span>
       <span>Currency exposure<strong>{Object.entries(tradingStats.currencyExposure).map(([currency, value]) => `${currency} ${money(value, currency)}`).join(' · ') || 'N/A'}</strong></span>
