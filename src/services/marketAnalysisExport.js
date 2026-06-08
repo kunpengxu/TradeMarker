@@ -4,7 +4,8 @@ import { getTrades } from './storage'
 import { ema, macd, rsi, sma, vwap } from './technicalIndicators'
 
 const INTERVALS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly']
-const MAX_CANDLES = { daily: 520, weekly: 260, monthly: 160, quarterly: 100, yearly: 60 }
+const MAX_CANDLES = { daily: 120, weekly: 104, monthly: 60, quarterly: 40, yearly: 20 }
+const MAX_INDICATOR_POINTS = 30
 
 const round = (value, digits = 4) => {
   const number = Number(value)
@@ -25,12 +26,8 @@ const compactSeries = (points) => points.map((point) => ({
   value: round(point.value),
 }))
 
-const compactMacdSeries = (points) => points.map((point) => ({
-  time: point.time,
-  value: round(point.value),
-}))
-
 const latestValue = (points) => round(points.at(-1)?.value)
+const compactRecentSeries = (points) => compactSeries(points.slice(-MAX_INDICATOR_POINTS))
 
 const buildIndicators = (candles) => {
   const vwapValues = vwap(candles)
@@ -54,17 +51,13 @@ const buildIndicators = (candles) => {
         histogram: latestValue(macdValues.histogram),
       },
     },
-    series: {
-      vwap: compactSeries(vwapValues),
-      sma20: compactSeries(sma20Values),
-      sma50: compactSeries(sma50Values),
-      sma200: compactSeries(sma200Values),
-      ema50: compactSeries(ema50Values),
-      rsi14: compactSeries(rsi14Values),
+    recentSeries: {
+      sma20: compactRecentSeries(sma20Values),
+      sma50: compactRecentSeries(sma50Values),
+      ema50: compactRecentSeries(ema50Values),
+      rsi14: compactRecentSeries(rsi14Values),
       macd: {
-        line: compactMacdSeries(macdValues.macdLine),
-        signal: compactMacdSeries(macdValues.signalLine),
-        histogram: compactMacdSeries(macdValues.histogram),
+        histogram: compactRecentSeries(macdValues.histogram),
       },
     },
   }
@@ -107,6 +100,10 @@ export function buildMarketAnalysisExport(rows) {
     source: 'TradeMarker',
     purpose: 'AI-ready watchlist market context for visual trading journal analysis and suggested order planning.',
     note: 'Reference market data only. This file is not financial advice and does not execute orders.',
+    dataShape: {
+      candles: 'Recent OHLCV only, capped per interval to keep this file compact.',
+      indicators: `Latest indicator values plus the most recent ${MAX_INDICATOR_POINTS} points for selected trend indicators.`,
+    },
     intervals: INTERVALS,
     indicatorDefinitions: {
       vwap: 'Volume-weighted average price over the exported candles for that interval.',
