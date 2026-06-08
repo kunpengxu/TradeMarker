@@ -153,7 +153,7 @@ export const exportData = () => ({
   watchlistGroups: getWatchlistGroups(),
   trades: getTrades(),
   plannedOrders: getOrders(),
-  settings: { ...getSettings(), twelveDataApiKey: undefined, fmpApiKey: undefined, githubToken: undefined },
+  settings: { ...getSettings(), twelveDataApiKey: undefined, fmpApiKey: undefined, marketauxApiKey: undefined, githubToken: undefined },
   updatedAt: read(KEYS.updatedAt, new Date().toISOString()),
 })
 

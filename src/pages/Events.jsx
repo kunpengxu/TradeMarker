@@ -11,8 +11,10 @@ function EventCard({ event }) {
     <div><span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span><strong>{formatDate(event.date)}</strong></div>
     <h3>{event.title}</h3>
     <p>{event.symbol ? `${event.symbol} · ` : ''}{event.country ? `${event.country} · ` : ''}{event.site || event.source}</p>
+    {event.description && <p className="event-description">{event.description}</p>}
     {event.type === 'earnings' && <small>EPS est {event.epsEstimated ?? '—'} · EPS actual {event.epsActual ?? '—'} · Revenue est {event.revenueEstimated ?? '—'}</small>}
     {event.type === 'economic' && <small>Impact {event.impact || '—'} · Actual {event.actual ?? '—'} · Estimate {event.estimate ?? '—'} · Previous {event.previous ?? '—'}</small>}
+    {event.sentiment != null && <small>Sentiment {Number(event.sentiment).toFixed(3)}</small>}
     {event.url && <a href={event.url} target="_blank" rel="noreferrer">Open source</a>}
   </article>
 }
@@ -58,6 +60,7 @@ export default function Events() {
       <span>Status<strong>{calendar.status}</strong></span>
     </div>}
     <div className="event-controls"><label>Stock filter<select value={selectedSymbol} onChange={(event) => setSelectedSymbol(event.target.value)}><option value="all">All watchlist stocks</option>{watchlist.map((symbol) => <option value={symbol} key={symbol}>{symbol}</option>)}</select></label></div>
+    {calendar?.skipped?.length ? <div className="panel event-skipped"><h2>Skipped optional sources</h2>{calendar.skipped.map((item) => <p key={item.source}><strong>{item.source}</strong>: {item.message}</p>)}</div> : null}
     {calendar?.errors?.length ? <div className="panel event-errors"><h2>Unavailable sources</h2>{calendar.errors.map((error, index) => <p key={`${error.source}-${index}`}><strong>{error.source}</strong>: {error.message}</p>)}</div> : null}
     {loading ? <div className="loading">Loading events…</div> : <div className="events-grid">
       <div><h2>Stock news / events</h2>{stockEvents.length ? <div className="events-list">{stockEvents.map((event) => <EventCard event={event} key={event.id} />)}</div> : <div className="empty-inline">No stock-specific events for this filter.</div>}</div>

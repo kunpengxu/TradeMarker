@@ -1,6 +1,7 @@
 import { getSettings, getWatchlist } from './storage'
 
 const FMP_ORIGIN = 'https://financialmodelingprep.com/stable'
+const MARKETAUX_ORIGIN = 'https://api.marketaux.com/v1'
 const DEFAULT_YAHOO_PROXY = 'https://trademarker-yahoo-proxy.kunp-xu.workers.dev'
 const DAY_MS = 24 * 60 * 60 * 1000
 const MACRO_KEYWORDS = [
@@ -40,6 +41,14 @@ async function fetchFmp(path, params, apiKey) {
   const data = await response.json().catch(() => null)
   if (!response.ok) throw new Error(data?.message || data?.['Error Message'] || `FMP events request failed (${response.status}).`)
   return Array.isArray(data) ? data : []
+}
+
+async function fetchMarketauxNews(params, apiKey) {
+  const query = new URLSearchParams({ language: 'en', limit: '3', ...params, api_token: apiKey })
+  const response = await fetch(`${MARKETAUX_ORIGIN}/news/all?${query}`)
+  const data = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(data?.error?.message || data?.message || `Marketaux request failed (${response.status}).`)
+  return Array.isArray(data?.data) ? data.data : []
 }
 
 async function fetchYahooFinanceNews(query, count = 8) {
@@ -128,6 +137,42 @@ const normalizeYahooNewsEvent = (item, watchAliases, type, query) => {
   }
 }
 
+const normalizeMarketauxNewsEvent = (item, watchAliases, type, query) => {
+  const symbols = (item.entities || []).map((entity) => String(entity.symbol || '').toUpperCase()).filter(Boolean)
+  const matchedSymbols = symbols.filter((symbol) => watchAliases.has(symbol) || watchAliases.has(symbol.replace(/\.(NE|TO|V)$/i, '')))
+  return {
+    id: `marketaux-${type}:${first(item.uuid, item.url, item.title)}`,
+    type,
+    date: first(item.published_at, item.publishedAt, item.date),
+    direction: 'recent',
+    title: first(item.title, 'Market news'),
+    description: first(item.description, item.snippet),
+    site: first(item.source?.name, item.source, 'Marketaux'),
+    url: first(item.url),
+    query,
+    symbols: matchedSymbols.length ? matchedSymbols : symbols,
+    sentiment: item.entities?.find((entity) => matchedSymbols.includes(String(entity.symbol).toUpperCase()))?.sentiment_score ?? null,
+    source: 'Marketaux',
+  }
+}
+
+async function fetchMarketauxEvents(symbols, watchAliases, apiKey) {
+  if (!apiKey) return { events: [], errors: [] }
+  const baseSymbols = [...new Set(symbols.map((symbol) => symbol.replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')).filter(Boolean))].slice(0, 25)
+  const macroQueries = ['Federal Reserve market', 'inflation CPI market', 'nonfarm payrolls jobs report', 'Iran oil market']
+  const requests = [
+    ...baseSymbols.map((symbol) => fetchMarketauxNews({ symbols: symbol }, apiKey)
+      .then((items) => items.map((item) => normalizeMarketauxNewsEvent(item, watchAliases, 'stock-news', symbol)))),
+    ...macroQueries.map((query) => fetchMarketauxNews({ search: query }, apiKey)
+      .then((items) => items.map((item) => normalizeMarketauxNewsEvent(item, watchAliases, 'market-news', query)))),
+  ]
+  const settled = await Promise.allSettled(requests)
+  return {
+    events: settled.flatMap((result) => result.status === 'fulfilled' ? result.value : []),
+    errors: settled.filter((result) => result.status === 'rejected').map((result) => result.reason?.message || 'Marketaux request failed.'),
+  }
+}
+
 async function fetchYahooFallbackEvents(symbols, watchAliases) {
   const baseSymbols = symbols.map((symbol) => symbol.replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')).filter(Boolean)
   const stockQueries = [...new Set(baseSymbols)].slice(0, 20)
@@ -146,6 +191,7 @@ async function fetchYahooFallbackEvents(symbols, watchAliases) {
 export async function buildEventsCalendarExport(symbols = getWatchlist(), { pastDays = 30, futureDays = 31 } = {}) {
   const settings = getSettings()
   const apiKey = settings.fmpApiKey?.trim()
+  const marketauxApiKey = settings.marketauxApiKey?.trim()
   const now = today()
   const from = isoDate(addDays(now, -pastDays))
   const to = isoDate(addDays(now, futureDays))
@@ -153,22 +199,23 @@ export async function buildEventsCalendarExport(symbols = getWatchlist(), { past
   const base = {
     generatedAt: new Date().toISOString(),
     source: 'TradeMarker',
-    provider: 'Financial Modeling Prep',
+    provider: 'Financial Modeling Prep + Marketaux + Yahoo Finance',
     range: { from, to, pastDays, futureDays },
     note: 'Events are reference data only. Verify dates with primary sources before trading.',
     watchlist: symbols,
     events: [],
     errors: [],
   }
-  if (!apiKey) {
-    return { ...base, status: 'disabled', note: `${base.note} Add an FMP API key in Settings to generate this file.` }
-  }
+  const skipped = []
+  if (!apiKey) skipped.push({ source: 'fmp', message: 'No FMP API key configured; skipped FMP economic calendar, earnings, and news.' })
+  if (!marketauxApiKey) skipped.push({ source: 'marketaux', message: 'No Marketaux API key configured; skipped Marketaux news.' })
 
-  const [economic, earnings, stockNews, generalNews, yahooFallback] = await Promise.all([
-    fetchFmp('/economic-calendar', { from, to }, apiKey).catch((error) => ({ error })),
-    fetchFmp('/earnings-calendar', { from, to }, apiKey).catch((error) => ({ error })),
-    fetchFmp('/news/stock-latest', { symbols: [...watchAliases].slice(0, 80).join(','), limit: '80' }, apiKey).catch((error) => ({ error })),
-    fetchFmp('/news/general-latest', { limit: '80' }, apiKey).catch((error) => ({ error })),
+  const [economic, earnings, stockNews, generalNews, marketaux, yahooFallback] = await Promise.all([
+    apiKey ? fetchFmp('/economic-calendar', { from, to }, apiKey).catch((error) => ({ error })) : Promise.resolve([]),
+    apiKey ? fetchFmp('/earnings-calendar', { from, to }, apiKey).catch((error) => ({ error })) : Promise.resolve([]),
+    apiKey ? fetchFmp('/news/stock-latest', { symbols: [...watchAliases].slice(0, 80).join(','), limit: '80' }, apiKey).catch((error) => ({ error })) : Promise.resolve([]),
+    apiKey ? fetchFmp('/news/general-latest', { limit: '80' }, apiKey).catch((error) => ({ error })) : Promise.resolve([]),
+    fetchMarketauxEvents(symbols, watchAliases, marketauxApiKey).catch((error) => ({ error, events: [], errors: [error.message] })),
     fetchYahooFallbackEvents(symbols, watchAliases).catch((error) => ({ error, events: [], errors: [error.message] })),
   ])
 
@@ -186,8 +233,11 @@ export async function buildEventsCalendarExport(symbols = getWatchlist(), { past
     ...collect('earnings-calendar', earnings, (item) => normalizeEarningsEvent(item, watchAliases)),
     ...collect('stock-news', stockNews, (item) => normalizeNewsEvent(item, watchAliases, 'stock-news')),
     ...collect('general-news', generalNews, (item) => normalizeNewsEvent(item, watchAliases, 'market-news')),
+    ...(marketaux.events || []),
     ...(yahooFallback.events || []),
   ]
+  if (marketaux.error) base.errors.push({ source: 'marketaux', message: marketaux.error.message })
+  ;(marketaux.errors || []).slice(0, 5).forEach((message) => base.errors.push({ source: 'marketaux', message }))
   if (yahooFallback.error) base.errors.push({ source: 'yahoo-news-fallback', message: yahooFallback.error.message })
   ;(yahooFallback.errors || []).slice(0, 5).forEach((message) => base.errors.push({ source: 'yahoo-news-fallback', message }))
 
@@ -202,6 +252,7 @@ export async function buildEventsCalendarExport(symbols = getWatchlist(), { past
   return {
     ...base,
     status: base.errors.length ? 'partial' : 'ok',
+    skipped,
     events: sorted,
     symbolEvents,
     macroEvents,
