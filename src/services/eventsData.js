@@ -28,6 +28,7 @@ const symbolAliases = (symbols) => new Set(symbols.flatMap((symbol) => {
 }))
 const eventTimestamp = (event) => new Date(event.date || event.publishedAt || event.datetime || 0).getTime()
 const eventDirection = (event, now = today()) => eventTimestamp(event) >= now.getTime() ? 'upcoming' : 'recent'
+const isMacroEvent = (event) => event.type === 'economic' || event.type === 'market-news'
 const yahooProxyUrls = (path) => {
   const customProxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '')
   return [...new Set([customProxy, DEFAULT_YAHOO_PROXY].filter(Boolean))].map((proxy) => `${proxy}${path}`)
@@ -195,14 +196,15 @@ export async function buildEventsCalendarExport(symbols = getWatchlist(), { past
     if (!event.date) return
     unique.set(event.id, event)
   })
-  const sorted = [...unique.values()].sort((a, b) => {
-    const distance = Math.abs(eventTimestamp(a) - now.getTime()) - Math.abs(eventTimestamp(b) - now.getTime())
-    return distance || eventTimestamp(a) - eventTimestamp(b)
-  })
+  const sorted = [...unique.values()].sort((a, b) => eventTimestamp(b) - eventTimestamp(a))
+  const symbolEvents = sorted.filter((event) => !isMacroEvent(event))
+  const macroEvents = sorted.filter(isMacroEvent)
   return {
     ...base,
     status: base.errors.length ? 'partial' : 'ok',
     events: sorted,
+    symbolEvents,
+    macroEvents,
     upcoming: sorted.filter((event) => event.direction === 'upcoming'),
     recent: sorted.filter((event) => event.direction === 'recent'),
   }

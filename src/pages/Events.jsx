@@ -21,6 +21,8 @@ export default function Events() {
   const [calendar, setCalendar] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [selectedSymbol, setSelectedSymbol] = useState('all')
+  const watchlist = getWatchlist()
 
   const load = async () => {
     setLoading(true)
@@ -40,8 +42,14 @@ export default function Events() {
 
   useEffect(() => { load() }, [])
 
-  const events = calendar?.events || []
-  return <section><div className="page-head"><div><p className="eyebrow">Market calendar</p><h1>News & Events</h1><p>Upcoming and recent macro events, earnings, and market-moving headlines sorted by date proximity.</p></div><button onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Refresh events'}</button></div>
+  const symbolMatches = (event, symbol) => {
+    if (symbol === 'all') return true
+    const clean = symbol.replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')
+    return event.symbol === symbol || event.symbol === clean || event.symbols?.includes(symbol) || event.symbols?.includes(clean)
+  }
+  const stockEvents = (calendar?.symbolEvents || []).filter((event) => symbolMatches(event, selectedSymbol))
+  const macroEvents = calendar?.macroEvents || []
+  return <section><div className="page-head"><div><p className="eyebrow">Market calendar</p><h1>News & Events</h1><p>Stock-specific events and macro events, sorted newest first.</p></div><button onClick={load} disabled={loading}>{loading ? 'Loading…' : 'Refresh events'}</button></div>
     {message && <p className="notice">{message}</p>}
     {calendar && <div className="event-summary">
       <span>Range<strong>{calendar.range.from} → {calendar.range.to}</strong></span>
@@ -49,7 +57,11 @@ export default function Events() {
       <span>Recent<strong>{calendar.recent?.length || 0}</strong></span>
       <span>Status<strong>{calendar.status}</strong></span>
     </div>}
+    <div className="event-controls"><label>Stock filter<select value={selectedSymbol} onChange={(event) => setSelectedSymbol(event.target.value)}><option value="all">All watchlist stocks</option>{watchlist.map((symbol) => <option value={symbol} key={symbol}>{symbol}</option>)}</select></label></div>
     {calendar?.errors?.length ? <div className="panel event-errors"><h2>Unavailable sources</h2>{calendar.errors.map((error, index) => <p key={`${error.source}-${index}`}><strong>{error.source}</strong>: {error.message}</p>)}</div> : null}
-    {loading ? <div className="loading">Loading events…</div> : events.length ? <div className="events-list">{events.map((event) => <EventCard event={event} key={event.id} />)}</div> : <div className="empty-inline">No events loaded yet.</div>}
+    {loading ? <div className="loading">Loading events…</div> : <div className="events-grid">
+      <div><h2>Stock news / events</h2>{stockEvents.length ? <div className="events-list">{stockEvents.map((event) => <EventCard event={event} key={event.id} />)}</div> : <div className="empty-inline">No stock-specific events for this filter.</div>}</div>
+      <div><h2>Macro news / events</h2>{macroEvents.length ? <div className="events-list">{macroEvents.map((event) => <EventCard event={event} key={event.id} />)}</div> : <div className="empty-inline">No macro events loaded yet.</div>}</div>
+    </div>}
   </section>
 }
