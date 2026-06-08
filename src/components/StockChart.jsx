@@ -81,6 +81,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     markerTooltip.className = 'marker-tooltip'
     containerRef.current.appendChild(markerTooltip)
     const candleByTime = new Map(data.map((candle, index) => [candle.time, { candle, previous: data[index - 1] }]))
+    const candleOnlyByTime = new Map(data.map((candle) => [candle.time, candle]))
     const showTooltip = (param) => {
       if (!param.time || !param.point) {
         tooltip.style.display = 'none'
@@ -175,27 +176,29 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     tradeMinSeries.setData(sortedTradeBounds.map(([time, bounds]) => ({ time, value: bounds.min })))
     tradeMaxSeries.setData(sortedTradeBounds.map(([time, bounds]) => ({ time, value: bounds.max })))
     const positionMarkers = () => {
-      const placed = new Map()
+      const grouped = new Map()
+      markerEntries.forEach((entry) => {
+        const key = `${entry.time}-${entry.trade.side}`
+        grouped.set(key, [...(grouped.get(key) || []), entry])
+      })
       markerEntries.forEach(({ trade, time, element }, index) => {
         const x = chart.timeScale().timeToCoordinate(time)
-        const y = series.priceToCoordinate(Number(trade.price))
-        if (x == null || y == null) {
+        const candle = candleOnlyByTime.get(time)
+        const y = interval === '1m'
+          ? series.priceToCoordinate(Number(trade.price))
+          : series.priceToCoordinate(trade.side === 'BUY' ? Number(candle?.low) : Number(candle?.high))
+        if (x == null || y == null || !candle) {
           element.style.display = 'none'
           return
         }
-        const key = String(time)
-        const siblings = placed.get(key) || []
-        let adjustedY = y
-        siblings.sort((first, second) => first - second).forEach((usedY) => {
-          if (Math.abs(adjustedY - usedY) < 30) adjustedY = usedY + 30
-        })
-        placed.set(key, [...siblings, adjustedY])
-        const lane = siblings.length
-        const sideOffset = trade.side === 'BUY' ? -1 : 1
-        const horizontalOffset = lane ? sideOffset * (18 + (lane % 3) * 8) : 0
+        const siblings = grouped.get(`${time}-${trade.side}`) || []
+        const groupIndex = siblings.findIndex((entry) => entry.element === element)
+        const centeredIndex = groupIndex - (siblings.length - 1) / 2
+        const horizontalOffset = interval === '1m' ? centeredIndex * 10 : centeredIndex * 28
+        const verticalOffset = interval === '1m' ? groupIndex * (trade.side === 'BUY' ? 10 : -10) : trade.side === 'BUY' ? 24 : -24
         element.style.display = 'grid'
         element.style.left = `${x + horizontalOffset}px`
-        element.style.top = `${Math.min(Math.max(adjustedY, 14), containerRef.current.clientHeight - 18)}px`
+        element.style.top = `${Math.min(Math.max(y + verticalOffset, 14), containerRef.current.clientHeight - 18)}px`
         element.style.zIndex = String(10 + index)
       })
     }
