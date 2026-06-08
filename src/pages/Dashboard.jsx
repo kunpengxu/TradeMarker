@@ -6,7 +6,8 @@ import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { saveMarketAnalysisToGitHub } from '../services/githubSync'
+import { saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub } from '../services/githubSync'
+import { buildEventsCalendarExport } from '../services/eventsData'
 import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
@@ -51,6 +52,9 @@ export default function Dashboard() {
     setUpdated(new Date())
     setLoading(false)
     saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
+    buildEventsCalendarExport(getWatchlist())
+      .then(saveEventsCalendarToGitHub)
+      .catch(() => {})
   }, [])
 
   useEffect(() => { refresh() }, [refresh])

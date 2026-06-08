@@ -6,6 +6,7 @@ import TradeLogPage from './pages/TradeLogPage'
 import Settings from './pages/Settings'
 import SyncManager from './components/SyncManager'
 import Portfolio from './pages/Portfolio'
+import Events from './pages/Events'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/stock/:symbol" element={<StockDetail />} />
           <Route path="/trades" element={<TradeLogPage />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/events" element={<Events />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

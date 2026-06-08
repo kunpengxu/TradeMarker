@@ -88,3 +88,9 @@ export async function saveMarketAnalysisToGitHub(analysis) {
   const path = siblingPath(settings.path, 'market-analysis.json')
   return saveJsonFile(path, analysis, 'Update TradeMarker market analysis')
 }
+
+export async function saveEventsCalendarToGitHub(events) {
+  const settings = config()
+  const path = siblingPath(settings.path, 'events-calendar.json')
+  return saveJsonFile(path, events, 'Update TradeMarker events calendar')
+}
