@@ -184,31 +184,26 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       })
       markerEntries.forEach(({ trade, time, element }, index) => {
         const x = chart.timeScale().timeToCoordinate(time)
-        const candle = candleOnlyByTime.get(time)
         const priceY = series.priceToCoordinate(Number(trade.price))
-        const anchorY = interval === '1m'
-          ? priceY
-          : series.priceToCoordinate(trade.side === 'BUY' ? Number(candle?.low) : Number(candle?.high))
-        if (x == null || priceY == null || anchorY == null || !candle) {
+        const candle = candleOnlyByTime.get(time)
+        if (x == null || priceY == null || !candle) {
           element.style.display = 'none'
           return
         }
         const siblings = grouped.get(`${time}-${trade.side}`) || []
         const groupIndex = siblings.findIndex((entry) => entry.element === element)
         const centeredIndex = groupIndex - (siblings.length - 1) / 2
-        const horizontalOffset = interval === '1m' ? centeredIndex * 10 : centeredIndex * 24
-        const labelY = interval === '1m'
-          ? priceY + groupIndex * (trade.side === 'BUY' ? 10 : -10)
-          : anchorY + (trade.side === 'BUY' ? 34 : -34)
+        const horizontalOffset = interval === '1m' ? centeredIndex * 10 : centeredIndex * 26
+        const labelDistance = 38 + groupIndex * 8
         const line = element.querySelector('b')
-        const dot = element.querySelector('em')
-        const lineHeight = Math.max(Math.abs(priceY - labelY) - 12, 8)
-        line.style.height = `${lineHeight}px`
-        line.style.top = trade.side === 'BUY' ? '-2px' : `${14}px`
-        dot.style.top = `${priceY - labelY + 8}px`
+        line.style.height = `${labelDistance - 18}px`
+        line.style.top = trade.side === 'BUY' ? `${10}px` : `${18 - labelDistance}px`
+        element.classList.toggle('below', trade.side === 'BUY')
+        element.classList.toggle('above', trade.side !== 'BUY')
         element.style.display = 'grid'
         element.style.left = `${x + horizontalOffset}px`
-        element.style.top = `${Math.min(Math.max(labelY, 14), containerRef.current.clientHeight - 18)}px`
+        element.style.top = `${priceY}px`
+        element.style.setProperty('--label-offset', `${trade.side === 'BUY' ? labelDistance : -labelDistance}px`)
         element.style.zIndex = String(10 + index)
       })
     }
