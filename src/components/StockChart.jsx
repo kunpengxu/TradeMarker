@@ -193,7 +193,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
         const siblings = grouped.get(`${time}-${trade.side}`) || []
         const groupIndex = siblings.findIndex((entry) => entry.element === element)
         const centeredIndex = groupIndex - (siblings.length - 1) / 2
-        const horizontalOffset = interval === '1m' ? centeredIndex * 10 : centeredIndex * 26
+        const horizontalOffset = interval === '1m' ? centeredIndex * 10 : 0
         const labelDistance = 38 + groupIndex * 8
         const line = element.querySelector('b')
         line.style.height = `${labelDistance - 18}px`
