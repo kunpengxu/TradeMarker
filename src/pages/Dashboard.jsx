@@ -13,8 +13,10 @@ import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMa
 import { calculatePosition } from '../services/positionCalculator'
 import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
+import { useI18n } from '../i18n'
 
 export default function Dashboard() {
+  const { t } = useI18n()
   const [items, setItems] = useState([])
   const [selected, setSelected] = useState(null)
   const [candles, setCandles] = useState([])
@@ -87,7 +89,7 @@ export default function Dashboard() {
     setSelected(ticker)
   }
   const remove = async (ticker) => {
-    if (confirm(`Remove ${ticker} from your watchlist? Journal entries will be kept.`)) {
+    if (confirm(t('removeWatchlistConfirm', { symbol: ticker }))) {
       const next = removeSymbol(ticker)
       setItems((current) => current.filter((item) => item.symbol !== ticker))
       setSelected((current) => current === ticker ? next[0] || null : current)
@@ -100,8 +102,8 @@ export default function Dashboard() {
         <SymbolSearch onSelect={addSelectedSymbol} />
         <div className="workspace-status">
           <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
-          {updated ? `${getMarketDataProviderName()} · refreshed ${updated.toLocaleTimeString()}` : 'Loading reference market data'}
-          <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ Refresh</button>
+          {updated ? `${getMarketDataProviderName()} · ${t('refreshed')} ${updated.toLocaleTimeString()}` : t('loadingReferenceData')}
+          <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ {t('refresh')}</button>
         </div>
       </div>
 
@@ -111,56 +113,56 @@ export default function Dashboard() {
           {!selectedItem ? (
             <div className="workspace-empty">
               <div className="empty-icon">+</div>
-              <h1>Your watchlist is empty</h1>
-              <p>Add a symbol above or choose an example to open its chart and begin journaling.</p>
+              <h1>{t('emptyWatchlistTitle')}</h1>
+              <p>{t('emptyWatchlistText')}</p>
               <div className="examples">{['TSLL', 'RDW', 'QMCO', 'AAPL'].map((example) => <button className="secondary" key={example} onClick={async () => { addSymbol(example); await refresh([example], false); setSelected(example) }}>{example}</button>)}</div>
             </div>
           ) : !selectedItem.quote ? (
             <div className="workspace-empty market-error-state">
               <div className="empty-icon">!</div>
-              <h1>Real market data unavailable</h1>
+              <h1>{t('realMarketDataUnavailable')}</h1>
               <p>{marketError || selectedItem.error}</p>
-              {!hasMarketDataApiKey() && <Link className="settings-link" to="/settings">Configure market data API key</Link>}
-              <button className="secondary" onClick={() => refresh()}>Retry market data</button>
+              {!hasMarketDataApiKey() && <Link className="settings-link" to="/settings">{t('configureMarketDataApiKey')}</Link>}
+              <button className="secondary" onClick={() => refresh()}>{t('retryMarketData')}</button>
             </div>
           ) : (
             <>
               <header className="quote-header">
                 <div className="quote-identity">
                   <span className="symbol-avatar">{selected.slice(0, 2)}</span>
-                  <div><h1>{selected}</h1><small>{selectedItem.quote.exchange} · {selectedItem.quote.source} · reference data</small></div>
+                  <div><h1>{selected}</h1><small>{selectedItem.quote.exchange} · {selectedItem.quote.source} · {t('referenceData')}</small></div>
                 </div>
                 <div className="quote-price">
                   <strong className={valueClass(selectedItem.quote.change)}>{money(selectedItem.quote.price, selectedItem.quote.currency)}</strong>
                   <span className={valueClass(selectedItem.quote.change)}>{selectedItem.quote.change >= 0 ? '+' : ''}{money(selectedItem.quote.change, selectedItem.quote.currency)} &nbsp; {percent(selectedItem.quote.changePercent)}</span>
                 </div>
                 <div className="action-group">
-                  <button className="buy-button" onClick={() => setTradeSide('BUY')}>B&nbsp; Record Buy</button>
-                  <button className="sell-button" onClick={() => setTradeSide('SELL')}>S&nbsp; Record Sell</button>
+                  <button className="buy-button" onClick={() => setTradeSide('BUY')}>B&nbsp; {t('recordBuy')}</button>
+                  <button className="sell-button" onClick={() => setTradeSide('SELL')}>S&nbsp; {t('recordSell')}</button>
                 </div>
               </header>
 
               <div className="market-tabs">
-                <button className={activeSection === 'chart' ? 'active' : ''} onClick={() => { setActiveSection('chart'); document.querySelector('.chart-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>Chart</button>
-                <button className={activeSection === 'position' ? 'active' : ''} onClick={() => { setActiveSection('position'); document.querySelector('.position-ribbon')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}>Position</button>
-                <button className={activeSection === 'journal' ? 'active' : ''} onClick={() => { setActiveSection('journal'); document.querySelector('.workspace-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>Journal</button>
-                <span>Journal-only workspace · no order execution</span>
+                <button className={activeSection === 'chart' ? 'active' : ''} onClick={() => { setActiveSection('chart'); document.querySelector('.chart-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{t('chart')}</button>
+                <button className={activeSection === 'position' ? 'active' : ''} onClick={() => { setActiveSection('position'); document.querySelector('.position-ribbon')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}>{t('position')}</button>
+                <button className={activeSection === 'journal' ? 'active' : ''} onClick={() => { setActiveSection('journal'); document.querySelector('.workspace-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{t('journal')}</button>
+                <span>{t('journalOnlyWorkspace')}</span>
               </div>
 
               <div className="chart-toolbar">
-                <div className="chart-label"><strong>{interval === '1m' ? 'Intraday 1m chart' : selectedItem.quote.closeOnly && interval === 'daily' ? 'Daily closing-price chart' : 'K-line chart'}</strong><span>{interval === '1m' ? 'Yahoo intraday reference data; markers use trade time when available' : 'B/S markers use each journal entry’s date and price'}</span></div>
+                <div className="chart-label"><strong>{interval === '1m' ? t('intradayChart') : selectedItem.quote.closeOnly && interval === 'daily' ? t('dailyCloseChart') : t('kLineChart')}</strong><span>{interval === '1m' ? t('intradayHint') : t('markerHint')}</span></div>
                 <IntervalSelector value={interval} onChange={setInterval} />
               </div>
-              {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>Loading intraday data</h1><p>Fetching Yahoo 1-minute candles for {selected}…</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>No intraday data</h1><p>Yahoo did not return 1-minute data for this symbol right now.</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} />}
+              {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} />}
 
               <div className="position-ribbon">
-                <span>Shares<strong>{number(position.shares, 4)}</strong></span>
-                <span>Average cost<strong>{money(position.averageCost, selectedItem.quote.currency)}</strong></span>
-                <span>Market value<strong>{money(position.marketValue, selectedItem.quote.currency)}</strong></span>
-                <span>Unrealized P/L<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
+                <span>{t('shares')}<strong>{number(position.shares, 4)}</strong></span>
+                <span>{t('averageCost')}<strong>{money(position.averageCost, selectedItem.quote.currency)}</strong></span>
+                <span>{t('marketValue')}<strong>{money(position.marketValue, selectedItem.quote.currency)}</strong></span>
+                <span>{t('unrealizedPL')}<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
               </div>
 
-              <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>Trade journal</h2><p>Manual Buy and Sell records shown as boxed markers on the chart.</p></div></div><TradeLog trades={trades} currency={selectedItem.quote.currency} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
+              <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>{t('tradeJournal')}</h2><p>{t('tradeJournalHint')}</p></div></div><TradeLog trades={trades} currency={selectedItem.quote.currency} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); reloadJournal() }} /></div>
             </>
           )}
         </div>

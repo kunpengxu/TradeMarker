@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getWatchlistGroups, saveWatchlistGroups } from '../services/storage'
 import { money, percent, valueClass } from '../utils/formatters'
+import { useI18n } from '../i18n'
 
 export default function WatchlistSidebar({ items, selected, onSelect, onRemove }) {
+  const { t } = useI18n()
   const [groups, setGroups] = useState(getWatchlistGroups)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
@@ -45,22 +47,22 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
     persist(next)
   }
   const addGroup = () => {
-    const name = prompt('Group name')
+    const name = prompt(t('groupName'))
     if (name?.trim()) persist([...groups, { id: `${Date.now()}`, name: name.trim(), symbols: [] }])
   }
 
   return (
     <aside className="market-sidebar">
       <div className="sidebar-title">
-        <div><span className="eyebrow">Personal list</span><h2>Watchlist</h2></div>
-        <button className="group-add" onClick={addGroup}>+ Group</button>
+        <div><span className="eyebrow">{t('personalList')}</span><h2>{t('watchlist')}</h2></div>
+        <button className="group-add" onClick={addGroup}>{t('addGroup')}</button>
       </div>
       <div className="watch-tools">
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter symbols" />
-        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">All stocks</option><option value="positions">Positions only</option></select>
-        <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">Manual order</option><option value="change">% change</option><option value="pl">Profit / loss</option></select>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('filterSymbols')} />
+        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option></select>
+        <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">{t('manualOrder')}</option><option value="change">{t('percentChange')}</option><option value="pl">{t('profitLoss')}</option></select>
       </div>
-      <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>Symbol{sortArrow('symbol')}</button><button onClick={() => toggleSort('price')}>Price{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>% Chg{sortArrow('change')}</button></div>
+      <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>{t('symbol')}{sortArrow('symbol')}</button><button onClick={() => toggleSort('price')}>{t('price')}{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>{t('percentChange')}{sortArrow('change')}</button></div>
       <div className="watch-rows">
         {groups.map((group) => {
           const symbols = sortSymbols(group.symbols.filter(visible))
@@ -80,7 +82,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
                 onClick={() => onSelect(symbol)}
                 onKeyDown={(event) => { if (event.key === 'Enter') onSelect(symbol) }}
               >
-                <span className="watch-symbol"><strong>{symbol}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} shares · ${money(item.position.unrealizedPL, item.quote?.currency)}` : 'No position')}</small></span>
+                <span className="watch-symbol"><strong>{symbol}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
                 <select className="watch-group-select" value={group.id} onClick={(event) => event.stopPropagation()} onChange={(event) => moveSymbol(symbol, event.target.value)}>

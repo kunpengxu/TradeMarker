@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { searchSymbols } from '../services/marketData'
+import { useI18n } from '../i18n'
 
 export default function SymbolSearch({ onSelect }) {
+  const { t } = useI18n()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [error, setError] = useState('')
@@ -33,7 +35,7 @@ export default function SymbolSearch({ onSelect }) {
 
   return (
     <div className="symbol-search">
-      <div className="workspace-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search company or symbol, e.g. Tesla or TSLA" aria-label="Search company or stock symbol" /><span className="search-state">{loading ? '…' : ''}</span></div>
+      <div className="workspace-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('searchSymbolPlaceholder')} aria-label={t('searchSymbolAria')} /><span className="search-state">{loading ? '…' : ''}</span></div>
       {(results.length > 0 || error) && <div className="symbol-results">
         {error ? <p className="search-error">{error}</p> : results.map((result) => <button key={`${result.symbol}-${result.exchange}`} onClick={() => choose(result)}><strong>{result.symbol}</strong><span>{result.name}</span><small>{result.exchange} · {result.type}</small></button>)}
       </div>}

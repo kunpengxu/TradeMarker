@@ -1,21 +1,27 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useI18n } from '../i18n'
 
 export default function Layout() {
+  const { language, setLanguage, t } = useI18n()
   return (
     <div className="app-shell">
       <header className="topbar">
         <NavLink to="/" className="brand"><span>TM</span> TradeMarker</NavLink>
         <nav>
-          <NavLink to="/">Dashboard</NavLink>
-          <NavLink to="/portfolio">Portfolio</NavLink>
-          <NavLink to="/orders">Orders</NavLink>
-          <NavLink to="/events">Events</NavLink>
-          <NavLink to="/trades">Trade Log</NavLink>
-          <NavLink to="/settings">Settings</NavLink>
+          <NavLink to="/">{t('navDashboard')}</NavLink>
+          <NavLink to="/portfolio">{t('navPortfolio')}</NavLink>
+          <NavLink to="/orders">{t('navOrders')}</NavLink>
+          <NavLink to="/events">{t('navEvents')}</NavLink>
+          <NavLink to="/trades">{t('navTradeLog')}</NavLink>
+          <NavLink to="/settings">{t('navSettings')}</NavLink>
         </nav>
+        <div className="language-switch" aria-label={t('language')}>
+          <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>{t('english')}</button>
+          <button className={language === 'zh' ? 'active' : ''} onClick={() => setLanguage('zh')}>{t('chinese')}</button>
+        </div>
       </header>
       <main className="app-content"><Outlet /></main>
-      <footer>For personal journaling and visualization only. Not financial advice. No brokerage connection. No order execution.</footer>
+      <footer>{t('footer')}</footer>
     </div>
   )
 }
