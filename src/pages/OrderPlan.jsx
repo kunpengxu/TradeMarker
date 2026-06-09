@@ -16,9 +16,15 @@ const compactText = (value, max = 180) => {
   const text = String(value || '').trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
+const textFor = (value, language) => {
+  if (!value || typeof value !== 'object') return value || ''
+  return value[language] || value.en || value.zh || ''
+}
 
-function OrderLegs({ legs, t }) {
+function OrderLegs({ legs, t, language }) {
   return <div className="order-leg-list compact">{legs.map((leg, index) => {
+    const condition = textFor(leg.conditionText, language) || leg.condition
+    const note = textFor(leg.noteText, language) || leg.note
     const parts = [
       leg.orderType,
       hasValue(leg.price) ? `${t('limit')} ${formatMaybeMoney(leg.price)}` : null,
@@ -27,14 +33,17 @@ function OrderLegs({ legs, t }) {
       hasValue(leg.percent) ? `${t('size')} ${leg.percent}%` : null,
     ].filter(Boolean)
     return <div className="order-leg compact" key={leg.id || index}>
-      <strong>{leg.label}</strong>
+      <strong>{textFor(leg.labelText, language) || leg.label}</strong>
       <span>{parts.join(' · ') || t('notSpecified')}</span>
-      {(leg.condition || leg.note) && <p>{compactText(leg.condition || leg.note, 150)}</p>}
+      {(condition || note) && <p>{compactText(condition || note, 150)}</p>}
     </div>
   })}</div>
 }
 
-function OrderCard({ order, t }) {
+function OrderCard({ order, t, language }) {
+  const reason = textFor(order.reasonText, language) || order.reason
+  const risk = textFor(order.riskText, language) || order.risk
+  const note = textFor(order.noteText, language) || order.note
   const metrics = [
     hasValue(order.totalShares) ? `${t('shares')} ${formatMaybeNumber(order.totalShares)}` : null,
     hasValue(order.totalAmount) ? `${t('amount')} ${formatMaybeMoney(order.totalAmount)}` : null,
@@ -46,17 +55,17 @@ function OrderCard({ order, t }) {
   return <article className={`order-plan-card ${sideClass(order.side)}`}>
     <header><div><span className={`side ${sideClass(order.side)}`}>{order.side}</span><h3>{order.symbol || t('noSymbol')}</h3></div>{order.priority && <strong>{order.priority}</strong>}</header>
     {metrics.length ? <p className="order-compact-meta">{metrics.join(' · ')}</p> : null}
-    <OrderLegs legs={order.legs} t={t} />
-    {(order.reason || order.risk || order.note) && <p className="order-compact-note">
-      {order.reason && <><b>{t('reason')}:</b> {compactText(order.reason)} </>}
-      {order.risk && <><b className="risk">{t('riskInvalidation')}:</b> {compactText(order.risk)} </>}
-      {order.note && <><b>{t('note')}:</b> {compactText(order.note)} </>}
+    <OrderLegs legs={order.legs} t={t} language={language} />
+    {(reason || risk || note) && <p className="order-compact-note">
+      {reason && <><b>{t('reason')}:</b> {compactText(reason)} </>}
+      {risk && <><b className="risk">{t('riskInvalidation')}:</b> {compactText(risk)} </>}
+      {note && <><b>{t('note')}:</b> {compactText(note)} </>}
     </p>}
   </article>
 }
 
 export default function OrderPlan() {
-  const { t } = useI18n()
+  const { language, t } = useI18n()
   const [plan, setPlan] = useState(null)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -103,14 +112,14 @@ export default function OrderPlan() {
     <div className="panel order-plan-source"><label>{t('githubJsonFile')}<input value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="order-plan.json" /></label><small>{t('orderFileHint')}</small></div>
     {message && <p className="notice">{message}</p>}
     {plan && <div className="order-plan-summary">
-      <span>{t('title')}<strong>{plan.title}</strong></span>
+      <span>{t('title')}<strong>{textFor(plan.titleText, language) || plan.title}</strong></span>
       <span>{t('tradingDate')}<strong>{plan.tradingDate || '—'}</strong></span>
       <span>{t('generated')}<strong>{formatDate(plan.generatedAt)}</strong></span>
       <span>{t('orders')}<strong>{plan.orders.length}</strong></span>
     </div>}
-    {plan?.summary && <div className="panel"><h2>{t('planSummary')}</h2><p>{plan.summary}</p></div>}
-    {plan?.assumptions?.length ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{plan.assumptions.map((item, index) => <p key={index}>{item}</p>)}</div> : null}
-    {plan?.warnings?.length ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{plan.warnings.map((item, index) => <p key={index}>{item}</p>)}</div> : null}
-    {loading ? <div className="loading">{t('loadingOrderPlan')}</div> : plan ? <div className="order-plan-groups">{['BUY', 'SELL', 'WATCH'].map((side) => <section key={side}><h2>{sideLabel[side]} <small>{grouped[side].length}</small></h2>{grouped[side].length ? <div className="order-plan-list">{grouped[side].map((order) => <OrderCard order={order} key={order.id} t={t} />)}</div> : <div className="empty-inline">{emptyLabel[side]}</div>}</section>)}</div> : <div className="empty-inline">{t('noOrderPlanLoaded')}</div>}
+    {(textFor(plan?.summaryText, language) || plan?.summary) && <div className="panel"><h2>{t('planSummary')}</h2><p>{textFor(plan.summaryText, language) || plan.summary}</p></div>}
+    {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
+    {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
+    {loading ? <div className="loading">{t('loadingOrderPlan')}</div> : plan ? <div className="order-plan-groups">{['BUY', 'SELL', 'WATCH'].map((side) => <section key={side}><h2>{sideLabel[side]} <small>{grouped[side].length}</small></h2>{grouped[side].length ? <div className="order-plan-list">{grouped[side].map((order) => <OrderCard order={order} key={order.id} t={t} language={language} />)}</div> : <div className="empty-inline">{emptyLabel[side]}</div>}</section>)}</div> : <div className="empty-inline">{t('noOrderPlanLoaded')}</div>}
   </section>
 }
