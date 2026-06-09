@@ -8,6 +8,7 @@ export default function Layout() {
         <nav>
           <NavLink to="/">Dashboard</NavLink>
           <NavLink to="/portfolio">Portfolio</NavLink>
+          <NavLink to="/orders">Orders</NavLink>
           <NavLink to="/events">Events</NavLink>
           <NavLink to="/trades">Trade Log</NavLink>
           <NavLink to="/settings">Settings</NavLink>

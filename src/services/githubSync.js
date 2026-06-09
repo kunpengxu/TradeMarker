@@ -96,3 +96,12 @@ export async function saveEventsCalendarToGitHub(events) {
   const path = siblingPath(settings.path, 'events-calendar.json')
   return saveJsonFile(path, events, 'Update TradeMarker events calendar')
 }
+
+export async function loadOrderPlanFromGitHub(filename = 'order-plan.json') {
+  if (!isGitHubSyncConfigured()) return { status: 'disabled' }
+  const settings = config()
+  const path = siblingPath(settings.path, filename)
+  const remote = await getRemote(path)
+  if (!remote) return { status: 'empty', path }
+  return { status: 'loaded', path, data: remote.data }
+}
