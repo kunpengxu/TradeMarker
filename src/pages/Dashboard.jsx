@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [candles, setCandles] = useState([])
   const [historyCache, setHistoryCache] = useState({})
   const [intradayCache, setIntradayCache] = useState({})
+  const [sparklineCache, setSparklineCache] = useState({})
   const [trades, setTrades] = useState([])
   const [interval, setInterval] = useState('daily')
   const [activeSection, setActiveSection] = useState('chart')
@@ -93,6 +94,27 @@ export default function Dashboard() {
       .then((rows) => setIntradayCache((current) => ({ ...current, [selected]: rows })))
       .catch(() => setIntradayCache((current) => ({ ...current, [selected]: [] })))
   }, [interval, selected, intradayCache])
+  useEffect(() => {
+    const missing = items
+      .map((item) => item.symbol)
+      .filter((symbol) => !Object.prototype.hasOwnProperty.call(sparklineCache, symbol))
+      .slice(0, 24)
+    if (!missing.length) return undefined
+    let canceled = false
+    const load = async () => {
+      for (const symbol of missing) {
+        try {
+          const rows = await getIntradayCandles(symbol)
+          if (!canceled) setSparklineCache((current) => ({ ...current, [symbol]: rows }))
+        } catch {
+          if (!canceled) setSparklineCache((current) => ({ ...current, [symbol]: [] }))
+        }
+        await new Promise((resolve) => setTimeout(resolve, 80))
+      }
+    }
+    load()
+    return () => { canceled = true }
+  }, [items, sparklineCache])
 
   const selectedItem = items.find((item) => item.symbol === selected)
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
@@ -140,7 +162,7 @@ export default function Dashboard() {
       </div> : null}
 
       <div className="workspace-body">
-        <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} />
+        <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} sparklines={{ ...sparklineCache, ...intradayCache }} />
         <div className="market-main">
           {!selectedItem ? (
             <div className="workspace-empty">

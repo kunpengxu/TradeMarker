@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import Sparkline from './Sparkline'
 import { getWatchlistGroups, saveWatchlistGroups } from '../services/storage'
 import { money, percent, valueClass } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
 const cleanSymbol = (value) => String(value || '').toUpperCase().replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')
 
-export default function WatchlistSidebar({ items, selected, onSelect, onRemove, orderSymbols = [] }) {
+export default function WatchlistSidebar({ items, selected, onSelect, onRemove, orderSymbols = [], sparklines = {} }) {
   const { t } = useI18n()
   const [groups, setGroups] = useState(getWatchlistGroups)
   const [query, setQuery] = useState('')
@@ -68,7 +69,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
         <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option></select>
         <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">{t('manualOrder')}</option><option value="change">{t('percentChange')}</option><option value="pl">{t('profitLoss')}</option></select>
       </div>
-      <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>{t('symbol')}{sortArrow('symbol')}</button><button onClick={() => toggleSort('price')}>{t('price')}{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>{t('percentChange')}{sortArrow('change')}</button></div>
+      <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>{t('symbol')}{sortArrow('symbol')}</button><span /> <button onClick={() => toggleSort('price')}>{t('price')}{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>{t('percentChange')}{sortArrow('change')}</button></div>
       <div className="watch-rows">
         {groups.map((group) => {
           const symbols = sortSymbols(group.symbols.filter(visible))
@@ -90,6 +91,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
                 onKeyDown={(event) => { if (event.key === 'Enter') onSelect(symbol) }}
               >
                 <span className="watch-symbol"><strong>{symbol}{orders ? <em className="watch-order-badge">{orders} {t('orderShort')}</em> : null}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
+                <Sparkline rows={sparklines[symbol]} fallbackRows={item.candles} change={item.quote?.change || 0} />
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
                 <select className="watch-group-select" value={group.id} onClick={(event) => event.stopPropagation()} onChange={(event) => moveSymbol(symbol, event.target.value)}>
