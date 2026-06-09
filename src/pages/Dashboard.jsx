@@ -93,6 +93,7 @@ export default function Dashboard() {
 
   const selectedItem = items.find((item) => item.symbol === selected)
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
+  const orderSymbols = useMemo(() => [...new Set(orders.map((order) => order.symbol).filter(Boolean))], [orders])
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
   const chartCandles = interval === '1m' ? intradayCache[selected] || [] : candles
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
@@ -128,7 +129,7 @@ export default function Dashboard() {
       </div>
 
       <div className="workspace-body">
-        <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} />
+        <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} />
         <div className="market-main">
           {!selectedItem ? (
             <div className="workspace-empty">

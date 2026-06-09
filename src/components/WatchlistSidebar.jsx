@@ -3,7 +3,9 @@ import { getWatchlistGroups, saveWatchlistGroups } from '../services/storage'
 import { money, percent, valueClass } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
-export default function WatchlistSidebar({ items, selected, onSelect, onRemove }) {
+const cleanSymbol = (value) => String(value || '').toUpperCase().replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')
+
+export default function WatchlistSidebar({ items, selected, onSelect, onRemove, orderSymbols = [] }) {
   const { t } = useI18n()
   const [groups, setGroups] = useState(getWatchlistGroups)
   const [query, setQuery] = useState('')
@@ -12,10 +14,13 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
 
   useEffect(() => setGroups(getWatchlistGroups()), [items])
   const itemMap = useMemo(() => new Map(items.map((item) => [item.symbol, item])), [items])
+  const orderSymbolSet = useMemo(() => new Set(orderSymbols.flatMap((symbol) => [String(symbol).toUpperCase(), cleanSymbol(symbol)])), [orderSymbols])
   const visible = (symbol) => {
     const item = itemMap.get(symbol)
     if (!item || !symbol.toLowerCase().includes(query.toLowerCase())) return false
-    return filter === 'all' || item.position.shares > 0
+    if (filter === 'positions') return item.position.shares > 0
+    if (filter === 'orders') return orderSymbolSet.has(String(symbol).toUpperCase()) || orderSymbolSet.has(cleanSymbol(symbol))
+    return true
   }
   const sortSymbols = (symbols) => {
     if (sort.key === 'manual') return symbols
@@ -59,7 +64,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove }
       </div>
       <div className="watch-tools">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('filterSymbols')} />
-        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option></select>
+        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option></select>
         <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">{t('manualOrder')}</option><option value="change">{t('percentChange')}</option><option value="pl">{t('profitLoss')}</option></select>
       </div>
       <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>{t('symbol')}{sortArrow('symbol')}</button><button onClick={() => toggleSort('price')}>{t('price')}{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>{t('percentChange')}{sortArrow('change')}</button></div>
