@@ -11,35 +11,47 @@ const formatDate = (date) => {
 }
 const formatMaybeMoney = (value) => value == null ? '—' : money(value)
 const formatMaybeNumber = (value) => value == null ? '—' : number(value, 4)
+const hasValue = (value) => value != null && Number(value) !== 0
+const compactText = (value, max = 180) => {
+  const text = String(value || '').trim()
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
 
 function OrderLegs({ legs, t }) {
-  return <div className="order-leg-list">{legs.map((leg, index) => <div className="order-leg" key={leg.id || index}>
-    <strong>{leg.label}</strong>
-    <span>{t('type')} <b>{leg.orderType}</b></span>
-    <span>{t('limit')} <b>{formatMaybeMoney(leg.price)}</b></span>
-    <span>{t('shares')} <b>{formatMaybeNumber(leg.shares)}</b></span>
-    <span>{t('amount')} <b>{formatMaybeMoney(leg.amount)}</b></span>
-    {leg.percent != null && <span>{t('size')} <b>{leg.percent}%</b></span>}
-    {leg.condition && <p>{leg.condition}</p>}
-    {leg.note && <p>{leg.note}</p>}
-  </div>)}</div>
+  return <div className="order-leg-list compact">{legs.map((leg, index) => {
+    const parts = [
+      leg.orderType,
+      hasValue(leg.price) ? `${t('limit')} ${formatMaybeMoney(leg.price)}` : null,
+      hasValue(leg.shares) ? `${t('shares')} ${formatMaybeNumber(leg.shares)}` : null,
+      hasValue(leg.amount) ? `${t('amount')} ${formatMaybeMoney(leg.amount)}` : null,
+      hasValue(leg.percent) ? `${t('size')} ${leg.percent}%` : null,
+    ].filter(Boolean)
+    return <div className="order-leg compact" key={leg.id || index}>
+      <strong>{leg.label}</strong>
+      <span>{parts.join(' · ') || t('notSpecified')}</span>
+      {(leg.condition || leg.note) && <p>{compactText(leg.condition || leg.note, 150)}</p>}
+    </div>
+  })}</div>
 }
 
 function OrderCard({ order, t }) {
+  const metrics = [
+    hasValue(order.totalShares) ? `${t('shares')} ${formatMaybeNumber(order.totalShares)}` : null,
+    hasValue(order.totalAmount) ? `${t('amount')} ${formatMaybeMoney(order.totalAmount)}` : null,
+    hasValue(order.targetPrice) ? `${t('target')} ${formatMaybeMoney(order.targetPrice)}` : null,
+    hasValue(order.stopLoss) ? `${t('stopLoss')} ${formatMaybeMoney(order.stopLoss)}` : null,
+    hasValue(order.takeProfit) ? `${t('takeProfit')} ${formatMaybeMoney(order.takeProfit)}` : null,
+    order.status ? `${t('status')} ${order.status}` : null,
+  ].filter(Boolean)
   return <article className={`order-plan-card ${sideClass(order.side)}`}>
     <header><div><span className={`side ${sideClass(order.side)}`}>{order.side}</span><h3>{order.symbol || t('noSymbol')}</h3></div>{order.priority && <strong>{order.priority}</strong>}</header>
-    <div className="order-metrics">
-      <span>{t('totalShares')}<strong>{formatMaybeNumber(order.totalShares)}</strong></span>
-      <span>{t('totalAmount')}<strong>{formatMaybeMoney(order.totalAmount)}</strong></span>
-      <span>{t('target')}<strong>{formatMaybeMoney(order.targetPrice)}</strong></span>
-      <span>{t('stopLoss')}<strong>{formatMaybeMoney(order.stopLoss)}</strong></span>
-      <span>{t('takeProfit')}<strong>{formatMaybeMoney(order.takeProfit)}</strong></span>
-      <span>{t('status')}<strong>{order.status}</strong></span>
-    </div>
-    {order.reason && <div className="order-note"><span>{t('reason')}</span><p>{order.reason}</p></div>}
-    {order.risk && <div className="order-note risk"><span>{t('riskInvalidation')}</span><p>{order.risk}</p></div>}
-    {order.note && <div className="order-note"><span>{t('note')}</span><p>{order.note}</p></div>}
+    {metrics.length ? <p className="order-compact-meta">{metrics.join(' · ')}</p> : null}
     <OrderLegs legs={order.legs} t={t} />
+    {(order.reason || order.risk || order.note) && <p className="order-compact-note">
+      {order.reason && <><b>{t('reason')}:</b> {compactText(order.reason)} </>}
+      {order.risk && <><b className="risk">{t('riskInvalidation')}:</b> {compactText(order.risk)} </>}
+      {order.note && <><b>{t('note')}:</b> {compactText(order.note)} </>}
+    </p>}
   </article>
 }
 
