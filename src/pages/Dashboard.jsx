@@ -1,19 +1,28 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import IntervalSelector from '../components/IntervalSelector'
+import OrderPlanCard from '../components/OrderPlanCard'
 import SymbolSearch from '../components/SymbolSearch'
 import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub } from '../services/githubSync'
+import { loadOrderPlanFromGitHub, saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub } from '../services/githubSync'
 import { buildEventsCalendarExport } from '../services/eventsData'
 import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
+import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition } from '../services/positionCalculator'
 import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useI18n } from '../i18n'
+
+const cleanSymbol = (value) => String(value || '').toUpperCase().replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')
+const matchesSymbol = (orderSymbol, symbol) => {
+  const order = String(orderSymbol || '').toUpperCase()
+  const current = String(symbol || '').toUpperCase()
+  return order === current || cleanSymbol(order) === cleanSymbol(current)
+}
 
 export default function Dashboard() {
   const { t } = useI18n()
@@ -27,6 +36,8 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState('chart')
   const [tradeSide, setTradeSide] = useState(null)
   const [editingTrade, setEditingTrade] = useState(null)
+  const [orders, setOrders] = useState([])
+  const [showOrders, setShowOrders] = useState(false)
   const [updated, setUpdated] = useState(null)
   const [loading, setLoading] = useState(false)
   const [marketError, setMarketError] = useState('')
@@ -61,6 +72,14 @@ export default function Dashboard() {
 
   useEffect(() => { refresh() }, [refresh])
   useEffect(() => {
+    loadOrderPlanFromGitHub('order-plan.json')
+      .then((result) => {
+        if (result.status !== 'loaded') return setOrders([])
+        setOrders(normalizeOrderPlan(result.data).orders)
+      })
+      .catch(() => setOrders([]))
+  }, [])
+  useEffect(() => {
     if (!selected) { setCandles([]); setTrades([]); return }
     setCandles(historyCache[selected] || [])
     setTrades(getTrades(selected))
@@ -73,6 +92,7 @@ export default function Dashboard() {
   }, [interval, selected, intradayCache])
 
   const selectedItem = items.find((item) => item.symbol === selected)
+  const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
   const chartCandles = interval === '1m' ? intradayCache[selected] || [] : candles
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
@@ -137,6 +157,7 @@ export default function Dashboard() {
                   <span className={valueClass(selectedItem.quote.change)}>{selectedItem.quote.change >= 0 ? '+' : ''}{money(selectedItem.quote.change, selectedItem.quote.currency)} &nbsp; {percent(selectedItem.quote.changePercent)}</span>
                 </div>
                 <div className="action-group">
+                  {selectedOrders.length ? <button className="secondary order-suggestion-button" onClick={() => setShowOrders(true)}>{t('orderSuggestions')} ({selectedOrders.length})</button> : null}
                   <button className="buy-button" onClick={() => setTradeSide('BUY')}>B&nbsp; {t('recordBuy')}</button>
                   <button className="sell-button" onClick={() => setTradeSide('SELL')}>S&nbsp; {t('recordSell')}</button>
                 </div>
@@ -169,6 +190,12 @@ export default function Dashboard() {
       </div>
       {tradeSide && <TradeModal side={tradeSide} symbol={selected} defaultPrice={selectedItem.quote.price} candles={candles} onClose={() => setTradeSide(null)} onSave={async (trade) => { saveTrade(trade); setTradeSide(null); reloadJournal(); await refresh([selected], false) }} />}
       {editingTrade && <TradeModal side={editingTrade.side} symbol={editingTrade.symbol} defaultPrice={editingTrade.price} candles={candles} initialTrade={editingTrade} onClose={() => setEditingTrade(null)} onSave={async (trade) => { updateTrade(trade); setEditingTrade(null); reloadJournal(); await refresh([selected], false) }} />}
+      {showOrders && <div className="modal-backdrop" onMouseDown={() => setShowOrders(false)}>
+        <div className="modal order-plan-modal" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="modal-head"><h2>{t('orderSuggestionsFor', { symbol: selected })}</h2><button type="button" className="icon-button" onClick={() => setShowOrders(false)}>×</button></div>
+          <div className="modal-body order-plan-list">{selectedOrders.map((order) => <OrderPlanCard order={order} key={order.id} />)}</div>
+        </div>
+      </div>}
     </section>
   )
 }
