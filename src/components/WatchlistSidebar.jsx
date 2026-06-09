@@ -91,7 +91,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
                 onKeyDown={(event) => { if (event.key === 'Enter') onSelect(symbol) }}
               >
                 <span className="watch-symbol"><strong>{symbol}{orders ? <em className="watch-order-badge">{orders} {t('orderShort')}</em> : null}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
-                <Sparkline rows={sparklines[symbol]} fallbackRows={item.candles} change={item.quote?.change || 0} />
+                <Sparkline rows={sparklines[symbol]} change={item.quote?.change || 0} />
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
                 <select className="watch-group-select" value={group.id} onClick={(event) => event.stopPropagation()} onChange={(event) => moveSymbol(symbol, event.target.value)}>

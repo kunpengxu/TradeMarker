@@ -1,14 +1,41 @@
 import { useMemo } from 'react'
 
-const pointsFrom = (rows) => rows
-  .map((row) => Number(row.close))
-  .filter(Number.isFinite)
+const marketMinute = (time) => {
+  const date = typeof time === 'number' ? new Date(time * 1000) : new Date(time)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date).reduce((result, part) => ({ ...result, [part.type]: part.value }), {})
+  const minutes = Number(parts.hour) * 60 + Number(parts.minute)
+  return { key: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`, day: `${parts.year}-${parts.month}-${parts.day}`, minutes }
+}
 
-export default function Sparkline({ rows = [], fallbackRows = [], change = 0 }) {
+const sessionValues = (rows) => {
+  const cleaned = rows
+    .map((row) => ({ meta: marketMinute(row.time), close: Number(row.close) }))
+    .filter((row) => row.meta && Number.isFinite(row.close) && row.close > 0)
+  const latestDay = cleaned.at(-1)?.meta.day
+  if (!latestDay) return []
+  const byMinute = new Map()
+  cleaned
+    .filter((row) => row.meta.day === latestDay && row.meta.minutes >= 570 && row.meta.minutes <= 990)
+    .forEach((row) => byMinute.set(row.meta.key, row))
+  return [...byMinute.values()]
+    .sort((a, b) => a.meta.minutes - b.meta.minutes)
+    .map((row) => row.close)
+}
+
+export default function Sparkline({ rows = [], change = 0 }) {
   const values = useMemo(() => {
-    const intraday = pointsFrom(rows)
-    return intraday.length > 1 ? intraday : pointsFrom(fallbackRows).slice(-36)
-  }, [rows, fallbackRows])
+    const intraday = sessionValues(rows)
+    return intraday.length > 180 ? intraday.filter((_, index) => index % Math.ceil(intraday.length / 180) === 0) : intraday
+  }, [rows])
 
   if (values.length < 2) return <span className="watch-sparkline empty" />
 
