@@ -27,15 +27,26 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       timeScale: { borderColor: '#263650', timeVisible: true },
       rightPriceScale: { borderColor: '#263650' },
     })
-    const showCloseLine = interval === 'daily' && closeOnly
-    const series = showCloseLine
-      ? chart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: true })
-      : chart.addCandlestickSeries({
-        upColor: '#2dd4bf', downColor: '#fb7185', wickUpColor: '#2dd4bf', wickDownColor: '#fb7185',
-        borderVisible: false,
-      })
-    series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
     const data = interval === '1m' ? candles : resampleCandles(candles, interval)
+    const showIntradayLine = interval === '1m'
+    const showCloseLine = showIntradayLine || (interval === 'daily' && closeOnly)
+    const intradayPositive = showIntradayLine ? data.at(-1)?.close >= data[0]?.close : true
+    const intradayColor = intradayPositive ? '#10b981' : '#f43f5e'
+    const series = showIntradayLine
+      ? chart.addAreaSeries({
+        lineColor: intradayColor,
+        topColor: `${intradayColor}44`,
+        bottomColor: `${intradayColor}05`,
+        lineWidth: 2,
+        priceLineVisible: true,
+      })
+      : showCloseLine
+        ? chart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceLineVisible: true })
+        : chart.addCandlestickSeries({
+          upColor: '#2dd4bf', downColor: '#fb7185', wickUpColor: '#2dd4bf', wickDownColor: '#fb7185',
+          borderVisible: false,
+        })
+    series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
     series.setData(showCloseLine ? data.map((candle) => ({ time: candle.time, value: candle.close })) : data)
     const overlayLines = [
       { label: 'VWAP', data: vwap(data), color: '#60a5fa' },
@@ -95,7 +106,9 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       const change = previous ? candle.close - previous.close : 0
       const changePercent = previous?.close ? (change / previous.close) * 100 : 0
       const changeClass = change >= 0 ? 'positive' : 'negative'
-      tooltip.innerHTML = `<strong>${displayTime(candle.time)}</strong><span>Open <b>${candle.open.toFixed(2)}</b></span><span>High <b>${candle.high.toFixed(2)}</b></span><span>Low <b>${candle.low.toFixed(2)}</b></span><span>Close <b>${candle.close.toFixed(2)}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
+      tooltip.innerHTML = showIntradayLine
+        ? `<strong>${displayTime(candle.time)}</strong><span>Price <b>${candle.close.toFixed(2)}</b></span><span>VWAP <b>${formatIndicator(indicatorLookup.VWAP?.get(param.time))}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
+        : `<strong>${displayTime(candle.time)}</strong><span>Open <b>${candle.open.toFixed(2)}</b></span><span>High <b>${candle.high.toFixed(2)}</b></span><span>Low <b>${candle.low.toFixed(2)}</b></span><span>Close <b>${candle.close.toFixed(2)}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
       tooltip.style.display = 'grid'
       tooltip.style.left = `${param.point.x > containerRef.current.clientWidth / 2 ? 14 : containerRef.current.clientWidth - 214}px`
       tooltip.style.top = '14px'
@@ -109,7 +122,9 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     volumeSeries.setData(data.map((candle) => ({
       time: candle.time,
       value: candle.volume,
-      color: candle.close >= candle.open ? '#14b8a655' : '#f43f5e55',
+      color: showIntradayLine
+        ? (candle.close >= (candle.open || candle.close) ? '#14b8a655' : '#f43f5e55')
+        : (candle.close >= candle.open ? '#14b8a655' : '#f43f5e55'),
     })))
     const markerTime = (date) => {
       const targetDay = day(date)
