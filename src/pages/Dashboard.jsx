@@ -23,6 +23,7 @@ const matchesSymbol = (orderSymbol, symbol) => {
   const current = String(symbol || '').toUpperCase()
   return order === current || cleanSymbol(order) === cleanSymbol(current)
 }
+const DENSITY_KEY = 'trademarker.displayDensity'
 
 export default function Dashboard() {
   const { t } = useI18n()
@@ -38,6 +39,7 @@ export default function Dashboard() {
   const [editingTrade, setEditingTrade] = useState(null)
   const [orders, setOrders] = useState([])
   const [showOrders, setShowOrders] = useState(false)
+  const [density, setDensity] = useState(() => localStorage.getItem(DENSITY_KEY) || 'comfortable')
   const [updated, setUpdated] = useState(null)
   const [loading, setLoading] = useState(false)
   const [marketError, setMarketError] = useState('')
@@ -71,6 +73,7 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
+  useEffect(() => { localStorage.setItem(DENSITY_KEY, density) }, [density])
   useEffect(() => {
     loadOrderPlanFromGitHub('order-plan.json')
       .then((result) => {
@@ -94,6 +97,7 @@ export default function Dashboard() {
   const selectedItem = items.find((item) => item.symbol === selected)
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
   const orderSymbols = useMemo(() => [...new Set(orders.map((order) => order.symbol).filter(Boolean))], [orders])
+  const plannedWatchlistCount = useMemo(() => items.filter((item) => orderSymbols.some((symbol) => matchesSymbol(symbol, item.symbol))).length, [items, orderSymbols])
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
   const chartCandles = interval === '1m' ? intradayCache[selected] || [] : candles
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
@@ -118,15 +122,22 @@ export default function Dashboard() {
   }
 
   return (
-    <section className="market-workspace">
+    <section className={`market-workspace ${density === 'compact' ? 'compact-density' : ''}`}>
       <div className="workspace-toolbar">
         <SymbolSearch onSelect={addSelectedSymbol} />
         <div className="workspace-status">
           <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
           {updated ? `${getMarketDataProviderName()} · ${t('refreshed')} ${updated.toLocaleTimeString()}` : t('loadingReferenceData')}
+          <button className="toolbar-button density-toggle" title={t('density')} onClick={() => setDensity((current) => current === 'compact' ? 'comfortable' : 'compact')}>{density === 'compact' ? t('compact') : t('comfortable')}</button>
           <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ {t('refresh')}</button>
         </div>
       </div>
+      {orders.length ? <div className="today-focus-strip">
+        <span>{t('todayFocus')}</span>
+        <strong>{t('stocksWithOrders', { count: plannedWatchlistCount || orderSymbols.length })}</strong>
+        <em>{selectedOrders.length ? t('currentSymbolOrders', { count: selectedOrders.length }) : t('orderFocusHint')}</em>
+        {selectedOrders.length ? <button onClick={() => setShowOrders(true)}>{t('orderSuggestions')}</button> : null}
+      </div> : null}
 
       <div className="workspace-body">
         <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} />
@@ -197,6 +208,11 @@ export default function Dashboard() {
       </div>
       {tradeSide && <TradeModal side={tradeSide} symbol={selected} defaultPrice={selectedItem.quote.price} candles={candles} onClose={() => setTradeSide(null)} onSave={async (trade) => { saveTrade(trade); setTradeSide(null); reloadJournal(); await refresh([selected], false) }} />}
       {editingTrade && <TradeModal side={editingTrade.side} symbol={editingTrade.symbol} defaultPrice={editingTrade.price} candles={candles} initialTrade={editingTrade} onClose={() => setEditingTrade(null)} onSave={async (trade) => { updateTrade(trade); setEditingTrade(null); reloadJournal(); await refresh([selected], false) }} />}
+      {selectedItem?.quote ? <div className="mobile-action-bar">
+        <button className="buy-button" onClick={() => setTradeSide('BUY')}>B {t('recordBuy')}</button>
+        <button className="sell-button" onClick={() => setTradeSide('SELL')}>S {t('recordSell')}</button>
+        <button className="secondary" onClick={() => selectedOrders.length && setShowOrders(true)} disabled={!selectedOrders.length}>{t('orderSuggestions')} {selectedOrders.length || ''}</button>
+      </div> : null}
       {showOrders && <div className="modal-backdrop" onMouseDown={() => setShowOrders(false)}>
         <div className="modal order-plan-modal" onMouseDown={(event) => event.stopPropagation()}>
           <div className="modal-head"><h2>{t('orderSuggestionsFor', { symbol: selected })}</h2><button type="button" className="icon-button" onClick={() => setShowOrders(false)}>×</button></div>
