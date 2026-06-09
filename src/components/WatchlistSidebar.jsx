@@ -15,6 +15,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
   useEffect(() => setGroups(getWatchlistGroups()), [items])
   const itemMap = useMemo(() => new Map(items.map((item) => [item.symbol, item])), [items])
   const orderSymbolSet = useMemo(() => new Set(orderSymbols.flatMap((symbol) => [String(symbol).toUpperCase(), cleanSymbol(symbol)])), [orderSymbols])
+  const orderCount = (symbol) => orderSymbols.filter((orderSymbol) => String(orderSymbol).toUpperCase() === String(symbol).toUpperCase() || cleanSymbol(orderSymbol) === cleanSymbol(symbol)).length
   const visible = (symbol) => {
     const item = itemMap.get(symbol)
     if (!item || !symbol.toLowerCase().includes(query.toLowerCase())) return false
@@ -75,6 +76,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
             <div className="watch-group-head"><strong>{group.name}</strong><span>{symbols.length}</span></div>
             {symbols.map((symbol) => {
               const item = itemMap.get(symbol)
+              const orders = orderCount(symbol)
               return <div
                 className={`watch-row ${selected === symbol ? 'selected' : ''}`}
                 key={symbol}
@@ -87,7 +89,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
                 onClick={() => onSelect(symbol)}
                 onKeyDown={(event) => { if (event.key === 'Enter') onSelect(symbol) }}
               >
-                <span className="watch-symbol"><strong>{symbol}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
+                <span className="watch-symbol"><strong>{symbol}{orders ? <em className="watch-order-badge">{orders} {t('orderShort')}</em> : null}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
                 <select className="watch-group-select" value={group.id} onClick={(event) => event.stopPropagation()} onChange={(event) => moveSymbol(symbol, event.target.value)}>

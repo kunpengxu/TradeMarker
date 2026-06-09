@@ -170,6 +170,12 @@ export default function Dashboard() {
                 <button className={activeSection === 'journal' ? 'active' : ''} onClick={() => { setActiveSection('journal'); document.querySelector('.workspace-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{t('journal')}</button>
                 <span>{t('journalOnlyWorkspace')}</span>
               </div>
+              <div className="quote-mini-strip">
+                <span>{t('shares')} <strong>{number(position.shares, 4)}</strong></span>
+                <span>{t('averageCost')} <strong>{money(position.averageCost, selectedItem.quote.currency)}</strong></span>
+                <span>{t('pl')} <strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} · {percent(position.unrealizedPLPercent)}</strong></span>
+                <button className={selectedOrders.length ? 'has-orders' : ''} onClick={() => selectedOrders.length && setShowOrders(true)} disabled={!selectedOrders.length}>{t('orderSuggestions')} <strong>{selectedOrders.length}</strong></button>
+              </div>
 
               <div className="chart-toolbar">
                 <div className="chart-label"><strong>{interval === '1m' ? t('intradayChart') : selectedItem.quote.closeOnly && interval === 'daily' ? t('dailyCloseChart') : t('kLineChart')}</strong><span>{interval === '1m' ? t('intradayHint') : t('markerHint')}</span></div>
