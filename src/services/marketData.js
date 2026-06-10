@@ -4,6 +4,8 @@ const round = (value) => Number(Number(value).toFixed(2))
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
 const DEFAULT_YAHOO_PROXY = 'https://trademarker-yahoo-proxy.kunp-xu.workers.dev'
+const REGULAR_SESSION_START = 9 * 60 + 30
+const REGULAR_SESSION_END = 16 * 60 + 30
 
 const yahooUrls = (path) => {
   const customProxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '')
@@ -60,6 +62,56 @@ async function fetchYahooJson(path) {
   throw errors[0] || new Error('Yahoo Finance could not be reached.')
 }
 
+const marketMinute = (timestamp) => {
+  const date = new Date(timestamp * 1000)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date).reduce((result, part) => ({ ...result, [part.type]: part.value }), {})
+  return {
+    key: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`,
+    day: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: Number(parts.hour) * 60 + Number(parts.minute),
+  }
+}
+
+const median = (values) => {
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+}
+
+function cleanIntradayCandles(candles) {
+  const valid = candles
+    .map((candle) => ({ ...candle, close: Number(candle.close), meta: marketMinute(candle.time) }))
+    .filter((candle) => Number.isFinite(candle.close) && candle.close > 0 && candle.meta.minutes >= REGULAR_SESSION_START && candle.meta.minutes <= REGULAR_SESSION_END)
+  const latestDay = valid.at(-1)?.meta.day
+  if (!latestDay) return []
+  const sameDay = valid.filter((candle) => candle.meta.day === latestDay)
+  const midpoint = median(sameDay.map((candle) => candle.close))
+  const byMinute = new Map()
+  sameDay
+    .filter((candle) => candle.close >= midpoint * 0.55 && candle.close <= midpoint * 1.45)
+    .forEach((candle) => byMinute.set(candle.meta.key, candle))
+  return [...byMinute.values()]
+    .sort((a, b) => a.time - b.time)
+    .map(({ meta, ...candle }) => {
+      const close = Number(candle.close)
+      return {
+        ...candle,
+        open: Number.isFinite(candle.open) && candle.open > 0 ? candle.open : close,
+        high: Number.isFinite(candle.high) && candle.high > 0 ? candle.high : close,
+        low: Number.isFinite(candle.low) && candle.low > 0 ? candle.low : close,
+        close,
+      }
+    })
+}
+
 export async function searchSymbols(query) {
   const clean = query.trim()
   if (clean.length < 2) return []
@@ -107,14 +159,15 @@ export async function getIntradayCandles(symbol) {
   const data = await fetchYahooJson(`/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${params}`)
   const result = data.chart?.result?.[0]
   const quote = result?.indicators?.quote?.[0]
-  return result?.timestamp?.map((timestamp, index) => ({
+  const candles = result?.timestamp?.map((timestamp, index) => ({
     time: timestamp,
     open: Number(quote.open[index]),
     high: Number(quote.high[index]),
     low: Number(quote.low[index]),
     close: Number(quote.close[index]),
     volume: Number(quote.volume[index] || 0),
-  })).filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite)) || []
+  })).filter((candle) => Number.isFinite(candle.close)) || []
+  return cleanIntradayCandles(candles)
 }
 
 async function fetchFmpSnapshot(symbol, apiKey) {
