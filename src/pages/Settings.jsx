@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clearData, exportData, getSettings, getTrades, getWatchlist, importData, saveSettings, saveTrades, saveWatchlist } from '../services/storage'
 import { loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { buildWealthsimpleActivities, buildWealthsimpleHoldings, createImportedTrade } from '../services/wealthsimpleImport'
+import { clearAuthToken, getAuthUser, getAuthWorkerUrl, loadSettingsFromAccount, saveAuthTokenFromHash, saveSettingsToAccount, startGitHubLogin } from '../services/authSync'
 
 export default function Settings() {
   const fileRef = useRef()
@@ -21,6 +22,38 @@ export default function Settings() {
   const [githubBranch, setGithubBranch] = useState(() => getSettings().githubBranch || 'main')
   const [githubDataPath, setGithubDataPath] = useState(() => getSettings().githubDataPath || 'data/trademarker.json')
   const [githubToken, setGithubToken] = useState(() => getSettings().githubToken || '')
+  const [authWorkerUrl, setAuthWorkerUrl] = useState(() => getSettings().authWorkerUrl || getAuthWorkerUrl())
+  const [authUser, setAuthUser] = useState(null)
+  const [isAuthBusy, setIsAuthBusy] = useState(false)
+
+  const refreshAuthUser = async () => {
+    try {
+      setAuthUser(await getAuthUser())
+    } catch {
+      clearAuthToken()
+      setAuthUser(null)
+    }
+  }
+  const applySettingsToForm = () => {
+    const settings = getSettings()
+    setProvider(settings.marketDataProviderChosen ? settings.marketDataProvider : 'yahoo')
+    setFmpApiKey(settings.fmpApiKey || '')
+    setTwelveDataApiKey(settings.twelveDataApiKey || '')
+    setMarketauxApiKey(settings.marketauxApiKey || '')
+    setYahooProxyUrl(settings.yahooProxyUrl || '')
+    setGithubOwner(settings.githubOwner || 'kunpengxu')
+    setGithubRepo(settings.githubRepo || 'TradeMarkerData')
+    setGithubBranch(settings.githubBranch || 'main')
+    setGithubDataPath(settings.githubDataPath || 'data/trademarker.json')
+    setGithubToken(settings.githubToken || '')
+    setAuthWorkerUrl(settings.authWorkerUrl || getAuthWorkerUrl())
+  }
+
+  useEffect(() => {
+    const loggedIn = saveAuthTokenFromHash()
+    refreshAuthUser()
+    if (loggedIn) setMessage('GitHub login connected. You can now load or save synced settings.')
+  }, [])
   const download = () => {
     const blob = new Blob([JSON.stringify(exportData(), null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -122,6 +155,43 @@ export default function Settings() {
     saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim() })
     setMessage('GitHub sync settings saved. Changes will now sync automatically.')
   }
+  const saveAuthWorkerSetting = () => {
+    saveSettings({ ...getSettings(), authWorkerUrl: authWorkerUrl.trim() })
+  }
+  const loginWithGitHub = () => {
+    saveAuthWorkerSetting()
+    startGitHubLogin()
+  }
+  const logout = () => {
+    clearAuthToken()
+    setAuthUser(null)
+    setMessage('Signed out from TradeMarker account sync on this browser.')
+  }
+  const saveCloudSettings = async () => {
+    try {
+      setIsAuthBusy(true)
+      saveMarketData({ preventDefault() {} })
+      saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim(), authWorkerUrl: authWorkerUrl.trim() })
+      await saveSettingsToAccount()
+      setMessage('Saved API keys and GitHub sync settings to your signed-in account.')
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setIsAuthBusy(false)
+    }
+  }
+  const loadCloudSettings = async () => {
+    try {
+      setIsAuthBusy(true)
+      const result = await loadSettingsFromAccount()
+      applySettingsToForm()
+      setMessage(result.status === 'empty' ? 'No synced settings found for this account yet.' : 'Loaded API keys and GitHub sync settings from your account.')
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setIsAuthBusy(false)
+    }
+  }
   const runGitHubSync = async (direction) => {
     try {
       setMessage(direction === 'load' ? 'Loading data from GitHub…' : 'Saving data to GitHub…')
@@ -138,7 +208,14 @@ export default function Settings() {
   return (
     <section><div className="page-head"><div><p className="eyebrow">Local data</p><h1>Settings</h1><p>Your TradeMarker data stays in this browser unless you export it.</p></div></div>
       {message && <p className="notice success">{message}</p>}
-      <div className="settings-grid"><form className="panel api-key-panel" onSubmit={saveMarketData}><h2>Reference market data</h2><p>Yahoo Finance is the recommended default for this personal journal because it covers US and Canadian symbols and returns complete daily OHLCV without an API key.</p>
+      <div className="settings-grid"><div className="panel api-key-panel auth-panel"><h2>Account settings sync</h2><p>Optional GitHub login for syncing API keys and GitHub backup settings across browsers. Your journal data still syncs through your private TradeMarkerData repository.</p>
+        <label>Auth Worker URL<input value={authWorkerUrl} onChange={(event) => setAuthWorkerUrl(event.target.value)} placeholder="https://trademarker-auth.your-name.workers.dev" autoComplete="off" /></label>
+        {authUser ? <div className="auth-user"><img src={authUser.avatarUrl} alt="" /><div><strong>{authUser.name || authUser.login}</strong><span>@{authUser.login}</span></div></div> : <p className="auth-status">Not signed in.</p>}
+        <div className="sync-actions">{authUser ? <button type="button" className="secondary" onClick={logout}>Sign out</button> : <button type="button" onClick={loginWithGitHub}>Login with GitHub</button>}<button type="button" className="secondary" onClick={saveAuthWorkerSetting}>Save Worker URL</button></div>
+        <div className="sync-actions"><button type="button" disabled={!authUser || isAuthBusy} onClick={loadCloudSettings}>Load settings from account</button><button type="button" className="secondary" disabled={!authUser || isAuthBusy} onClick={saveCloudSettings}>Save settings to account</button></div>
+        <small>This sync stores market-data keys and GitHub sync settings in your Cloudflare Worker KV. Deploy your own Worker and use restricted personal API keys.</small>
+      </div>
+      <form className="panel api-key-panel" onSubmit={saveMarketData}><h2>Reference market data</h2><p>Yahoo Finance is the recommended default for this personal journal because it covers US and Canadian symbols and returns complete daily OHLCV without an API key.</p>
         <label>Data provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="yahoo">Yahoo Finance (recommended)</option><option value="fmp">Financial Modeling Prep</option><option value="twelveData">Twelve Data</option></select></label>
         {provider === 'yahoo' ? <><p>TradeMarker uses its Cloudflare Worker by default in both local development and GitHub Pages. Enter another Worker URL only to override it.</p><label>Yahoo proxy URL override<input value={yahooProxyUrl} onChange={(event) => setYahooProxyUrl(event.target.value)} placeholder="Optional, e.g. https://your-worker.workers.dev" autoComplete="off" /></label></> : provider === 'fmp' ? <><label>FMP API key<input type="password" value={fmpApiKey} onChange={(event) => setFmpApiKey(event.target.value)} placeholder="Financial Modeling Prep API key" autoComplete="off" /></label><p><a href="https://site.financialmodelingprep.com/developer/docs" target="_blank" rel="noreferrer">Get an FMP API key</a>.</p></> : <><label>Twelve Data API key<input type="password" value={twelveDataApiKey} onChange={(event) => setTwelveDataApiKey(event.target.value)} placeholder="Twelve Data API key" autoComplete="off" /></label><p><a href="https://twelvedata.com/account/api-keys" target="_blank" rel="noreferrer">Get a Twelve Data API key</a>.</p></>}
         <label>Marketaux news API key<input type="password" value={marketauxApiKey} onChange={(event) => setMarketauxApiKey(event.target.value)} placeholder="Optional news API key for Events" autoComplete="off" /></label>
