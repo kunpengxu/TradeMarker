@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { isGitHubSyncConfigured, loadFromGitHub, saveToGitHub } from '../services/githubSync'
-import { getAuthToken, loadSettingsFromAccount, saveSettingsToAccount } from '../services/authSync'
+import { getAuthToken, hasGitHubDataSettings, loadSettingsFromAccount, saveSettingsToAccount } from '../services/authSync'
 
 export default function SyncManager() {
   useEffect(() => {
@@ -25,13 +25,20 @@ export default function SyncManager() {
           if (getAuthToken()) {
             try {
               const accountResult = await loadSettingsFromAccount()
-              if (accountResult.status === 'empty') await saveSettingsToAccount()
-              window.dispatchEvent(new CustomEvent('trademarker:account-settings-synced', { detail: accountResult }))
+              if (accountResult.status === 'empty' && hasGitHubDataSettings()) {
+                await saveSettingsToAccount()
+                window.dispatchEvent(new CustomEvent('trademarker:account-settings-synced', { detail: { status: 'saved-local-settings' } }))
+              } else {
+                window.dispatchEvent(new CustomEvent('trademarker:account-settings-synced', { detail: accountResult }))
+              }
             } catch {
               // Account settings sync is optional; local GitHub sync can still run.
             }
           }
-          if (!isGitHubSyncConfigured()) return
+          if (!isGitHubSyncConfigured()) {
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'missing-github-settings' } }))
+            return
+          }
           const result = await loadFromGitHub()
           if (cancelled) return
           if (result.status === 'loaded') {
@@ -39,7 +46,10 @@ export default function SyncManager() {
             return
           }
           if (['current', 'empty', 'skipped-empty-remote'].includes(result.status)) {
-            await saveToGitHub({ skipIfRemoteCurrent: true })
+            const saveResult = await saveToGitHub({ skipIfRemoteCurrent: true })
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: saveResult }))
+          } else {
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
           }
         } while (pendingSync && !cancelled)
       } finally {

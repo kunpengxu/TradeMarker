@@ -3,7 +3,7 @@ import { clearData, exportData, getSettings, getTrades, getWatchlist, importData
 import { loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { buildWealthsimpleActivities, buildWealthsimpleHoldings, createImportedTrade } from '../services/wealthsimpleImport'
-import { clearAuthToken, getAuthUser, getAuthWorkerUrl, loadSettingsFromAccount, saveAuthTokenFromHash, saveSettingsToAccount, startGitHubLogin } from '../services/authSync'
+import { clearAuthToken, getAuthToken, getAuthUser, getAuthWorkerUrl, loadSettingsFromAccount, saveAuthTokenFromHash, saveSettingsToAccount, startGitHubLogin } from '../services/authSync'
 
 export default function Settings() {
   const fileRef = useRef()
@@ -60,11 +60,22 @@ export default function Settings() {
       if (event.detail?.status === 'loaded') {
         setMessage('Loaded synced account settings. GitHub data sync is running automatically.')
       } else if (event.detail?.status === 'empty') {
-        setMessage('No synced account settings found yet. Saved this browser’s settings to your account.')
+        setMessage('No synced account settings found for this GitHub login yet. Save your GitHub sync settings once, then future logins will load data automatically.')
+      } else if (event.detail?.status === 'saved-local-settings') {
+        setMessage('Saved this browser’s GitHub sync settings to your account. GitHub data sync is running automatically.')
+      }
+    }
+    const onAutoSyncStatus = (event) => {
+      if (event.detail?.status === 'missing-github-settings') {
+        setMessage('Logged in, but GitHub data settings are missing. Fill Owner, Repository, Branch, JSON path, and token once, then save GitHub sync settings.')
       }
     }
     window.addEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)
-    return () => window.removeEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)
+    window.addEventListener('trademarker:auto-sync-status', onAutoSyncStatus)
+    return () => {
+      window.removeEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)
+      window.removeEventListener('trademarker:auto-sync-status', onAutoSyncStatus)
+    }
   }, [])
   const download = () => {
     const blob = new Blob([JSON.stringify(exportData(), null, 2)], { type: 'application/json' })
@@ -192,10 +203,20 @@ export default function Settings() {
     })
     setMessage(`${provider === 'yahoo' ? 'Yahoo Finance' : provider === 'fmp' ? 'Financial Modeling Prep' : 'Twelve Data'} selected as the market data provider.`)
   }
-  const saveGitHubSettings = (event) => {
+  const saveGitHubSettings = async (event) => {
     event.preventDefault()
     saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim() })
-    setMessage('GitHub sync settings saved. Changes will now sync automatically.')
+    if (getAuthToken()) {
+      try {
+        await saveSettingsToAccount()
+        window.dispatchEvent(new CustomEvent('trademarker:auth-changed'))
+        setMessage('GitHub sync settings saved to this browser and your signed-in account. Data sync will run automatically.')
+      } catch (error) {
+        setMessage(`Saved locally, but account sync failed: ${error.message}`)
+      }
+      return
+    }
+    setMessage('GitHub sync settings saved locally. Login with GitHub to reuse them across browsers.')
   }
   const saveAuthWorkerSetting = () => {
     saveSettings({ ...getSettings(), authWorkerUrl: authWorkerUrl.trim() })

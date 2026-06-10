@@ -7,6 +7,13 @@ const cleanUrl = (value) => String(value || '').trim().replace(/\/$/, '')
 export const getAuthWorkerUrl = () => cleanUrl(getSettings().authWorkerUrl) || DEFAULT_AUTH_WORKER_URL
 export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || ''
 export const clearAuthToken = () => localStorage.removeItem(AUTH_TOKEN_KEY)
+export const hasGitHubDataSettings = (settings = getSettings()) => Boolean(
+  cleanUrl(settings.githubOwner) &&
+  cleanUrl(settings.githubRepo) &&
+  cleanUrl(settings.githubBranch) &&
+  cleanUrl(settings.githubDataPath) &&
+  cleanUrl(settings.githubToken),
+)
 
 export function saveAuthTokenFromHash() {
   const search = new URLSearchParams(window.location.search)
