@@ -3,6 +3,7 @@ import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts'
 import { calculateRealizedPLByTrade } from '../services/positionCalculator'
 import { resampleCandles } from '../services/resampleCandles'
 import { ema, macd, rsi, sma, vwap } from '../services/technicalIndicators'
+import { DEFAULT_CHART_INDICATORS, normalizeChartIndicators } from '../hooks/useChartIndicators'
 import { money, number } from '../utils/formatters'
 
 const day = (value) => new Date(value).toISOString().slice(0, 10)
@@ -13,7 +14,7 @@ const preview = (value, length = 74) => value && value.length > length ? `${valu
 const targetsText = (targets = [], currency) => targets.length ? targets.map((target, index) => `TP${index + 1} ${money(target, currency)}`).join(', ') : '—'
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
 
-export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD', quoteChange = null, quotePrice = null }) {
+export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD', quoteChange = null, quotePrice = null, indicators = DEFAULT_CHART_INDICATORS }) {
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       rightPriceScale: { borderColor: '#263650' },
     })
     const data = interval === '1m' ? candles : resampleCandles(candles, interval)
+    const enabledIndicators = normalizeChartIndicators(indicators)
     const showIntradayLine = interval === '1m'
     const previousClose = showIntradayLine && Number.isFinite(Number(quotePrice)) && Number.isFinite(Number(quoteChange))
       ? Number(quotePrice) - Number(quoteChange)
@@ -52,40 +54,51 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     series.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } })
     series.setData(showCloseLine ? data.map((candle) => ({ time: candle.time, value: candle.close })) : data)
     const overlayLines = [
-      { label: 'VWAP', data: vwap(data), color: '#60a5fa' },
-      { label: 'SMA 20', data: sma(data, 20), color: '#facc15' },
-      { label: 'SMA 50', data: sma(data, 50), color: '#a78bfa' },
-      { label: 'SMA 200', data: sma(data, 200), color: '#f472b6' },
-      { label: 'EMA 50', data: ema(data, 50), color: '#22c55e' },
-    ]
+      { key: 'vwap', label: 'VWAP', data: vwap(data), color: '#60a5fa' },
+      { key: 'sma20', label: 'SMA 20', data: sma(data, 20), color: '#facc15' },
+      { key: 'sma50', label: 'SMA 50', data: sma(data, 50), color: '#a78bfa' },
+      { key: 'sma200', label: 'SMA 200', data: sma(data, 200), color: '#f472b6' },
+      { key: 'ema50', label: 'EMA 50', data: ema(data, 50), color: '#22c55e' },
+    ].filter((line) => enabledIndicators[line.key])
     overlayLines.forEach((line) => {
       if (!line.data.length) return
       chart.addLineSeries({ color: line.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false }).setData(line.data)
     })
-    const rsiValues = rsi(data)
-    const rsiSeries = chart.addLineSeries({ color: '#93c5fd', lineWidth: 2, priceScaleId: 'rsi', priceLineVisible: false })
-    rsiSeries.setData(rsiValues)
-    chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.68, bottom: 0.17 }, borderVisible: false })
-    rsiSeries.createPriceLine({ price: 70, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
-    rsiSeries.createPriceLine({ price: 30, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
-    const macdValues = macd(data)
-    const macdHistogram = chart.addHistogramSeries({ priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false })
-    macdHistogram.setData(macdValues.histogram)
-    chart.addLineSeries({ color: '#22c55e', lineWidth: 1, priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false }).setData(macdValues.macdLine)
-    chart.addLineSeries({ color: '#ef4444', lineWidth: 1, priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false }).setData(macdValues.signalLine)
-    chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 }, borderVisible: false })
+    const rsiValues = enabledIndicators.rsi14 ? rsi(data) : []
+    if (enabledIndicators.rsi14) {
+      const rsiSeries = chart.addLineSeries({ color: '#93c5fd', lineWidth: 2, priceScaleId: 'rsi', priceLineVisible: false })
+      rsiSeries.setData(rsiValues)
+      chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.68, bottom: enabledIndicators.macd ? 0.17 : 0 }, borderVisible: false })
+      rsiSeries.createPriceLine({ price: 70, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
+      rsiSeries.createPriceLine({ price: 30, color: '#64748b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false })
+    }
+    const macdValues = enabledIndicators.macd ? macd(data) : { histogram: [], macdLine: [], signalLine: [] }
+    if (enabledIndicators.macd) {
+      const macdHistogram = chart.addHistogramSeries({ priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false })
+      macdHistogram.setData(macdValues.histogram)
+      chart.addLineSeries({ color: '#22c55e', lineWidth: 1, priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false }).setData(macdValues.macdLine)
+      chart.addLineSeries({ color: '#ef4444', lineWidth: 1, priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false }).setData(macdValues.signalLine)
+      chart.priceScale('macd').applyOptions({ scaleMargins: { top: enabledIndicators.rsi14 ? 0.84 : 0.76, bottom: 0 }, borderVisible: false })
+    }
     const legend = document.createElement('div')
     legend.className = 'indicator-legend'
     containerRef.current.appendChild(legend)
-    const indicatorLookup = Object.fromEntries([
+    const indicatorEntries = [
       ...overlayLines.map((line) => [line.label, new Map(line.data.map((point) => [point.time, point.value]))]),
-      ['RSI 14', new Map(rsiValues.map((point) => [point.time, point.value]))],
-      ['MACD', new Map(macdValues.macdLine.map((point) => [point.time, point.value]))],
-    ])
-    const indicatorColors = { ...Object.fromEntries(overlayLines.map((line) => [line.label, line.color])), 'RSI 14': '#93c5fd', MACD: '#22c55e' }
+      ...(enabledIndicators.rsi14 ? [['RSI 14', new Map(rsiValues.map((point) => [point.time, point.value]))]] : []),
+      ...(enabledIndicators.macd ? [['MACD', new Map(macdValues.macdLine.map((point) => [point.time, point.value]))]] : []),
+    ]
+    const indicatorLookup = Object.fromEntries(indicatorEntries)
+    const indicatorColors = {
+      ...Object.fromEntries(overlayLines.map((line) => [line.label, line.color])),
+      ...(enabledIndicators.rsi14 ? { 'RSI 14': '#93c5fd' } : {}),
+      ...(enabledIndicators.macd ? { MACD: '#22c55e' } : {}),
+    }
     const formatIndicator = (value) => Number.isFinite(value) ? value.toFixed(2) : '—'
     const renderLegend = (time = data.at(-1)?.time) => {
-      legend.innerHTML = `<strong>Indicators ${time ? displayTime(time) : ''}</strong>${Object.entries(indicatorLookup).map(([label, values]) => `<span style="color:${indicatorColors[label]}">${label} ${formatIndicator(values.get(time))}</span>`).join('')}`
+      legend.innerHTML = indicatorEntries.length
+        ? `<strong>Indicators ${time ? displayTime(time) : ''}</strong>${Object.entries(indicatorLookup).map(([label, values]) => `<span style="color:${indicatorColors[label]}">${label} ${formatIndicator(values.get(time))}</span>`).join('')}`
+        : ''
     }
     renderLegend()
     const tooltip = document.createElement('div')
@@ -110,26 +123,29 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       const change = baseline ? candle.close - baseline : 0
       const changePercent = baseline ? (change / baseline) * 100 : 0
       const changeClass = change >= 0 ? 'positive' : 'negative'
+      const vwapTooltip = indicatorLookup.VWAP ? `<span>VWAP <b>${formatIndicator(indicatorLookup.VWAP.get(param.time))}</b></span>` : ''
       tooltip.innerHTML = showIntradayLine
-        ? `<strong>${displayTime(candle.time)}</strong><span>Price <b>${candle.close.toFixed(2)}</b></span><span>VWAP <b>${formatIndicator(indicatorLookup.VWAP?.get(param.time))}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
+        ? `<strong>${displayTime(candle.time)}</strong><span>Price <b>${candle.close.toFixed(2)}</b></span>${vwapTooltip}<span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
         : `<strong>${displayTime(candle.time)}</strong><span>Open <b>${candle.open.toFixed(2)}</b></span><span>High <b>${candle.high.toFixed(2)}</b></span><span>Low <b>${candle.low.toFixed(2)}</b></span><span>Close <b>${candle.close.toFixed(2)}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
       tooltip.style.display = 'grid'
       tooltip.style.left = `${param.point.x > containerRef.current.clientWidth / 2 ? 14 : containerRef.current.clientWidth - 214}px`
       tooltip.style.top = '14px'
     }
     chart.subscribeCrosshairMove(showTooltip)
-    const volumeSeries = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: '',
-    })
-    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
-    volumeSeries.setData(data.map((candle) => ({
-      time: candle.time,
-      value: candle.volume,
-      color: showIntradayLine
-        ? (candle.close >= (candle.open || candle.close) ? '#14b8a655' : '#f43f5e55')
-        : (candle.close >= candle.open ? '#14b8a655' : '#f43f5e55'),
-    })))
+    if (enabledIndicators.volume) {
+      const volumeSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+      })
+      volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+      volumeSeries.setData(data.map((candle) => ({
+        time: candle.time,
+        value: candle.volume,
+        color: showIntradayLine
+          ? (candle.close >= (candle.open || candle.close) ? '#14b8a655' : '#f43f5e55')
+          : (candle.close >= candle.open ? '#14b8a655' : '#f43f5e55'),
+      })))
+    }
     const markerTime = (date) => {
       const targetDay = day(date)
       if (typeof data[0]?.time === 'number') {
@@ -248,7 +264,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       markerLayer.remove()
       chart.remove()
     }
-  }, [candles, interval, trades, averageCost, closeOnly, currency, quoteChange, quotePrice])
+  }, [candles, interval, trades, averageCost, closeOnly, currency, quoteChange, quotePrice, indicators])
 
   return <div className="chart" ref={containerRef} />
 }

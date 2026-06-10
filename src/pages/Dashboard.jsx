@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import IndicatorMenu from '../components/IndicatorMenu'
 import IntervalSelector from '../components/IntervalSelector'
 import OrderPlanCard from '../components/OrderPlanCard'
 import SymbolSearch from '../components/SymbolSearch'
@@ -15,6 +16,7 @@ import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition } from '../services/positionCalculator'
 import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
+import { useChartIndicators } from '../hooks/useChartIndicators'
 import { useI18n } from '../i18n'
 
 const cleanSymbol = (value) => String(value || '').toUpperCase().replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')
@@ -35,6 +37,7 @@ export default function Dashboard() {
   const [sparklineCache, setSparklineCache] = useState({})
   const [trades, setTrades] = useState([])
   const [interval, setInterval] = useState('daily')
+  const [indicators, setIndicators] = useChartIndicators()
   const [activeSection, setActiveSection] = useState('chart')
   const [tradeSide, setTradeSide] = useState(null)
   const [editingTrade, setEditingTrade] = useState(null)
@@ -212,9 +215,12 @@ export default function Dashboard() {
 
               <div className="chart-toolbar">
                 <div className="chart-label"><strong>{interval === '1m' ? t('intradayChart') : selectedItem.quote.closeOnly && interval === 'daily' ? t('dailyCloseChart') : t('kLineChart')}</strong><span>{interval === '1m' ? t('intradayHint') : t('markerHint')}</span></div>
-                <IntervalSelector value={interval} onChange={setInterval} />
+                <div className="chart-controls">
+                  <IndicatorMenu value={indicators} onChange={setIndicators} />
+                  <IntervalSelector value={interval} onChange={setInterval} />
+                </div>
               </div>
-              {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} />}
+              {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} />}
 
               <div className="position-ribbon">
                 <span>{t('shares')}<strong>{number(position.shares, 4)}</strong></span>
