@@ -133,7 +133,8 @@ async function handleCallback(request, env) {
   if (!userResponse.ok) throw new Error(user.message || 'GitHub user request failed.')
   const session = await signSession(env, user)
   const redirect = new URL(state.redirectUri)
-  redirect.hash = `auth_token=${encodeURIComponent(session)}`
+  redirect.searchParams.set('auth_token', session)
+  if (!redirect.hash) redirect.hash = '/settings'
   return Response.redirect(redirect.toString(), 302)
 }
 

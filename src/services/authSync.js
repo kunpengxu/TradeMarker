@@ -9,11 +9,16 @@ export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || ''
 export const clearAuthToken = () => localStorage.removeItem(AUTH_TOKEN_KEY)
 
 export function saveAuthTokenFromHash() {
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-  const token = hash.get('auth_token')
+  const search = new URLSearchParams(window.location.search)
+  const hashText = window.location.hash.replace(/^#/, '')
+  const hash = new URLSearchParams(hashText)
+  const token = search.get('auth_token') || hash.get('auth_token')
   if (!token) return false
   localStorage.setItem(AUTH_TOKEN_KEY, token)
-  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+  search.delete('auth_token')
+  const cleanSearch = search.toString()
+  const cleanHash = hashText.startsWith('auth_token=') ? '#/settings' : window.location.hash || '#/settings'
+  window.history.replaceState(null, '', `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}${cleanHash}`)
   return true
 }
 
@@ -32,7 +37,9 @@ async function authFetch(path, options = {}) {
 }
 
 export function startGitHubLogin() {
-  const redirect = encodeURIComponent(window.location.href.split('#')[0])
+  const redirectUrl = new URL(window.location.href.split('#')[0])
+  redirectUrl.hash = '/settings'
+  const redirect = encodeURIComponent(redirectUrl.toString())
   window.location.href = `${getAuthWorkerUrl()}/auth/github/start?redirect_uri=${redirect}`
 }
 
