@@ -9,20 +9,21 @@ export default function Settings() {
   const fileRef = useRef()
   const wealthsimpleRef = useRef()
   const wealthsimpleActivitiesRef = useRef()
+  const settings = getSettings()
   const [message, setMessage] = useState('')
   const [isImportingWealthsimple, setIsImportingWealthsimple] = useState(false)
   const [isImportingActivities, setIsImportingActivities] = useState(false)
-  const [provider, setProvider] = useState(() => getSettings().marketDataProviderChosen ? getSettings().marketDataProvider : 'yahoo')
-  const [fmpApiKey, setFmpApiKey] = useState(() => getSettings().fmpApiKey || '')
-  const [twelveDataApiKey, setTwelveDataApiKey] = useState(() => getSettings().twelveDataApiKey || '')
-  const [marketauxApiKey, setMarketauxApiKey] = useState(() => getSettings().marketauxApiKey || '')
-  const [yahooProxyUrl, setYahooProxyUrl] = useState(() => getSettings().yahooProxyUrl || '')
-  const [githubOwner, setGithubOwner] = useState(() => getSettings().githubOwner || 'kunpengxu')
-  const [githubRepo, setGithubRepo] = useState(() => getSettings().githubRepo || 'TradeMarkerData')
-  const [githubBranch, setGithubBranch] = useState(() => getSettings().githubBranch || 'main')
-  const [githubDataPath, setGithubDataPath] = useState(() => getSettings().githubDataPath || 'data/trademarker.json')
-  const [githubToken, setGithubToken] = useState(() => getSettings().githubToken || '')
-  const [authWorkerUrl, setAuthWorkerUrl] = useState(() => getSettings().authWorkerUrl || getAuthWorkerUrl())
+  const [provider, setProvider] = useState(() => settings.marketDataProviderChosen ? settings.marketDataProvider : 'yahoo')
+  const [fmpApiKey, setFmpApiKey] = useState(() => settings.fmpApiKey || '')
+  const [twelveDataApiKey, setTwelveDataApiKey] = useState(() => settings.twelveDataApiKey || '')
+  const [marketauxApiKey, setMarketauxApiKey] = useState(() => settings.marketauxApiKey || '')
+  const [yahooProxyUrl, setYahooProxyUrl] = useState(() => settings.yahooProxyUrl || '')
+  const [githubOwner, setGithubOwner] = useState(() => settings.githubOwner ?? 'kunpengxu')
+  const [githubRepo, setGithubRepo] = useState(() => settings.githubRepo ?? 'TradeMarkerData')
+  const [githubBranch, setGithubBranch] = useState(() => settings.githubBranch ?? 'main')
+  const [githubDataPath, setGithubDataPath] = useState(() => settings.githubDataPath ?? 'data/trademarker.json')
+  const [githubToken, setGithubToken] = useState(() => settings.githubToken || '')
+  const [authWorkerUrl, setAuthWorkerUrl] = useState(() => settings.authWorkerUrl ?? getAuthWorkerUrl())
   const [authUser, setAuthUser] = useState(null)
   const [isAuthBusy, setIsAuthBusy] = useState(false)
 
@@ -41,12 +42,12 @@ export default function Settings() {
     setTwelveDataApiKey(settings.twelveDataApiKey || '')
     setMarketauxApiKey(settings.marketauxApiKey || '')
     setYahooProxyUrl(settings.yahooProxyUrl || '')
-    setGithubOwner(settings.githubOwner || 'kunpengxu')
-    setGithubRepo(settings.githubRepo || 'TradeMarkerData')
-    setGithubBranch(settings.githubBranch || 'main')
-    setGithubDataPath(settings.githubDataPath || 'data/trademarker.json')
+    setGithubOwner(settings.githubOwner ?? 'kunpengxu')
+    setGithubRepo(settings.githubRepo ?? 'TradeMarkerData')
+    setGithubBranch(settings.githubBranch ?? 'main')
+    setGithubDataPath(settings.githubDataPath ?? 'data/trademarker.json')
     setGithubToken(settings.githubToken || '')
-    setAuthWorkerUrl(settings.authWorkerUrl || getAuthWorkerUrl())
+    setAuthWorkerUrl(settings.authWorkerUrl ?? getAuthWorkerUrl())
   }
 
   useEffect(() => {
@@ -148,6 +149,36 @@ export default function Settings() {
       clearData(); setMessage('All local data cleared.')
     }
   }
+  const clearSettingsFields = () => {
+    if (!confirm('Clear all Settings form fields in this browser? This will not delete your watchlist, trades, portfolio, or saved cloud account settings.')) return
+    saveSettings({
+      ...getSettings(),
+      marketDataProvider: 'yahoo',
+      marketDataProviderChosen: false,
+      fmpApiKey: '',
+      twelveDataApiKey: '',
+      marketauxApiKey: '',
+      yahooProxyUrl: '',
+      githubOwner: '',
+      githubRepo: '',
+      githubBranch: '',
+      githubDataPath: '',
+      githubToken: '',
+      authWorkerUrl: '',
+    })
+    setProvider('yahoo')
+    setFmpApiKey('')
+    setTwelveDataApiKey('')
+    setMarketauxApiKey('')
+    setYahooProxyUrl('')
+    setGithubOwner('')
+    setGithubRepo('')
+    setGithubBranch('')
+    setGithubDataPath('')
+    setGithubToken('')
+    setAuthWorkerUrl('')
+    setMessage('Settings form fields cleared in this browser. Your journal data was not deleted.')
+  }
   const saveMarketData = (event) => {
     event.preventDefault()
     saveSettings({
@@ -243,6 +274,7 @@ export default function Settings() {
         <div className="panel"><h2>Import Wealthsimple activities</h2><p>Upload activities after your holdings baseline to append new BUY and SELL trades. Re-importing the same CSV is safe, but importing old overlapping activities after a holdings snapshot may double-count positions.</p><input ref={wealthsimpleActivitiesRef} hidden type="file" accept=".csv,text/csv" onChange={importWealthsimpleActivities} /><button className="secondary" disabled={isImportingActivities} onClick={() => wealthsimpleActivitiesRef.current.click()}>{isImportingActivities ? 'Importing…' : 'Choose Wealthsimple activities CSV'}</button></div>
         <div className="panel"><h2>Export data</h2><p>Download a JSON backup containing your watchlist, trades, and settings. Your API key is excluded.</p><button onClick={download}>Export JSON backup</button></div>
         <div className="panel"><h2>Import data</h2><p>Restore a TradeMarker JSON backup. Existing local data will be replaced.</p><input ref={fileRef} hidden type="file" accept="application/json" onChange={upload} /><button className="secondary" onClick={() => fileRef.current.click()}>Choose JSON file</button></div>
+        <div className="panel danger-zone"><h2>Clear settings fields</h2><p>Remove API keys, proxy URL, GitHub sync fields, and Auth Worker URL saved in this browser. Watchlist and trades stay untouched.</p><button className="secondary" onClick={clearSettingsFields}>Clear Settings fields only</button></div>
         <div className="panel danger-zone"><h2>Clear local data</h2><p>Permanently remove all TradeMarker data stored in this browser.</p><button className="danger-button" onClick={clear}>Clear all local data</button></div></div>
     </section>
   )
