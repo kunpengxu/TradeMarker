@@ -24,7 +24,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       layout: { background: { color: '#111a2d' }, textColor: '#94a3b8' },
       grid: { vertLines: { color: '#1c2941' }, horzLines: { color: '#1c2941' } },
       crosshair: { mode: CrosshairMode.Normal },
-      timeScale: { borderColor: '#263650', timeVisible: true },
+      timeScale: { borderColor: '#263650', timeVisible: true, rightOffset: interval === '1m' ? 3 : 0, barSpacing: interval === '1m' ? 5 : undefined },
       rightPriceScale: { borderColor: '#263650' },
     })
     const data = interval === '1m' ? candles : resampleCandles(candles, interval)
@@ -139,6 +139,10 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     markerLayer.className = 'trade-marker-layer'
     containerRef.current.appendChild(markerLayer)
     const realizedPL = calculateRealizedPLByTrade(trades)
+    const intradaySessionDay = showIntradayLine ? candleDay(data.at(-1)?.time) : null
+    const visibleTrades = showIntradayLine
+      ? trades.filter((trade) => candleDay(trade.date) === intradaySessionDay)
+      : trades
     const hideMarkerTooltip = () => { markerTooltip.style.display = 'none' }
     const showMarkerTooltip = (trade, element) => {
       const tradeCurrency = trade.currency || currency
@@ -163,7 +167,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       markerTooltip.style.left = `${Math.min(Math.max(left + 14, 8), parent.width - 260)}px`
       markerTooltip.style.top = `${Math.max(rect.top - parent.top - 10, 8)}px`
     }
-    const markerEntries = trades.map((trade) => {
+    const markerEntries = visibleTrades.map((trade) => {
       const time = markerTime(trade.date)
       const element = document.createElement('span')
       element.className = `trade-chart-marker ${trade.side.toLowerCase()}`
@@ -226,7 +230,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     chart.timeScale().subscribeVisibleLogicalRangeChange(positionMarkers)
     const resizeObserver = new ResizeObserver(positionMarkers)
     resizeObserver.observe(containerRef.current)
-    if (averageCost > 0) {
+    if (averageCost > 0 && !showIntradayLine) {
       series.createPriceLine({ price: averageCost, color: '#60a5fa', lineWidth: 2, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'Average cost' })
     }
     chart.timeScale().fitContent()
