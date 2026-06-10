@@ -13,7 +13,7 @@ const preview = (value, length = 74) => value && value.length > length ? `${valu
 const targetsText = (targets = [], currency) => targets.length ? targets.map((target, index) => `TP${index + 1} ${money(target, currency)}`).join(', ') : '—'
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
 
-export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD' }) {
+export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD', quoteChange = null, quotePrice = null }) {
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -29,6 +29,9 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     })
     const data = interval === '1m' ? candles : resampleCandles(candles, interval)
     const showIntradayLine = interval === '1m'
+    const previousClose = showIntradayLine && Number.isFinite(Number(quotePrice)) && Number.isFinite(Number(quoteChange))
+      ? Number(quotePrice) - Number(quoteChange)
+      : null
     const showCloseLine = showIntradayLine || (interval === 'daily' && closeOnly)
     const intradayPositive = showIntradayLine ? data.at(-1)?.close >= data[0]?.close : true
     const intradayColor = intradayPositive ? '#10b981' : '#f43f5e'
@@ -103,8 +106,9 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       if (!entry) return
       renderLegend(param.time)
       const { candle, previous } = entry
-      const change = previous ? candle.close - previous.close : 0
-      const changePercent = previous?.close ? (change / previous.close) * 100 : 0
+      const baseline = showIntradayLine && previousClose > 0 ? previousClose : previous?.close
+      const change = baseline ? candle.close - baseline : 0
+      const changePercent = baseline ? (change / baseline) * 100 : 0
       const changeClass = change >= 0 ? 'positive' : 'negative'
       tooltip.innerHTML = showIntradayLine
         ? `<strong>${displayTime(candle.time)}</strong><span>Price <b>${candle.close.toFixed(2)}</b></span><span>VWAP <b>${formatIndicator(indicatorLookup.VWAP?.get(param.time))}</b></span><span>Change <b class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</b></span><span>Change % <b class="${changeClass}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</b></span><span>Volume <b>${Number(candle.volume || 0).toLocaleString()}</b></span>`
@@ -244,7 +248,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       markerLayer.remove()
       chart.remove()
     }
-  }, [candles, interval, trades, averageCost, closeOnly, currency])
+  }, [candles, interval, trades, averageCost, closeOnly, currency, quoteChange, quotePrice])
 
   return <div className="chart" ref={containerRef} />
 }
