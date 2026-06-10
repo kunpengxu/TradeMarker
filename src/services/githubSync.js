@@ -61,7 +61,13 @@ export async function loadFromGitHub({ force = false } = {}) {
   const remote = await getRemote()
   if (!remote) return { status: 'empty' }
   const local = exportData()
-  if (!hasUserData(remote.data) && hasUserData(local)) return { status: 'skipped-empty-remote' }
+  const remoteHasUserData = hasUserData(remote.data)
+  const localHasUserData = hasUserData(local)
+  if (!remoteHasUserData && localHasUserData) return { status: 'skipped-empty-remote' }
+  if (remoteHasUserData && !localHasUserData) {
+    importData(remote.data)
+    return { status: 'loaded', updatedAt: remote.data.updatedAt }
+  }
   if (force || !getDataUpdatedAt() || new Date(remote.data.updatedAt) > new Date(getDataUpdatedAt())) {
     importData(remote.data)
     return { status: 'loaded', updatedAt: remote.data.updatedAt }
