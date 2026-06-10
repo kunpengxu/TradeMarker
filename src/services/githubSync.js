@@ -69,13 +69,21 @@ export async function loadFromGitHub({ force = false } = {}) {
   return { status: 'current', updatedAt: remote.data.updatedAt }
 }
 
-export async function saveToGitHub() {
+export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const settings = config()
   const remote = await getRemote()
   const local = exportData()
   if (!hasUserData(local)) return { status: 'skipped-empty-local' }
   if (remote && hasUserData(remote.data) && !hasUserData(local)) return { status: 'skipped-empty-local' }
+  if (
+    skipIfRemoteCurrent &&
+    remote?.data?.updatedAt &&
+    local.updatedAt &&
+    new Date(remote.data.updatedAt) >= new Date(local.updatedAt)
+  ) {
+    return { status: 'current', updatedAt: remote.data.updatedAt }
+  }
   return saveJsonFile(settings.path, local, 'Update TradeMarker data')
 }
 

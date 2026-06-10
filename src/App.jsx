@@ -15,7 +15,10 @@ import { saveAuthTokenFromHash } from './services/authSync'
 function AuthReturnHandler() {
   const navigate = useNavigate()
   useEffect(() => {
-    if (saveAuthTokenFromHash()) navigate('/settings', { replace: true })
+    if (saveAuthTokenFromHash()) {
+      window.dispatchEvent(new CustomEvent('trademarker:auth-changed'))
+      navigate('/settings', { replace: true })
+    }
   }, [navigate])
   return null
 }

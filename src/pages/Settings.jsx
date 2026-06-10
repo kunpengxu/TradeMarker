@@ -52,7 +52,18 @@ export default function Settings() {
   useEffect(() => {
     const loggedIn = saveAuthTokenFromHash()
     refreshAuthUser()
-    if (loggedIn) setMessage('GitHub login connected. You can now load or save synced settings.')
+    if (loggedIn) setMessage('GitHub login connected. TradeMarker will load your synced settings and data automatically.')
+    const onAccountSettingsSynced = (event) => {
+      refreshAuthUser()
+      applySettingsToForm()
+      if (event.detail?.status === 'loaded') {
+        setMessage('Loaded synced account settings. GitHub data sync is running automatically.')
+      } else if (event.detail?.status === 'empty') {
+        setMessage('No synced account settings found yet. Saved this browser’s settings to your account.')
+      }
+    }
+    window.addEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)
+    return () => window.removeEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)
   }, [])
   const download = () => {
     const blob = new Blob([JSON.stringify(exportData(), null, 2)], { type: 'application/json' })
