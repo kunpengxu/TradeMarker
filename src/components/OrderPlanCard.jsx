@@ -1,3 +1,4 @@
+import SymbolLink from './SymbolLink'
 import { money, number } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
@@ -70,7 +71,7 @@ export default function OrderPlanCard({ order }) {
     order.status ? `${t('status')} ${translateToken(order.status, language)}` : null,
   ].filter(Boolean)
   return <article className={`order-plan-card ${sideClass(order.side)}`}>
-    <header><div><span className={`side ${sideClass(order.side)}`}>{translateToken(order.side, language)}</span><h3>{order.symbol || t('noSymbol')}</h3></div>{order.priority && <strong>{translateToken(order.priority, language)}</strong>}</header>
+    <header><div><span className={`side ${sideClass(order.side)}`}>{translateToken(order.side, language)}</span><h3>{order.symbol ? <SymbolLink symbol={order.symbol} /> : t('noSymbol')}</h3></div>{order.priority && <strong>{translateToken(order.priority, language)}</strong>}</header>
     {metrics.length ? <p className="order-compact-meta">{metrics.join(' · ')}</p> : null}
     <OrderLegs legs={order.legs} t={t} language={language} />
     {(reason || risk || note) && <p className="order-compact-note">

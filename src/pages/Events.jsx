@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SymbolLink from '../components/SymbolLink'
 import { buildEventsCalendarExport } from '../services/eventsData'
 import { saveEventsCalendarToGitHub } from '../services/githubSync'
 import { getWatchlist } from '../services/storage'
@@ -14,9 +15,9 @@ const eventSymbols = (event) => {
 function EventCard({ event, t }) {
   const symbols = eventSymbols(event)
   return <article className="event-card">
-    <div><span className="event-badges"><span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>{symbols.length ? symbols.map((symbol) => <span className="event-symbol" key={symbol}>{symbol}</span>) : event.query ? <span className="event-symbol muted">query: {event.query}</span> : null}</span><strong>{formatDate(event.date)}</strong></div>
+    <div><span className="event-badges"><span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>{symbols.length ? symbols.map((symbol) => <span className="event-symbol" key={symbol}><SymbolLink symbol={symbol} /></span>) : event.query ? <span className="event-symbol muted">query: {event.query}</span> : null}</span><strong>{formatDate(event.date)}</strong></div>
     <h3>{event.title}</h3>
-    <p>{event.symbol ? `${event.symbol} · ` : ''}{event.country ? `${event.country} · ` : ''}{event.site || event.source}</p>
+    <p>{event.symbol ? <><SymbolLink symbol={event.symbol} /> · </> : null}{event.country ? `${event.country} · ` : ''}{event.site || event.source}</p>
     {event.description && <p className="event-description">{event.description}</p>}
     {event.type === 'earnings' && <small>{t('epsEst')} {event.epsEstimated ?? '—'} · {t('epsActual')} {event.epsActual ?? '—'} · {t('revenueEst')} {event.revenueEstimated ?? '—'}</small>}
     {event.type === 'economic' && <small>{t('impact')} {event.impact || '—'} · {t('actual')} {event.actual ?? '—'} · {t('estimate')} {event.estimate ?? '—'} · {t('previous')} {event.previous ?? '—'}</small>}

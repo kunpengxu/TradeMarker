@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import SymbolLink from './SymbolLink'
 import { money, number, percent, valueClass } from '../utils/formatters'
 
 export default function StockCard({ item, onRemove }) {
@@ -6,7 +6,7 @@ export default function StockCard({ item, onRemove }) {
   return (
     <article className="stock-card">
       <div className="stock-card-head">
-        <Link to={`/stock/${symbol}`} className="symbol-link">{symbol}</Link>
+        <SymbolLink symbol={symbol} className="symbol-link" />
         <button className="icon-button" onClick={() => onRemove(symbol)} aria-label={`Remove ${symbol}`}>×</button>
       </div>
       <div className="price">{money(quote.price)}</div>

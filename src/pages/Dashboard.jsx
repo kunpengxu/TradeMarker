@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import IndicatorMenu from '../components/IndicatorMenu'
 import IntervalSelector from '../components/IntervalSelector'
 import OrderPlanCard from '../components/OrderPlanCard'
@@ -14,7 +14,7 @@ import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition } from '../services/positionCalculator'
-import { addSymbol, deleteTrade, getTrades, getWatchlist, removeSymbol, saveTrade, updateTrade } from '../services/storage'
+import { addSymbol, deleteTrade, getTrades, getWatchlist, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useChartIndicators } from '../hooks/useChartIndicators'
 import { useI18n } from '../i18n'
@@ -29,8 +29,10 @@ const DENSITY_KEY = 'trademarker.displayDensity'
 
 export default function Dashboard() {
   const { t } = useI18n()
+  const [searchParams] = useSearchParams()
+  const requestedSymbol = searchParams.get('symbol') ? normalizeSymbol(searchParams.get('symbol')) : ''
   const [items, setItems] = useState([])
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected] = useState(requestedSymbol || null)
   const [candles, setCandles] = useState([])
   const [historyCache, setHistoryCache] = useState({})
   const [intradayCache, setIntradayCache] = useState({})
@@ -76,7 +78,12 @@ export default function Dashboard() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    if (requestedSymbol && !getWatchlist().includes(requestedSymbol)) addSymbol(requestedSymbol)
+    refresh().then(() => {
+      if (requestedSymbol) setSelected(requestedSymbol)
+    })
+  }, [refresh, requestedSymbol])
   useEffect(() => { localStorage.setItem(DENSITY_KEY, density) }, [density])
   useEffect(() => {
     loadOrderPlanFromGitHub('order-plan.json')
