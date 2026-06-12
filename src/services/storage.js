@@ -40,6 +40,8 @@ export const TRADE_DEFAULTS = {
   riskNote: '',
   marketContext: '',
   emotion: null,
+  currency: null,
+  cashImpactApplied: false,
 }
 const normalizeTargets = (trade) => {
   if (Array.isArray(trade.targets)) return [...new Set(trade.targets.map(Number).filter((value) => Number.isFinite(value) && value > 0))]
@@ -61,6 +63,8 @@ export const normalizeTrade = (trade) => ({
   side: trade.side || 'BUY',
   price: Number(trade.price || 0),
   shares: Number(trade.shares || 0),
+  currency: trade.currency ? String(trade.currency).toUpperCase() : null,
+  cashImpactApplied: Boolean(trade.cashImpactApplied),
   reasonTags: Array.isArray(trade.reasonTags) ? trade.reasonTags.filter(Boolean) : trade.reasonType ? [trade.reasonType] : [],
   confidence: normalizeConfidence(trade.confidence),
   targetPrice: trade.targetPrice == null || trade.targetPrice === '' ? null : Number(trade.targetPrice),
@@ -73,6 +77,49 @@ export const normalizeTrade = (trade) => ({
   marketContext: trade.marketContext || '',
   emotion: trade.emotion || null,
 })
+
+const inferTradeCurrency = (symbol) => /\.(NE|TO|V)$/i.test(symbol || '') ? 'CAD' : 'USD'
+
+const normalizeCashBalances = (balances) => {
+  const rows = Array.isArray(balances) ? balances : Object.entries(balances || {}).map(([currency, amount]) => ({ currency, amount }))
+  return rows.reduce((result, row) => {
+    const currency = String(row?.currency || '').trim().toUpperCase()
+    const amount = Number(row?.amount ?? row?.cash ?? 0)
+    if (!currency || !Number.isFinite(amount)) return result
+    const existing = result.find((item) => item.currency === currency)
+    if (existing) existing.amount += amount
+    else result.push({ currency, amount })
+    return result
+  }, []).sort((a, b) => a.currency.localeCompare(b.currency))
+}
+
+export const getAccount = () => {
+  const account = read(KEYS.account, {})
+  return {
+    ...account,
+    cashBalances: normalizeCashBalances(account.cashBalances || []),
+  }
+}
+export const saveAccount = (account) => write(KEYS.account, {
+  ...getAccount(),
+  ...account,
+  cashBalances: normalizeCashBalances(account?.cashBalances || []),
+})
+export const getCashBalances = () => getAccount().cashBalances
+export const saveCashBalances = (cashBalances) => saveAccount({ cashBalances })
+
+const applyTradeCashImpact = (account, trade, direction = 1) => {
+  const value = Number(trade.price) * Number(trade.shares)
+  if (!Number.isFinite(value) || value <= 0) return account
+  const currency = trade.currency || inferTradeCurrency(trade.symbol)
+  const sideMultiplier = trade.side === 'SELL' ? 1 : -1
+  const delta = sideMultiplier * value * direction
+  const balances = normalizeCashBalances(account.cashBalances)
+  const existing = balances.find((balance) => balance.currency === currency)
+  if (existing) existing.amount += delta
+  else balances.push({ currency, amount: delta })
+  return { ...account, cashBalances: normalizeCashBalances(balances) }
+}
 
 export const getWatchlist = () => read(KEYS.watchlist, [])
 export const saveWatchlist = (symbols) => write(KEYS.watchlist, [...new Set(symbols.map(normalizeSymbol))])
@@ -111,7 +158,9 @@ export const getTrades = (symbol) => {
   return symbol ? trades.filter((trade) => trade.symbol === symbol) : trades
 }
 export const saveTrade = (trade) => {
-  const next = [...getTrades(), normalizeTrade({ ...trade, id: trade.id || uid() })]
+  const normalized = normalizeTrade({ ...trade, id: trade.id || uid(), currency: trade.currency || inferTradeCurrency(trade.symbol), cashImpactApplied: true })
+  write(KEYS.account, applyTradeCashImpact(getAccount(), normalized, 1), false)
+  const next = [...getTrades(), normalized]
   write(KEYS.trades, next)
   return next
 }
@@ -124,11 +173,25 @@ export const saveTrades = (trades) => {
   return next
 }
 export const updateTrade = (updated) => {
-  const next = getTrades().map((trade) => trade.id === updated.id ? normalizeTrade({ ...trade, ...updated }) : trade)
+  let account = getAccount()
+  const next = getTrades().map((trade) => {
+    if (trade.id !== updated.id) return trade
+    const normalized = normalizeTrade({ ...trade, ...updated, currency: updated.currency || trade.currency || inferTradeCurrency(updated.symbol || trade.symbol) })
+    if (!trade.cashImpactApplied) return normalized
+    account = applyTradeCashImpact(account, trade, -1)
+    account = applyTradeCashImpact(account, { ...normalized, cashImpactApplied: true }, 1)
+    return { ...normalized, cashImpactApplied: true }
+  })
+  write(KEYS.account, account, false)
   write(KEYS.trades, next)
   return next
 }
-export const deleteTrade = (id) => write(KEYS.trades, getTrades().filter((trade) => trade.id !== id))
+export const deleteTrade = (id) => {
+  const trades = getTrades()
+  const deleted = trades.find((trade) => trade.id === id)
+  if (deleted?.cashImpactApplied) write(KEYS.account, applyTradeCashImpact(getAccount(), deleted, -1), false)
+  write(KEYS.trades, trades.filter((trade) => trade.id !== id))
+}
 
 export const getOrders = (symbol) => {
   const orders = read(KEYS.plannedOrders, [])
@@ -148,34 +211,6 @@ export const deleteOrder = (id) => write(KEYS.plannedOrders, getOrders().filter(
 
 export const getSettings = () => read(KEYS.settings, {})
 export const saveSettings = (settings) => write(KEYS.settings, settings)
-
-const normalizeCashBalances = (balances) => {
-  const rows = Array.isArray(balances) ? balances : Object.entries(balances || {}).map(([currency, amount]) => ({ currency, amount }))
-  return rows.reduce((result, row) => {
-    const currency = String(row?.currency || '').trim().toUpperCase()
-    const amount = Number(row?.amount ?? row?.cash ?? 0)
-    if (!currency || !Number.isFinite(amount)) return result
-    const existing = result.find((item) => item.currency === currency)
-    if (existing) existing.amount += amount
-    else result.push({ currency, amount })
-    return result
-  }, []).sort((a, b) => a.currency.localeCompare(b.currency))
-}
-
-export const getAccount = () => {
-  const account = read(KEYS.account, {})
-  return {
-    ...account,
-    cashBalances: normalizeCashBalances(account.cashBalances || []),
-  }
-}
-export const saveAccount = (account) => write(KEYS.account, {
-  ...getAccount(),
-  ...account,
-  cashBalances: normalizeCashBalances(account?.cashBalances || []),
-})
-export const getCashBalances = () => getAccount().cashBalances
-export const saveCashBalances = (cashBalances) => saveAccount({ cashBalances })
 
 export const exportData = () => ({
   watchlist: getWatchlist(),

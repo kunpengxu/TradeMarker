@@ -9,7 +9,7 @@ const localDateTime = () => {
   return { date: value.slice(0, 10), time: value.slice(11, 16) }
 }
 
-export default function TradeModal({ side, symbol, defaultPrice, candles = [], initialTrade, onClose, onSave }) {
+export default function TradeModal({ side, symbol, defaultPrice, currency, candles = [], initialTrade, onClose, onSave }) {
   const { t } = useI18n()
   const initialDate = initialTrade ? new Date(initialTrade.date) : null
   if (initialDate) initialDate.setMinutes(initialDate.getMinutes() - initialDate.getTimezoneOffset())
@@ -58,6 +58,7 @@ export default function TradeModal({ side, symbol, defaultPrice, candles = [], i
       symbol,
       price: Number(form.price),
       shares: Number(form.shares),
+      currency: initialTrade?.currency || currency || null,
       confidence: form.confidence == null || form.confidence === '' ? null : Number(form.confidence),
       reasonType: form.reasonTags[0] || '',
       targets,
