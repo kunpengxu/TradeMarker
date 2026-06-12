@@ -1,22 +1,45 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import OrderPlanCard from './OrderPlanCard'
 import Sparkline from './Sparkline'
 import { getWatchlistGroups, saveWatchlistGroups } from '../services/storage'
 import { money, percent, valueClass } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
 const cleanSymbol = (value) => String(value || '').toUpperCase().replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')
+const matchesSymbol = (first, second) => {
+  const left = String(first || '').toUpperCase()
+  const right = String(second || '').toUpperCase()
+  return left === right || cleanSymbol(left) === cleanSymbol(right)
+}
 
-export default function WatchlistSidebar({ items, selected, onSelect, onRemove, orderSymbols = [], sparklines = {} }) {
+export default function WatchlistSidebar({ items, selected, onSelect, onRemove, orderSymbols = [], orderPlans = [], sparklines = {} }) {
   const { t } = useI18n()
+  const sidebarRef = useRef(null)
   const [groups, setGroups] = useState(getWatchlistGroups)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'manual', direction: 'desc' })
+  const [orderPopover, setOrderPopover] = useState(null)
 
   useEffect(() => setGroups(getWatchlistGroups()), [items])
   const itemMap = useMemo(() => new Map(items.map((item) => [item.symbol, item])), [items])
-  const orderSymbolSet = useMemo(() => new Set(orderSymbols.flatMap((symbol) => [String(symbol).toUpperCase(), cleanSymbol(symbol)])), [orderSymbols])
-  const orderCount = (symbol) => orderSymbols.filter((orderSymbol) => String(orderSymbol).toUpperCase() === String(symbol).toUpperCase() || cleanSymbol(orderSymbol) === cleanSymbol(symbol)).length
+  const allOrderSymbols = useMemo(() => orderPlans.length ? orderPlans.map((order) => order.symbol).filter(Boolean) : orderSymbols, [orderPlans, orderSymbols])
+  const orderSymbolSet = useMemo(() => new Set(allOrderSymbols.flatMap((symbol) => [String(symbol).toUpperCase(), cleanSymbol(symbol)])), [allOrderSymbols])
+  const orderRowsBySymbol = useMemo(() => new Map(items.map((item) => [
+    item.symbol,
+    orderPlans.filter((order) => matchesSymbol(order.symbol, item.symbol)),
+  ])), [items, orderPlans])
+  const ordersForSymbol = (symbol) => orderRowsBySymbol.get(symbol) || []
+  const orderCount = (symbol) => orderPlans.length
+    ? ordersForSymbol(symbol).length
+    : orderSymbols.filter((orderSymbol) => matchesSymbol(orderSymbol, symbol)).length
+  const toggleOrderPopover = (event, symbol) => {
+    event.stopPropagation()
+    const buttonBox = event.currentTarget.getBoundingClientRect()
+    const sidebarBox = sidebarRef.current?.getBoundingClientRect()
+    const top = sidebarBox ? Math.max(12, Math.min(buttonBox.top - sidebarBox.top - 18, window.innerHeight - sidebarBox.top - 360)) : 120
+    setOrderPopover((current) => current?.symbol === symbol ? null : { symbol, top })
+  }
   const visible = (symbol) => {
     const item = itemMap.get(symbol)
     if (!item || !symbol.toLowerCase().includes(query.toLowerCase())) return false
@@ -59,7 +82,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
   }
 
   return (
-    <aside className="market-sidebar">
+    <aside className="market-sidebar" ref={sidebarRef}>
       <div className="sidebar-title">
         <div><span className="eyebrow">{t('personalList')}</span><h2>{t('watchlist')}</h2></div>
         <button className="group-add" onClick={addGroup}>{t('addGroup')}</button>
@@ -87,22 +110,31 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
                 onDragStart={(event) => event.dataTransfer.setData('text/plain', symbol)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => { event.stopPropagation(); moveSymbol(event.dataTransfer.getData('text/plain'), group.id, symbol) }}
-                onClick={() => onSelect(symbol)}
-                onKeyDown={(event) => { if (event.key === 'Enter') onSelect(symbol) }}
+                onClick={() => { setOrderPopover(null); onSelect(symbol) }}
+                onKeyDown={(event) => { if (event.key === 'Enter') { setOrderPopover(null); onSelect(symbol) } }}
               >
-                <span className="watch-symbol"><strong>{symbol}{orders ? <em className="watch-order-badge">{orders} {t('orderShort')}</em> : null}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
+                <span className="watch-symbol"><strong>{symbol}{orders ? <button type="button" className="watch-order-badge" onClick={(event) => toggleOrderPopover(event, symbol)}>{orders} {t('orderShort')}</button> : null}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
                 <Sparkline rows={sparklines[symbol]} change={item.quote?.change || 0} />
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
                 <select className="watch-group-select" value={group.id} onClick={(event) => event.stopPropagation()} onChange={(event) => moveSymbol(symbol, event.target.value)}>
                   {groups.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                 </select>
-                <button className="remove-watch" onClick={(event) => { event.stopPropagation(); onRemove(symbol) }}>×</button>
+                <button className="remove-watch" onClick={(event) => { event.stopPropagation(); setOrderPopover(null); onRemove(symbol) }}>×</button>
               </div>
             })}
           </section>
         })}
       </div>
+      {orderPopover?.symbol && ordersForSymbol(orderPopover.symbol).length ? <div className="watch-order-popover" style={{ top: orderPopover.top }} onClick={(event) => event.stopPropagation()}>
+        <div className="watch-order-popover-head">
+          <strong>{t('orderSuggestionsFor', { symbol: orderPopover.symbol })}</strong>
+          <button type="button" onClick={() => setOrderPopover(null)}>×</button>
+        </div>
+        <div className="watch-order-popover-body">
+          {ordersForSymbol(orderPopover.symbol).map((order) => <OrderPlanCard order={order} key={order.id} />)}
+        </div>
+      </div> : null}
     </aside>
   )
 }

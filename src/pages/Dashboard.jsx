@@ -165,7 +165,7 @@ export default function Dashboard() {
       </div> : null}
 
       <div className="workspace-body">
-        <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} sparklines={{ ...sparklineCache, ...intradayCache }} />
+        <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} orderPlans={orders} sparklines={{ ...sparklineCache, ...intradayCache }} />
         <div className="market-main">
           {!selectedItem ? (
             <div className="workspace-empty">
