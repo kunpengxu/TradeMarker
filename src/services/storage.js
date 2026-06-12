@@ -4,6 +4,7 @@ const KEYS = {
   plannedOrders: 'trademarker.plannedOrders',
   settings: 'trademarker.settings',
   watchlistGroups: 'trademarker.watchlistGroups',
+  account: 'trademarker.account',
   updatedAt: 'trademarker.updatedAt',
 }
 
@@ -148,11 +149,40 @@ export const deleteOrder = (id) => write(KEYS.plannedOrders, getOrders().filter(
 export const getSettings = () => read(KEYS.settings, {})
 export const saveSettings = (settings) => write(KEYS.settings, settings)
 
+const normalizeCashBalances = (balances) => {
+  const rows = Array.isArray(balances) ? balances : Object.entries(balances || {}).map(([currency, amount]) => ({ currency, amount }))
+  return rows.reduce((result, row) => {
+    const currency = String(row?.currency || '').trim().toUpperCase()
+    const amount = Number(row?.amount ?? row?.cash ?? 0)
+    if (!currency || !Number.isFinite(amount)) return result
+    const existing = result.find((item) => item.currency === currency)
+    if (existing) existing.amount += amount
+    else result.push({ currency, amount })
+    return result
+  }, []).sort((a, b) => a.currency.localeCompare(b.currency))
+}
+
+export const getAccount = () => {
+  const account = read(KEYS.account, {})
+  return {
+    ...account,
+    cashBalances: normalizeCashBalances(account.cashBalances || []),
+  }
+}
+export const saveAccount = (account) => write(KEYS.account, {
+  ...getAccount(),
+  ...account,
+  cashBalances: normalizeCashBalances(account?.cashBalances || []),
+})
+export const getCashBalances = () => getAccount().cashBalances
+export const saveCashBalances = (cashBalances) => saveAccount({ cashBalances })
+
 export const exportData = () => ({
   watchlist: getWatchlist(),
   watchlistGroups: getWatchlistGroups(),
   trades: getTrades(),
   plannedOrders: getOrders(),
+  account: getAccount(),
   settings: { ...getSettings(), twelveDataApiKey: undefined, fmpApiKey: undefined, marketauxApiKey: undefined, githubToken: undefined },
   updatedAt: read(KEYS.updatedAt, new Date().toISOString()),
 })
@@ -165,6 +195,10 @@ export const importData = (data) => {
   write(KEYS.watchlistGroups, data.watchlistGroups || [{ id: 'default', name: 'Watchlist', symbols: data.watchlist }], false)
   write(KEYS.trades, data.trades.map(normalizeTrade), false)
   write(KEYS.plannedOrders, data.plannedOrders, false)
+  write(KEYS.account, {
+    ...(data.account || {}),
+    cashBalances: normalizeCashBalances(data.account?.cashBalances || data.cashBalances || []),
+  }, false)
   write(KEYS.settings, { ...getSettings(), ...(data.settings || {}) }, false)
   write(KEYS.updatedAt, data.updatedAt || new Date().toISOString(), false)
   window.dispatchEvent(new CustomEvent('trademarker:data-imported'))

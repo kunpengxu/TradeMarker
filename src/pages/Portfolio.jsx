@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import { getTrades, getWatchlist } from '../services/storage'
+import { getCashBalances, getTrades, getWatchlist, saveCashBalances } from '../services/storage'
 import { calculateTradingStatistics } from '../services/tradeAnalytics'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useI18n } from '../i18n'
@@ -11,6 +11,7 @@ export default function Portfolio() {
   const { t } = useI18n()
   const [positions, setPositions] = useState([])
   const [sort, setSort] = useState({ key: 'symbol', direction: 'asc' })
+  const [cashBalances, setCashBalances] = useState(() => getCashBalances())
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     Promise.all(getWatchlist().map(async (symbol) => {
@@ -35,6 +36,8 @@ export default function Portfolio() {
   const allTrades = useMemo(() => getTrades(), [])
   const tradingStats = useMemo(() => calculateTradingStatistics(positions, allTrades), [positions, allTrades])
   const currencies = Object.keys(totals)
+  const cashCurrencies = useMemo(() => [...new Set(['USD', 'CAD', ...currencies, ...cashBalances.map((balance) => balance.currency)])].sort(), [cashBalances, currencies])
+  const cashByCurrency = useMemo(() => Object.fromEntries(cashBalances.map((balance) => [balance.currency, balance.amount])), [cashBalances])
   const singleCurrency = currencies.length === 1 ? currencies[0] : null
   const moneyOrNA = (value) => value == null || !singleCurrency ? 'N/A' : money(value, singleCurrency)
   const currencyLines = (values) => {
@@ -47,10 +50,18 @@ export default function Portfolio() {
       generatedAt: new Date().toISOString(),
       source: 'TradeMarker',
       note: 'Currency totals are nominal by quote currency and are not converted through foreign exchange.',
+      account: {
+        cashBalances: cashBalances.map((balance) => ({
+          currency: balance.currency,
+          availableCash: Number(balance.amount.toFixed(4)),
+        })),
+      },
       totalsByCurrency: Object.values(totals).map((total) => ({
         currency: total.currency,
         totalCost: Number(total.cost.toFixed(4)),
         marketValue: Number(total.value.toFixed(4)),
+        availableCash: Number((cashByCurrency[total.currency] || 0).toFixed(4)),
+        marketValuePlusCash: Number((total.value + (cashByCurrency[total.currency] || 0)).toFixed(4)),
         unrealizedPL: Number(total.pl.toFixed(4)),
         unrealizedPLPercent: total.cost ? Number(((total.pl / total.cost) * 100).toFixed(4)) : 0,
         positionCount: positions.filter((position) => position.quote.currency === total.currency).length,
@@ -108,10 +119,19 @@ export default function Portfolio() {
         unrealizedPLPercent: Number(position.unrealizedPLPercent.toFixed(4)),
       })).sort((a, b) => a.symbol.localeCompare(b.symbol)),
     }
-  }, [positions, singleCurrency, totals, tradingStats])
+  }, [cashBalances, cashByCurrency, positions, singleCurrency, totals, tradingStats])
   useEffect(() => {
-    if (!loading && positions.length) savePortfolioSummaryToGitHub(portfolioSummary).catch(() => {})
+    if (!loading) savePortfolioSummaryToGitHub(portfolioSummary).catch(() => {})
   }, [loading, positions.length, portfolioSummary])
+  const updateCashBalance = (currency, rawValue) => {
+    const amount = Number(rawValue)
+    const next = cashCurrencies.map((item) => ({
+      currency: item,
+      amount: item === currency ? (Number.isFinite(amount) ? amount : 0) : (cashByCurrency[item] || 0),
+    }))
+    setCashBalances(next)
+    saveCashBalances(next)
+  }
   const sortedPositions = useMemo(() => [...positions].sort((a, b) => {
     const direction = sort.direction === 'asc' ? 1 : -1
     if (sort.key === 'symbol') return a.symbol.localeCompare(b.symbol) * direction
@@ -126,7 +146,9 @@ export default function Portfolio() {
 
   if (loading) return <div className="loading">{t('loadingPortfolio')}</div>
   return <section><div className="page-head"><div><p className="eyebrow">{t('portfolioEyebrow')}</p><h1>{t('portfolioTitle')}</h1><p>{t('portfolioSubtitle')}</p></div></div>
-    <div className="portfolio-summary">{Object.values(totals).map((total) => <div className="panel portfolio-card" key={total.currency}><span>{total.currency} {t('portfolioTitle').toLowerCase()}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} {money(total.cost, total.currency)}</small><small className={valueClass(total.pl)}>{t('pl')} {money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</small></div></div>)}</div>
+    <div className="portfolio-summary">{Object.values(totals).map((total) => <div className="panel portfolio-card" key={total.currency}><span>{total.currency} {t('portfolioTitle').toLowerCase()}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} {money(total.cost, total.currency)}</small><small className={valueClass(total.pl)}>{t('pl')} {money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</small></div></div>)}
+      <div className="panel portfolio-card cash-card"><span>{t('availableCash')}</span><strong>{cashCurrencies.map((currency) => `${currency} ${money(cashByCurrency[currency] || 0, currency)}`).join(' · ')}</strong><p>{t('availableCashHint')}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></div>
+    </div>
     <div className="panel trading-stats"><h2>{t('tradingStatistics')}</h2><div className="stats-grid">
       <span>{t('totalUnrealizedPL')}<strong className={valueClass(singleCurrency ? tradingStats.totalUnrealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalUnrealizedPL) : currencyLines(tradingStats.unrealizedByCurrency)}</strong></span>
       <span>{t('totalRealizedPL')}<strong className={valueClass(singleCurrency ? tradingStats.totalRealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalRealizedPL) : currencyLines(tradingStats.realizedByCurrency)}</strong></span>
