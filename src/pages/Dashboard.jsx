@@ -79,8 +79,8 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    if (requestedSymbol && !getWatchlist().includes(requestedSymbol)) addSymbol(requestedSymbol)
-    refresh().then(() => {
+    const symbols = requestedSymbol ? [...new Set([...getWatchlist(), requestedSymbol])] : getWatchlist()
+    refresh(symbols).then(() => {
       if (requestedSymbol) setSelected(requestedSymbol)
     })
   }, [refresh, requestedSymbol])
@@ -127,6 +127,7 @@ export default function Dashboard() {
   }, [items, sparklineCache])
 
   const selectedItem = items.find((item) => item.symbol === selected)
+  const selectedInWatchlist = selected ? getWatchlist().includes(selected) : false
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
   const orderSymbols = useMemo(() => [...new Set(orders.map((order) => order.symbol).filter(Boolean))], [orders])
   const plannedWatchlistCount = useMemo(() => items.filter((item) => orderSymbols.some((symbol) => matchesSymbol(symbol, item.symbol))).length, [items, orderSymbols])
@@ -140,10 +141,23 @@ export default function Dashboard() {
       ? { ...item, position: calculatePosition(nextTrades, item.quote.price) }
       : item))
   }
-  const addSelectedSymbol = async (ticker) => {
-    addSymbol(ticker)
-    await refresh([ticker], false)
-    setSelected(ticker)
+  const openSelectedSymbol = async (ticker) => {
+    const clean = normalizeSymbol(ticker)
+    if (!clean) return
+    await refresh([clean], false)
+    setSelected(clean)
+  }
+  const toggleSelectedWatchlist = async () => {
+    if (!selected) return
+    if (selectedInWatchlist) {
+      removeSymbol(selected)
+      setItems((current) => [...current])
+      return
+    }
+    addSymbol(selected)
+    if (selectedItem) setItems((current) => [...current])
+    else await refresh([selected], false)
+    setSelected(selected)
   }
   const remove = async (ticker) => {
     if (confirm(t('removeWatchlistConfirm', { symbol: ticker }))) {
@@ -156,7 +170,7 @@ export default function Dashboard() {
   return (
     <section className={`market-workspace ${density === 'compact' ? 'compact-density' : ''}`}>
       <div className="workspace-toolbar">
-        <SymbolSearch onSelect={addSelectedSymbol} />
+        <SymbolSearch onSelect={openSelectedSymbol} />
         <div className="workspace-status">
           <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
           {updated ? `${getMarketDataProviderName()} · ${t('refreshed')} ${updated.toLocaleTimeString()}` : t('loadingReferenceData')}
@@ -179,7 +193,7 @@ export default function Dashboard() {
               <div className="empty-icon">+</div>
               <h1>{t('emptyWatchlistTitle')}</h1>
               <p>{t('emptyWatchlistText')}</p>
-              <div className="examples">{['TSLL', 'RDW', 'QMCO', 'AAPL'].map((example) => <button className="secondary" key={example} onClick={async () => { addSymbol(example); await refresh([example], false); setSelected(example) }}>{example}</button>)}</div>
+              <div className="examples">{['TSLL', 'RDW', 'QMCO', 'AAPL'].map((example) => <button className="secondary" key={example} onClick={() => openSelectedSymbol(example)}>{example}</button>)}</div>
             </div>
           ) : !selectedItem.quote ? (
             <div className="workspace-empty market-error-state">
@@ -201,6 +215,15 @@ export default function Dashboard() {
                   <span className={valueClass(selectedItem.quote.change)}>{selectedItem.quote.change >= 0 ? '+' : ''}{money(selectedItem.quote.change, selectedItem.quote.currency)} &nbsp; {percent(selectedItem.quote.changePercent)}</span>
                 </div>
                 <div className="action-group">
+                  <button
+                    type="button"
+                    className={`watchlist-heart ${selectedInWatchlist ? 'active' : ''}`}
+                    aria-pressed={selectedInWatchlist}
+                    title={selectedInWatchlist ? t('removeFromWatchlist') : t('addToWatchlist')}
+                    onClick={toggleSelectedWatchlist}
+                  >
+                    {selectedInWatchlist ? '♥' : '♡'}
+                  </button>
                   {selectedOrders.length ? <button className="secondary order-suggestion-button" onClick={() => setShowOrders(true)}>{t('orderSuggestions')} ({selectedOrders.length})</button> : null}
                   <button className="buy-button" onClick={() => setTradeSide('BUY')}>B&nbsp; {t('recordBuy')}</button>
                   <button className="sell-button" onClick={() => setTradeSide('SELL')}>S&nbsp; {t('recordSell')}</button>
