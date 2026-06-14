@@ -15,6 +15,7 @@ const matchesSymbol = (first, second) => {
 export default function WatchlistSidebar({ items, selected, onSelect, onRemove, orderSymbols = [], orderPlans = [], sparklines = {} }) {
   const { t } = useI18n()
   const sidebarRef = useRef(null)
+  const hidePopoverTimer = useRef(null)
   const [groups, setGroups] = useState(getWatchlistGroups)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
@@ -22,6 +23,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
   const [orderPopover, setOrderPopover] = useState(null)
 
   useEffect(() => setGroups(getWatchlistGroups()), [items])
+  useEffect(() => () => window.clearTimeout(hidePopoverTimer.current), [])
   const itemMap = useMemo(() => new Map(items.map((item) => [item.symbol, item])), [items])
   const allOrderSymbols = useMemo(() => orderPlans.length ? orderPlans.map((order) => order.symbol).filter(Boolean) : orderSymbols, [orderPlans, orderSymbols])
   const orderSymbolSet = useMemo(() => new Set(allOrderSymbols.flatMap((symbol) => [String(symbol).toUpperCase(), cleanSymbol(symbol)])), [allOrderSymbols])
@@ -33,12 +35,17 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
   const orderCount = (symbol) => orderPlans.length
     ? ordersForSymbol(symbol).length
     : orderSymbols.filter((orderSymbol) => matchesSymbol(orderSymbol, symbol)).length
-  const toggleOrderPopover = (event, symbol) => {
+  const showOrderPopover = (event, symbol) => {
     event.stopPropagation()
+    window.clearTimeout(hidePopoverTimer.current)
     const buttonBox = event.currentTarget.getBoundingClientRect()
     const sidebarBox = sidebarRef.current?.getBoundingClientRect()
-    const top = sidebarBox ? Math.max(12, Math.min(buttonBox.top - sidebarBox.top - 18, window.innerHeight - sidebarBox.top - 360)) : 120
-    setOrderPopover((current) => current?.symbol === symbol ? null : { symbol, top })
+    const top = sidebarBox ? Math.max(8, Math.min(buttonBox.top - sidebarBox.top - 18, window.innerHeight - sidebarBox.top - 270)) : 100
+    setOrderPopover({ symbol, top })
+  }
+  const scheduleHideOrderPopover = () => {
+    window.clearTimeout(hidePopoverTimer.current)
+    hidePopoverTimer.current = window.setTimeout(() => setOrderPopover(null), 120)
   }
   const visible = (symbol) => {
     const item = itemMap.get(symbol)
@@ -113,7 +120,15 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
                 onClick={() => { setOrderPopover(null); onSelect(symbol) }}
                 onKeyDown={(event) => { if (event.key === 'Enter') { setOrderPopover(null); onSelect(symbol) } }}
               >
-                <span className="watch-symbol"><strong>{symbol}{orders ? <button type="button" className="watch-order-badge" onClick={(event) => toggleOrderPopover(event, symbol)}>{orders} {t('orderShort')}</button> : null}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
+                <span className="watch-symbol"><strong>{symbol}{orders ? <button
+                  type="button"
+                  className="watch-order-badge"
+                  onMouseEnter={(event) => showOrderPopover(event, symbol)}
+                  onMouseLeave={scheduleHideOrderPopover}
+                  onFocus={(event) => showOrderPopover(event, symbol)}
+                  onBlur={scheduleHideOrderPopover}
+                  onClick={(event) => event.stopPropagation()}
+                >{orders} {t('orderShort')}</button> : null}</strong><small>{item.error || (item.position.shares ? `${item.position.shares} ${t('shares').toLowerCase()} · ${money(item.position.unrealizedPL, item.quote?.currency)}` : t('noPosition'))}</small></span>
                 <Sparkline rows={sparklines[symbol]} change={item.quote?.change || 0} />
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
@@ -126,7 +141,13 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
           </section>
         })}
       </div>
-      {orderPopover?.symbol && ordersForSymbol(orderPopover.symbol).length ? <div className="watch-order-popover" style={{ top: orderPopover.top }} onClick={(event) => event.stopPropagation()}>
+      {orderPopover?.symbol && ordersForSymbol(orderPopover.symbol).length ? <div
+        className="watch-order-popover"
+        style={{ top: orderPopover.top }}
+        onMouseEnter={() => window.clearTimeout(hidePopoverTimer.current)}
+        onMouseLeave={scheduleHideOrderPopover}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="watch-order-popover-head">
           <strong>{t('orderSuggestionsFor', { symbol: orderPopover.symbol })}</strong>
           <button type="button" onClick={() => setOrderPopover(null)}>×</button>
