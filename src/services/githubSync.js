@@ -89,21 +89,16 @@ async function readOptionalJson(path) {
 async function buildTotalSummary(changedKey, changedData) {
   const paths = totalSummaryPaths()
   const existing = totalSummaryCache || await readOptionalJson(paths.totalSummary)
+  const [portfolioSummary, marketAnalysis, eventsCalendar] = await Promise.all([
+    changedKey === 'portfolioSummary' ? Promise.resolve(changedData) : readOptionalJson(paths.portfolioSummary),
+    changedKey === 'marketAnalysis' ? Promise.resolve(changedData) : readOptionalJson(paths.marketAnalysis),
+    changedKey === 'eventsCalendar' ? Promise.resolve(changedData) : readOptionalJson(paths.eventsCalendar),
+  ])
   const parts = {
     trademarker: exportData(),
-    portfolioSummary: existing?.portfolioSummary ?? null,
-    marketAnalysis: existing?.marketAnalysis ?? null,
-    eventsCalendar: existing?.eventsCalendar ?? null,
-  }
-  if (!existing) {
-    const [portfolioSummary, marketAnalysis, eventsCalendar] = await Promise.all([
-      changedKey === 'portfolioSummary' ? Promise.resolve(changedData) : readOptionalJson(paths.portfolioSummary),
-      changedKey === 'marketAnalysis' ? Promise.resolve(changedData) : readOptionalJson(paths.marketAnalysis),
-      changedKey === 'eventsCalendar' ? Promise.resolve(changedData) : readOptionalJson(paths.eventsCalendar),
-    ])
-    parts.portfolioSummary = portfolioSummary
-    parts.marketAnalysis = marketAnalysis
-    parts.eventsCalendar = eventsCalendar
+    portfolioSummary: portfolioSummary ?? existing?.portfolioSummary ?? null,
+    marketAnalysis: marketAnalysis ?? existing?.marketAnalysis ?? null,
+    eventsCalendar: eventsCalendar ?? existing?.eventsCalendar ?? null,
   }
   if (changedKey && changedKey !== 'trademarker') parts[changedKey] = changedData
   if (changedKey === 'trademarker') parts.trademarker = changedData || exportData()
