@@ -3,6 +3,7 @@ import SymbolLink from '../components/SymbolLink'
 import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
+import { buildPortfolioSummaryExport } from '../services/portfolioSummaryExport'
 import { getCashBalances, getTrades, getWatchlist, saveCashBalances } from '../services/storage'
 import { calculateTradingStatistics } from '../services/tradeAnalytics'
 import { money, number, percent, valueClass } from '../utils/formatters'
@@ -46,82 +47,7 @@ export default function Portfolio() {
     const entries = Object.entries(values || {})
     return entries.length ? entries.map(([currency, value]) => <em className={valueClass(value)} key={currency}>{currency} {money(value, currency)}</em>) : 'N/A'
   }
-  const portfolioSummary = useMemo(() => {
-    const totalNominalMarketValue = Object.values(totals).reduce((sum, item) => sum + item.value, 0)
-    return {
-      generatedAt: new Date().toISOString(),
-      source: 'TradeMarker',
-      note: 'Currency totals are nominal by quote currency and are not converted through foreign exchange.',
-      account: {
-        cashBalances: cashBalances.map((balance) => ({
-          currency: balance.currency,
-          availableCash: Number(balance.amount.toFixed(4)),
-        })),
-      },
-      totalsByCurrency: Object.values(totals).map((total) => ({
-        currency: total.currency,
-        totalCost: Number(total.cost.toFixed(4)),
-        marketValue: Number(total.value.toFixed(4)),
-        availableCash: Number((cashByCurrency[total.currency] || 0).toFixed(4)),
-        marketValuePlusCash: Number((total.value + (cashByCurrency[total.currency] || 0)).toFixed(4)),
-        unrealizedPL: Number(total.pl.toFixed(4)),
-        unrealizedPLPercent: total.cost ? Number(((total.pl / total.cost) * 100).toFixed(4)) : 0,
-        positionCount: positions.filter((position) => position.quote.currency === total.currency).length,
-      })),
-      currencyDistribution: Object.values(totals).map((total) => ({
-        currency: total.currency,
-        marketValue: Number(total.value.toFixed(4)),
-        nominalSharePercent: totalNominalMarketValue ? Number(((total.value / totalNominalMarketValue) * 100).toFixed(4)) : 0,
-      })),
-      tradingStatistics: {
-        totalUnrealizedPL: singleCurrency ? Number(tradingStats.totalUnrealizedPL.toFixed(4)) : null,
-        totalUnrealizedPLByCurrency: Object.fromEntries(Object.entries(tradingStats.unrealizedByCurrency).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
-        totalRealizedPL: singleCurrency && tradingStats.totalRealizedPL != null ? Number(tradingStats.totalRealizedPL.toFixed(4)) : null,
-        totalRealizedPLByCurrency: Object.fromEntries(Object.entries(tradingStats.realizedByCurrency).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
-        openPositions: tradingStats.openPositions,
-        closedTrades: tradingStats.closedTrades,
-        bestRealizedTrade: tradingStats.bestRealizedTrade ? {
-          symbol: tradingStats.bestRealizedTrade.symbol,
-          side: tradingStats.bestRealizedTrade.side,
-          price: tradingStats.bestRealizedTrade.price,
-          shares: tradingStats.bestRealizedTrade.shares,
-          date: tradingStats.bestRealizedTrade.date,
-          realizedPL: Number(tradingStats.bestRealizedTrade.realizedPL.toFixed(4)),
-        } : null,
-        worstRealizedTrade: tradingStats.worstRealizedTrade ? {
-          symbol: tradingStats.worstRealizedTrade.symbol,
-          side: tradingStats.worstRealizedTrade.side,
-          price: tradingStats.worstRealizedTrade.price,
-          shares: tradingStats.worstRealizedTrade.shares,
-          date: tradingStats.worstRealizedTrade.date,
-          realizedPL: Number(tradingStats.worstRealizedTrade.realizedPL.toFixed(4)),
-        } : null,
-        averageRealizedPL: singleCurrency && tradingStats.averageRealizedPL != null ? Number(tradingStats.averageRealizedPL.toFixed(4)) : null,
-        averageRealizedPLByCurrency: Object.fromEntries(Object.entries(tradingStats.averageRealizedByCurrency).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
-        winRate: tradingStats.winRate == null ? null : Number(tradingStats.winRate.toFixed(4)),
-        largestPosition: tradingStats.largestPosition ? {
-          symbol: tradingStats.largestPosition.symbol,
-          currency: tradingStats.largestPosition.quote.currency,
-          marketValue: Number(tradingStats.largestPosition.marketValue.toFixed(4)),
-        } : null,
-        currencyExposure: Object.fromEntries(Object.entries(tradingStats.currencyExposure).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
-      },
-      positions: positions.map((position) => ({
-        symbol: position.symbol,
-        currency: position.quote.currency,
-        exchange: position.quote.exchange,
-        source: position.quote.source,
-        asOf: position.quote.asOf,
-        latestPrice: position.quote.price,
-        shares: Number(position.shares.toFixed(6)),
-        averageCost: Number(position.averageCost.toFixed(4)),
-        totalCost: Number(position.costBasis.toFixed(4)),
-        marketValue: Number(position.marketValue.toFixed(4)),
-        unrealizedPL: Number(position.unrealizedPL.toFixed(4)),
-        unrealizedPLPercent: Number(position.unrealizedPLPercent.toFixed(4)),
-      })).sort((a, b) => a.symbol.localeCompare(b.symbol)),
-    }
-  }, [cashBalances, cashByCurrency, positions, singleCurrency, totals, tradingStats])
+  const portfolioSummary = useMemo(() => buildPortfolioSummaryExport(positions, cashBalances, allTrades), [allTrades, cashBalances, positions])
   useEffect(() => {
     if (loading) return undefined
     const timer = setTimeout(() => {
