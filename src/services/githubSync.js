@@ -20,6 +20,7 @@ const siblingPath = (path, filename) => {
   parts[parts.length - 1] = filename
   return parts.join('/')
 }
+const saveQueues = new Map()
 const hasUserData = (data) => Boolean(
   data?.watchlist?.length ||
   data?.trades?.length ||
@@ -40,20 +41,33 @@ async function getRemote(path = config().path, { parseData = true } = {}) {
   return { sha: result.sha, data: JSON.parse(decode(result.content)) }
 }
 
+async function writeJsonFile(path, data, message) {
+  const settings = { ...config(), path }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const remote = await getRemote(path, { parseData: false })
+    const body = {
+      message,
+      content: encode(JSON.stringify(data, null, 2)),
+      branch: settings.branch,
+      ...(remote?.sha ? { sha: remote.sha } : {}),
+    }
+    const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const result = await response.json()
+    if (response.ok) return { status: 'saved', path }
+    if (response.status === 409 && attempt < 2) continue
+    throw new Error(result.message || `GitHub sync failed (${response.status}).`)
+  }
+  throw new Error('GitHub sync failed after retrying the latest file version.')
+}
+
 async function saveJsonFile(path, data, message) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
-  const settings = { ...config(), path }
-  const remote = await getRemote(path, { parseData: false })
-  const body = {
-    message,
-    content: encode(JSON.stringify(data, null, 2)),
-    branch: settings.branch,
-    ...(remote?.sha ? { sha: remote.sha } : {}),
-  }
-  const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  const result = await response.json()
-  if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
-  return { status: 'saved', path }
+  const previous = saveQueues.get(path) || Promise.resolve()
+  const next = previous.catch(() => {}).then(() => writeJsonFile(path, data, message))
+  saveQueues.set(path, next.finally(() => {
+    if (saveQueues.get(path) === next) saveQueues.delete(path)
+  }))
+  return next
 }
 
 export async function loadFromGitHub({ force = false } = {}) {
