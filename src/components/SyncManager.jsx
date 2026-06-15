@@ -82,7 +82,7 @@ export default function SyncManager() {
         isSyncing = false
       }
     }
-    syncNow().catch(() => {})
+    syncNow().catch((error) => emitStatus({ status: 'error', error: error.message || 'GitHub sync failed.' }))
     window.addEventListener('trademarker:data-changed', save)
     window.addEventListener('trademarker:auth-changed', syncNow)
     return () => {

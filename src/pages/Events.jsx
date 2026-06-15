@@ -40,9 +40,11 @@ export default function Events() {
     try {
       const next = await buildEventsCalendarExport(getWatchlist())
       setCalendar(next)
-      saveEventsCalendarToGitHub(next).catch(() => {})
+      const saved = await saveEventsCalendarToGitHub(next)
       if (next.status === 'disabled') setMessage(t('addFmpKey'))
+      else if (saved.status === 'disabled') setMessage('GitHub sync is not configured.')
       else if (next.errors?.length) setMessage(t('loadedPartialEvents', { count: next.errors.length }))
+      else setMessage(`Events calendar synced ${new Date().toLocaleTimeString()}`)
     } catch (error) {
       setMessage(error.message)
     } finally {
