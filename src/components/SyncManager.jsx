@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { saveGeneratedDataFilesToGitHub } from '../services/exportBundle'
 import { isGitHubSyncConfigured, loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getAuthToken, hasGitHubDataSettings, loadSettingsFromAccount, saveSettingsToAccount } from '../services/authSync'
 
@@ -8,10 +9,17 @@ export default function SyncManager() {
     let cancelled = false
     let isSyncing = false
     let pendingSync = false
+    const saveAll = async (options = {}) => {
+      const dataResult = await saveToGitHub(options)
+      if (dataResult.status === 'saved' || dataResult.status === 'current') {
+        await saveGeneratedDataFilesToGitHub()
+      }
+      return dataResult
+    }
     const save = () => {
       if (isSyncing) return
       clearTimeout(timer)
-      timer = setTimeout(() => saveToGitHub().catch(() => {}), 1200)
+      timer = setTimeout(() => saveAll().catch(() => {}), 1200)
     }
     const syncNow = async () => {
       if (isSyncing) {
@@ -46,7 +54,7 @@ export default function SyncManager() {
             return
           }
           if (['current', 'empty', 'skipped-empty-remote'].includes(result.status)) {
-            const saveResult = await saveToGitHub({ skipIfRemoteCurrent: true })
+            const saveResult = await saveAll({ skipIfRemoteCurrent: true })
             window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: saveResult }))
           } else {
             window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
