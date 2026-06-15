@@ -8,14 +8,11 @@ import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { buildPortfolioSummaryExport } from '../services/exportBundle'
-import { loadOrderPlanFromGitHub, saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub, savePortfolioSummaryToGitHub } from '../services/githubSync'
-import { buildEventsCalendarExport } from '../services/eventsData'
-import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
+import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition } from '../services/positionCalculator'
-import { addSymbol, deleteTrade, getCashBalances, getTrades, getWatchlist, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
+import { addSymbol, deleteTrade, getTrades, getWatchlist, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useChartIndicators } from '../hooks/useChartIndicators'
 import { useI18n } from '../i18n'
@@ -73,15 +70,6 @@ export default function Dashboard() {
     setSelected((current) => current && getWatchlist().includes(current) ? current : getWatchlist()[0] || null)
     setUpdated(new Date())
     setLoading(false)
-    saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
-    savePortfolioSummaryToGitHub(buildPortfolioSummaryExport(
-      rows.filter((row) => row.quote && row.position?.shares > 0).map((row) => ({ symbol: row.symbol, quote: row.quote, ...row.position })),
-      getCashBalances(),
-      getTrades(),
-    )).catch(() => {})
-    buildEventsCalendarExport(getWatchlist())
-      .then(saveEventsCalendarToGitHub)
-      .catch(() => {})
   }, [])
 
   useEffect(() => {
