@@ -1,5 +1,5 @@
 import { buildEventsCalendarExport } from './eventsData'
-import { saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub, savePortfolioSummaryToGitHub } from './githubSync'
+import { saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub, savePortfolioSummaryToGitHub, saveTotalSummaryToGitHub } from './githubSync'
 import { buildMarketAnalysisExport } from './marketAnalysisExport'
 import { getMarketSnapshot } from './marketData'
 import { calculatePosition } from './positionCalculator'
@@ -134,11 +134,15 @@ export async function saveGeneratedDataFilesToGitHub() {
   }))
 
   const jobs = [
-    saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)),
-    savePortfolioSummaryToGitHub(buildPortfolioSummaryExport(positions)),
-    buildEventsCalendarExport(symbols).then(saveEventsCalendarToGitHub),
+    () => saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)),
+    () => savePortfolioSummaryToGitHub(buildPortfolioSummaryExport(positions)),
+    () => buildEventsCalendarExport(symbols).then(saveEventsCalendarToGitHub),
+    () => saveTotalSummaryToGitHub(),
   ]
-  const settled = await Promise.allSettled(jobs)
+  const settled = []
+  for (const job of jobs) {
+    settled.push(await job().then((value) => ({ status: 'fulfilled', value }), (reason) => ({ status: 'rejected', reason })))
+  }
   const failed = settled.filter((result) => result.status === 'rejected')
   return {
     status: failed.length ? 'partial' : 'saved',
