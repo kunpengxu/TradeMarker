@@ -68,6 +68,12 @@ export default function Settings() {
     const onAutoSyncStatus = (event) => {
       if (event.detail?.status === 'missing-github-settings') {
         setMessage('Logged in, but GitHub data settings are missing. Fill Owner, Repository, Branch, JSON path, and token once, then save GitHub sync settings.')
+      } else if (event.detail?.status === 'error') {
+        setMessage(`GitHub auto sync failed: ${event.detail.error}`)
+      } else if (event.detail?.generated?.status === 'partial') {
+        setMessage(`GitHub data synced, but some generated files failed: ${event.detail.generated.failed.join(' | ')}`)
+      } else if (event.detail?.generated?.status === 'saved') {
+        setMessage('GitHub data and generated summary files synced.')
       }
     }
     window.addEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)

@@ -132,21 +132,33 @@ export async function saveGeneratedDataFilesToGitHub() {
     quote: row.quote,
     ...row.position,
   }))
+  const portfolioSummary = buildPortfolioSummaryExport(positions)
+  const marketAnalysis = buildMarketAnalysisExport(rows)
+  let eventsCalendar = null
+  let eventsError = null
+  try {
+    eventsCalendar = await buildEventsCalendarExport(symbols)
+  } catch (error) {
+    eventsError = error
+  }
 
   const jobs = [
-    () => saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)),
-    () => savePortfolioSummaryToGitHub(buildPortfolioSummaryExport(positions)),
-    () => buildEventsCalendarExport(symbols).then(saveEventsCalendarToGitHub),
-    () => saveTotalSummaryToGitHub(),
+    ['portfolio-summary', () => savePortfolioSummaryToGitHub(portfolioSummary)],
+    ['market-analysis', () => saveMarketAnalysisToGitHub(marketAnalysis)],
+    ['events-calendar', () => eventsError ? Promise.reject(eventsError) : saveEventsCalendarToGitHub(eventsCalendar)],
+    ['total-summary', () => saveTotalSummaryToGitHub({ portfolioSummary, marketAnalysis, eventsCalendar })],
   ]
   const settled = []
-  for (const job of jobs) {
-    settled.push(await job().then((value) => ({ status: 'fulfilled', value }), (reason) => ({ status: 'rejected', reason })))
+  for (const [name, job] of jobs) {
+    settled.push(await job().then(
+      (value) => ({ name, status: 'fulfilled', value }),
+      (reason) => ({ name, status: 'rejected', reason }),
+    ))
   }
   const failed = settled.filter((result) => result.status === 'rejected')
   return {
     status: failed.length ? 'partial' : 'saved',
     saved: settled.length - failed.length,
-    failed: failed.map((result) => result.reason?.message || 'Generated data sync failed.'),
+    failed: failed.map((result) => `${result.name}: ${result.reason?.message || 'Generated data sync failed.'}`),
   }
 }

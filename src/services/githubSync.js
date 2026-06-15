@@ -89,6 +89,30 @@ async function readOptionalJson(path) {
 async function buildTotalSummary(changedKey, changedData) {
   const paths = totalSummaryPaths()
   const existing = totalSummaryCache || await readOptionalJson(paths.totalSummary)
+  if (changedKey === 'bundle') {
+    const parts = {
+      trademarker: changedData?.trademarker ?? exportData(),
+      portfolioSummary: changedData?.portfolioSummary ?? existing?.portfolioSummary ?? null,
+      marketAnalysis: changedData?.marketAnalysis ?? existing?.marketAnalysis ?? null,
+      eventsCalendar: changedData?.eventsCalendar ?? existing?.eventsCalendar ?? null,
+    }
+    return {
+      generatedAt: new Date().toISOString(),
+      source: 'TradeMarker',
+      purpose: 'Single GPT-ready bundle containing TradeMarker journal data, portfolio summary, market analysis, and events calendar.',
+      note: 'This file is generated from local TradeMarker exports. It is reference data only and is not financial advice.',
+      files: {
+        trademarker: partStatus(paths.trademarker, parts.trademarker),
+        portfolioSummary: partStatus(paths.portfolioSummary, parts.portfolioSummary),
+        marketAnalysis: partStatus(paths.marketAnalysis, parts.marketAnalysis),
+        eventsCalendar: partStatus(paths.eventsCalendar, parts.eventsCalendar),
+      },
+      trademarker: parts.trademarker,
+      portfolioSummary: parts.portfolioSummary,
+      marketAnalysis: parts.marketAnalysis,
+      eventsCalendar: parts.eventsCalendar,
+    }
+  }
   const [portfolioSummary, marketAnalysis, eventsCalendar] = await Promise.all([
     changedKey === 'portfolioSummary' ? Promise.resolve(changedData) : readOptionalJson(paths.portfolioSummary),
     changedKey === 'marketAnalysis' ? Promise.resolve(changedData) : readOptionalJson(paths.marketAnalysis),
@@ -216,7 +240,8 @@ export async function saveEventsCalendarToGitHub(events) {
   return result
 }
 
-export async function saveTotalSummaryToGitHub() {
+export async function saveTotalSummaryToGitHub(parts) {
+  if (parts) return queueTotalSummaryUpdate('bundle', { trademarker: exportData(), ...parts })
   return queueTotalSummaryUpdate('trademarker', exportData())
 }
 
