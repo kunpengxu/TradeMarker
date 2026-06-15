@@ -147,23 +147,17 @@ async function buildTotalSummary(changedKey, changedData) {
 async function saveJsonFile(path, data, message) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const settings = { ...config(), path }
-  const content = encode(JSON.stringify(data, null, 2))
-  let lastError = null
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const remote = await getRemote(path, { parseData: false })
-    const body = {
-      message,
-      content,
-      branch: settings.branch,
-      ...(remote?.sha ? { sha: remote.sha } : {}),
-    }
-    const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    const result = await response.json()
-    if (response.ok) return { status: 'saved', path }
-    lastError = new Error(result.message || `GitHub sync failed (${response.status}).`)
-    if (![409, 422].includes(response.status)) break
+  const remote = await getRemote(path, { parseData: false })
+  const body = {
+    message,
+    content: encode(JSON.stringify(data, null, 2)),
+    branch: settings.branch,
+    ...(remote?.sha ? { sha: remote.sha } : {}),
   }
-  throw lastError
+  const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
+  return { status: 'saved', path }
 }
 
 function queueTotalSummaryUpdate(changedKey, changedData) {

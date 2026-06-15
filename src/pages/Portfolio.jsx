@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import SymbolLink from '../components/SymbolLink'
 import { buildPortfolioSummaryExport } from '../services/exportBundle'
+import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { getCashBalances, getTrades, getWatchlist, saveCashBalances } from '../services/storage'
@@ -48,6 +49,9 @@ export default function Portfolio() {
   const portfolioSummary = useMemo(() => {
     return buildPortfolioSummaryExport(positions, cashBalances, allTrades)
   }, [allTrades, cashBalances, positions])
+  useEffect(() => {
+    if (!loading) savePortfolioSummaryToGitHub(portfolioSummary).catch(() => {})
+  }, [loading, positions.length, portfolioSummary])
   const updateCashBalance = (currency, rawValue) => {
     const amount = Number(rawValue)
     const next = cashCurrencies.map((item) => ({
