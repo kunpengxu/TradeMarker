@@ -9,19 +9,30 @@ export default function SyncManager() {
     let cancelled = false
     let isSyncing = false
     let pendingSync = false
+    const emitStatus = (detail) => {
+      window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail }))
+    }
     const savePortfolioSummary = async () => {
       if (!isGitHubSyncConfigured()) return
       const summary = await loadPortfolioSummaryExport()
       await savePortfolioSummaryToGitHub(summary)
     }
     const saveLocalData = async () => {
-      await saveToGitHub()
+      const result = await saveToGitHub()
       await savePortfolioSummary()
+      return { ...result, generated: 'saved' }
     }
     const save = () => {
-      if (isSyncing) return
+      if (isSyncing) {
+        pendingSync = true
+        return
+      }
       clearTimeout(timer)
-      timer = setTimeout(() => saveLocalData().catch(() => {}), 1200)
+      timer = setTimeout(() => {
+        saveLocalData()
+          .then((result) => emitStatus(result))
+          .catch((error) => emitStatus({ status: 'error', error: error.message || 'GitHub sync failed.' }))
+      }, 1200)
     }
     const syncNow = async () => {
       if (isSyncing) {
@@ -46,7 +57,7 @@ export default function SyncManager() {
             }
           }
           if (!isGitHubSyncConfigured()) {
-            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'missing-github-settings' } }))
+            emitStatus({ status: 'missing-github-settings' })
             return
           }
           const result = await loadFromGitHub()
@@ -57,10 +68,14 @@ export default function SyncManager() {
           }
           if (['current', 'empty', 'skipped-empty-remote'].includes(result.status)) {
             const saveResult = await saveToGitHub({ skipIfRemoteCurrent: true })
-            await savePortfolioSummary().catch(() => {})
-            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: saveResult }))
+            try {
+              await savePortfolioSummary()
+              emitStatus({ ...saveResult, generated: 'saved' })
+            } catch (error) {
+              emitStatus({ status: 'generated-sync-error', error: error.message || 'Generated summary sync failed.' })
+            }
           } else {
-            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
+            emitStatus(result)
           }
         } while (pendingSync && !cancelled)
       } finally {
