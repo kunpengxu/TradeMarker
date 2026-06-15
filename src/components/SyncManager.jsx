@@ -17,9 +17,7 @@ export default function SyncManager() {
     const save = () => {
       if (isSyncing) return
       clearTimeout(timer)
-      timer = setTimeout(() => saveAll()
-        .then((result) => window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result })))
-        .catch((error) => window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'error', error: error.message } }))), 1200)
+      timer = setTimeout(() => saveAll().catch(() => {}), 1200)
     }
     const syncNow = async () => {
       if (isSyncing) {
@@ -64,9 +62,7 @@ export default function SyncManager() {
         isSyncing = false
       }
     }
-    syncNow().catch((error) => {
-      window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'error', error: error.message } }))
-    })
+    syncNow().catch(() => {})
     window.addEventListener('trademarker:data-changed', save)
     window.addEventListener('trademarker:auth-changed', syncNow)
     return () => {
