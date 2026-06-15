@@ -11,8 +11,10 @@ export default function SyncManager() {
     let pendingSync = false
     const saveAll = async (options = {}) => {
       const dataResult = await saveToGitHub(options)
-      const generatedResult = await saveGeneratedDataFilesToGitHub()
-      return { ...dataResult, generated: generatedResult }
+      if (dataResult.status === 'saved' || dataResult.status === 'current') {
+        await saveGeneratedDataFilesToGitHub()
+      }
+      return dataResult
     }
     const save = () => {
       if (isSyncing) return
