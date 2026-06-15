@@ -154,10 +154,6 @@ function queueTotalSummaryUpdate(changedKey, changedData) {
   return totalSummaryQueue
 }
 
-function updateTotalSummaryInBackground(changedKey, changedData) {
-  queueTotalSummaryUpdate(changedKey, changedData).catch(() => {})
-}
-
 export async function loadFromGitHub({ force = false } = {}) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const remote = await getRemote()
@@ -193,7 +189,7 @@ export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
     return { status: 'current', updatedAt: remote.data.updatedAt }
   }
   const result = await saveJsonFile(settings.path, local, 'Update TradeMarker data')
-  if (result.status === 'saved') updateTotalSummaryInBackground('trademarker', local)
+  if (result.status === 'saved') await queueTotalSummaryUpdate('trademarker', local)
   return result
 }
 
@@ -201,7 +197,7 @@ export async function savePortfolioSummaryToGitHub(summary) {
   const settings = config()
   const path = siblingPath(settings.path, 'portfolio-summary.json')
   const result = await saveJsonFile(path, summary, 'Update TradeMarker portfolio summary')
-  if (result.status === 'saved') updateTotalSummaryInBackground('portfolioSummary', summary)
+  if (result.status === 'saved') await queueTotalSummaryUpdate('portfolioSummary', summary)
   return result
 }
 
@@ -209,7 +205,7 @@ export async function saveMarketAnalysisToGitHub(analysis) {
   const settings = config()
   const path = siblingPath(settings.path, 'market-analysis.json')
   const result = await saveJsonFile(path, analysis, 'Update TradeMarker market analysis')
-  if (result.status === 'saved') updateTotalSummaryInBackground('marketAnalysis', analysis)
+  if (result.status === 'saved') await queueTotalSummaryUpdate('marketAnalysis', analysis)
   return result
 }
 
@@ -217,7 +213,7 @@ export async function saveEventsCalendarToGitHub(events) {
   const settings = config()
   const path = siblingPath(settings.path, 'events-calendar.json')
   const result = await saveJsonFile(path, events, 'Update TradeMarker events calendar')
-  if (result.status === 'saved') updateTotalSummaryInBackground('eventsCalendar', events)
+  if (result.status === 'saved') await queueTotalSummaryUpdate('eventsCalendar', events)
   return result
 }
 
