@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import SymbolLink from '../components/SymbolLink'
-import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import { buildPortfolioSummaryExport } from '../services/portfolioSummaryExport'
 import { getCashBalances, getTrades, getWatchlist, saveCashBalances } from '../services/storage'
 import { calculateTradingStatistics } from '../services/tradeAnalytics'
 import { money, number, percent, valueClass } from '../utils/formatters'
@@ -14,7 +12,6 @@ export default function Portfolio() {
   const [positions, setPositions] = useState([])
   const [sort, setSort] = useState({ key: 'symbol', direction: 'asc' })
   const [cashBalances, setCashBalances] = useState(() => getCashBalances())
-  const [portfolioSyncError, setPortfolioSyncError] = useState('')
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     Promise.all(getWatchlist().map(async (symbol) => {
@@ -47,16 +44,6 @@ export default function Portfolio() {
     const entries = Object.entries(values || {})
     return entries.length ? entries.map(([currency, value]) => <em className={valueClass(value)} key={currency}>{currency} {money(value, currency)}</em>) : 'N/A'
   }
-  const portfolioSummary = useMemo(() => buildPortfolioSummaryExport(positions, cashBalances, allTrades), [allTrades, cashBalances, positions])
-  useEffect(() => {
-    if (loading) return undefined
-    const timer = setTimeout(() => {
-      savePortfolioSummaryToGitHub(portfolioSummary)
-        .then(() => setPortfolioSyncError(''))
-        .catch((error) => setPortfolioSyncError(error.message || 'Portfolio summary sync failed.'))
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [loading, positions.length, portfolioSummary])
   const updateCashBalance = (currency, rawValue) => {
     const amount = Number(rawValue)
     const next = cashCurrencies.map((item) => ({
@@ -81,7 +68,7 @@ export default function Portfolio() {
   if (loading) return <div className="loading">{t('loadingPortfolio')}</div>
   return <section><div className="page-head"><div><p className="eyebrow">{t('portfolioEyebrow')}</p><h1>{t('portfolioTitle')}</h1><p>{t('portfolioSubtitle')}</p></div></div>
     <div className="portfolio-summary">{Object.values(totals).map((total) => <div className="panel portfolio-card" key={total.currency}><span>{total.currency} {t('portfolioTitle').toLowerCase()}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} {money(total.cost, total.currency)}</small><small className={valueClass(total.pl)}>{t('pl')} {money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</small></div></div>)}
-      <div className="panel portfolio-card cash-card"><span>{t('availableCash')}</span><strong>{cashCurrencies.map((currency) => `${currency} ${money(cashByCurrency[currency] || 0, currency)}`).join(' · ')}</strong><p>{t('availableCashHint')}</p>{portfolioSyncError ? <small className="cash-sync-error">{portfolioSyncError}</small> : null}<div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></div>
+      <div className="panel portfolio-card cash-card"><span>{t('availableCash')}</span><strong>{cashCurrencies.map((currency) => `${currency} ${money(cashByCurrency[currency] || 0, currency)}`).join(' · ')}</strong><p>{t('availableCashHint')}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></div>
     </div>
     <div className="panel trading-stats"><h2>{t('tradingStatistics')}</h2><div className="stats-grid">
       <span>{t('totalUnrealizedPL')}<strong className={valueClass(singleCurrency ? tradingStats.totalUnrealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalUnrealizedPL) : currencyLines(tradingStats.unrealizedByCurrency)}</strong></span>

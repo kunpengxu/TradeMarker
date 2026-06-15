@@ -12,7 +12,7 @@ const config = () => {
 }
 
 const apiUrl = ({ owner, repo, path }) => `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`
-const headers = (token) => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' })
+const headers = (token) => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache', 'X-GitHub-Api-Version': '2022-11-28' })
 const encode = (value) => btoa(unescape(encodeURIComponent(value)))
 const decode = (value) => decodeURIComponent(escape(atob(value.replace(/\n/g, ''))))
 const siblingPath = (path, filename) => {
@@ -29,10 +29,11 @@ const hasUserData = (data) => Boolean(
 )
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function getRemote(path = config().path, { parseData = true } = {}) {
   const settings = { ...config(), path }
-  const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}`, { headers: headers(settings.token) })
+  const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}&t=${Date.now()}`, { headers: headers(settings.token), cache: 'no-store' })
   if (response.status === 404) return null
   const result = await response.json()
   if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
@@ -43,7 +44,7 @@ async function getRemote(path = config().path, { parseData = true } = {}) {
 
 async function writeJsonFile(path, data, message) {
   const settings = { ...config(), path }
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     const remote = await getRemote(path, { parseData: false })
     const body = {
       message,
@@ -54,8 +55,14 @@ async function writeJsonFile(path, data, message) {
     const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const result = await response.json()
     if (response.ok) return { status: 'saved', path }
-    if (response.status === 409 && attempt < 2) continue
-    throw new Error(result.message || `GitHub sync failed (${response.status}).`)
+    if (response.status === 409 && attempt < 5) {
+      await sleep(250 * (attempt + 1))
+      continue
+    }
+    const message = response.status === 409
+      ? `GitHub file version changed while saving ${path}. TradeMarker will try again on the next automatic sync.`
+      : result.message || `GitHub sync failed (${response.status}).`
+    throw new Error(message)
   }
   throw new Error('GitHub sync failed after retrying the latest file version.')
 }
@@ -64,9 +71,10 @@ async function saveJsonFile(path, data, message) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const previous = saveQueues.get(path) || Promise.resolve()
   const next = previous.catch(() => {}).then(() => writeJsonFile(path, data, message))
-  saveQueues.set(path, next.finally(() => {
+  saveQueues.set(path, next)
+  next.finally(() => {
     if (saveQueues.get(path) === next) saveQueues.delete(path)
-  }))
+  })
   return next
 }
 

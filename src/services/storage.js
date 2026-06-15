@@ -82,13 +82,14 @@ const inferTradeCurrency = (symbol) => /\.(NE|TO|V)$/i.test(symbol || '') ? 'CAD
 
 const normalizeCashBalances = (balances) => {
   const rows = Array.isArray(balances) ? balances : Object.entries(balances || {}).map(([currency, amount]) => ({ currency, amount }))
+  const roundCash = (amount) => Number(Number(amount).toFixed(4))
   return rows.reduce((result, row) => {
     const currency = String(row?.currency || '').trim().toUpperCase()
     const amount = Number(row?.amount ?? row?.cash ?? 0)
     if (!currency || !Number.isFinite(amount)) return result
     const existing = result.find((item) => item.currency === currency)
-    if (existing) existing.amount += amount
-    else result.push({ currency, amount })
+    if (existing) existing.amount = roundCash(existing.amount + amount)
+    else result.push({ currency, amount: roundCash(amount) })
     return result
   }, []).sort((a, b) => a.currency.localeCompare(b.currency))
 }
