@@ -20,6 +20,8 @@ import { useChartIndicators } from '../hooks/useChartIndicators'
 import { useI18n } from '../i18n'
 
 const cleanSymbol = (value) => String(value || '').toUpperCase().replace(/(:CA|:US)$/i, '').replace(/\.(NE|TO|V)$/i, '')
+const badgeClass = (type) => String(type || '').replace(/[^a-z]/gi, '-').toLowerCase()
+const formatEventDate = (date) => date ? new Date(date).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '—'
 const matchesSymbol = (orderSymbol, symbol) => {
   const order = String(orderSymbol || '').toUpperCase()
   const current = String(symbol || '').toUpperCase()
@@ -33,6 +35,29 @@ const getSavedSelectedSymbol = () => {
   } catch {
     return ''
   }
+}
+const eventMatchesSymbol = (event, symbol) => {
+  const current = String(symbol || '').toUpperCase()
+  const symbols = event.symbol ? [event.symbol] : event.symbols || []
+  return symbols.some((item) => matchesSymbol(item, current))
+}
+
+function SymbolEventsPanel({ events, selected, t }) {
+  return <aside className="symbol-events-panel">
+    <div className="symbol-events-head"><span>{t('eventsEyebrow')}</span><strong>{t('currentSymbolEvents')}</strong></div>
+    {events.length ? <div className="symbol-events-list">{events.map((event) => (
+      <article className="symbol-event-card" key={event.id}>
+        <time>{formatEventDate(event.date)}</time>
+        <div>
+          <span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>
+          <h3>{event.title}</h3>
+          <p>{event.site || event.source || selected}</p>
+          {event.description && <small>{event.description}</small>}
+          {event.url && <a href={event.url} target="_blank" rel="noreferrer">{t('openSource')}</a>}
+        </div>
+      </article>
+    ))}</div> : <div className="symbol-events-empty">{t('noCurrentSymbolEvents')}</div>}
+  </aside>
 }
 
 export default function Dashboard() {
@@ -52,6 +77,7 @@ export default function Dashboard() {
   const [tradeSide, setTradeSide] = useState(null)
   const [editingTrade, setEditingTrade] = useState(null)
   const [orders, setOrders] = useState([])
+  const [eventsCalendar, setEventsCalendar] = useState(null)
   const [showOrders, setShowOrders] = useState(false)
   const [density, setDensity] = useState(() => localStorage.getItem(DENSITY_KEY) || 'comfortable')
   const [updated, setUpdated] = useState(null)
@@ -89,7 +115,10 @@ export default function Dashboard() {
     setLoading(false)
     saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
     buildEventsCalendarExport(getWatchlist())
-      .then(saveEventsCalendarToGitHub)
+      .then((events) => {
+        setEventsCalendar(events)
+        return saveEventsCalendarToGitHub(events)
+      })
       .catch(() => {})
   }, [])
 
@@ -145,6 +174,7 @@ export default function Dashboard() {
   const selectedItem = items.find((item) => item.symbol === selected)
   const selectedInWatchlist = selected ? getWatchlist().includes(selected) : false
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
+  const selectedEvents = useMemo(() => (eventsCalendar?.symbolEvents || []).filter((event) => eventMatchesSymbol(event, selected)).slice(0, 8), [eventsCalendar, selected])
   const orderSymbols = useMemo(() => [...new Set(orders.map((order) => order.symbol).filter(Boolean))], [orders])
   const plannedWatchlistCount = useMemo(() => items.filter((item) => orderSymbols.some((symbol) => matchesSymbol(symbol, item.symbol))).length, [items, orderSymbols])
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
@@ -260,14 +290,19 @@ export default function Dashboard() {
                 <span>{t('journalOnlyWorkspace')}</span>
               </div>
 
-              <div className="chart-toolbar">
-                <div className="chart-label"><strong>{interval === '1m' ? t('intradayChart') : selectedItem.quote.closeOnly && interval === 'daily' ? t('dailyCloseChart') : t('kLineChart')}</strong><span>{interval === '1m' ? t('intradayHint') : t('markerHint')}</span></div>
-                <div className="chart-controls">
-                  <IndicatorMenu value={indicators} onChange={setIndicators} />
-                  <IntervalSelector value={interval} onChange={setInterval} />
+              <div className="market-chart-layout">
+                <div className="chart-column">
+                  <div className="chart-toolbar">
+                    <div className="chart-label"><strong>{interval === '1m' ? t('intradayChart') : selectedItem.quote.closeOnly && interval === 'daily' ? t('dailyCloseChart') : t('kLineChart')}</strong><span>{interval === '1m' ? t('intradayHint') : t('markerHint')}</span></div>
+                    <div className="chart-controls">
+                      <IndicatorMenu value={indicators} onChange={setIndicators} />
+                      <IntervalSelector value={interval} onChange={setInterval} />
+                    </div>
+                  </div>
+                  {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} />}
                 </div>
+                <SymbolEventsPanel events={selectedEvents} selected={selected} t={t} />
               </div>
-              {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} />}
 
               <div className="position-ribbon">
                 <span>{t('shares')}<strong>{number(position.shares, 4)}</strong></span>
