@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
-import { isGitHubSyncConfigured, loadFromGitHub, savePortfolioSummaryToGitHub, saveToGitHub } from '../services/githubSync'
+import { isGitHubSyncConfigured, loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getAuthToken, hasGitHubDataSettings, loadSettingsFromAccount, saveSettingsToAccount } from '../services/authSync'
-import { loadPortfolioSummaryExport } from '../services/portfolioSummaryExport'
 
 export default function SyncManager() {
   useEffect(() => {
@@ -9,30 +8,10 @@ export default function SyncManager() {
     let cancelled = false
     let isSyncing = false
     let pendingSync = false
-    const emitStatus = (detail) => {
-      window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail }))
-    }
-    const savePortfolioSummary = async () => {
-      if (!isGitHubSyncConfigured()) return
-      const summary = await loadPortfolioSummaryExport()
-      await savePortfolioSummaryToGitHub(summary)
-    }
-    const saveLocalData = async () => {
-      const result = await saveToGitHub()
-      await savePortfolioSummary()
-      return { ...result, generated: 'saved' }
-    }
     const save = () => {
-      if (isSyncing) {
-        pendingSync = true
-        return
-      }
+      if (isSyncing) return
       clearTimeout(timer)
-      timer = setTimeout(() => {
-        saveLocalData()
-          .then((result) => emitStatus(result))
-          .catch((error) => emitStatus({ status: 'error', error: error.message || 'GitHub sync failed.' }))
-      }, 1200)
+      timer = setTimeout(() => saveToGitHub().catch(() => {}), 1200)
     }
     const syncNow = async () => {
       if (isSyncing) {
@@ -57,7 +36,7 @@ export default function SyncManager() {
             }
           }
           if (!isGitHubSyncConfigured()) {
-            emitStatus({ status: 'missing-github-settings' })
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'missing-github-settings' } }))
             return
           }
           const result = await loadFromGitHub()
@@ -68,21 +47,16 @@ export default function SyncManager() {
           }
           if (['current', 'empty', 'skipped-empty-remote'].includes(result.status)) {
             const saveResult = await saveToGitHub({ skipIfRemoteCurrent: true })
-            try {
-              await savePortfolioSummary()
-              emitStatus({ ...saveResult, generated: 'saved' })
-            } catch (error) {
-              emitStatus({ status: 'generated-sync-error', error: error.message || 'Generated summary sync failed.' })
-            }
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: saveResult }))
           } else {
-            emitStatus(result)
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
           }
         } while (pendingSync && !cancelled)
       } finally {
         isSyncing = false
       }
     }
-    syncNow().catch((error) => emitStatus({ status: 'error', error: error.message || 'GitHub sync failed.' }))
+    syncNow().catch(() => {})
     window.addEventListener('trademarker:data-changed', save)
     window.addEventListener('trademarker:auth-changed', syncNow)
     return () => {

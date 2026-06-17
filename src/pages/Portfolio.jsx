@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import SymbolLink from '../components/SymbolLink'
-import { buildPortfolioSummaryExport } from '../services/portfolioSummaryExport'
-import { isGitHubSyncConfigured, savePortfolioSummaryToGitHub } from '../services/githubSync'
+import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
 import { getCashBalances, getTrades, getWatchlist, saveCashBalances } from '../services/storage'
@@ -15,7 +14,6 @@ export default function Portfolio() {
   const [sort, setSort] = useState({ key: 'symbol', direction: 'asc' })
   const [cashBalances, setCashBalances] = useState(() => getCashBalances())
   const [loading, setLoading] = useState(true)
-  const [portfolioSyncStatus, setPortfolioSyncStatus] = useState('')
   useEffect(() => {
     Promise.all(getWatchlist().map(async (symbol) => {
       try {
@@ -47,33 +45,94 @@ export default function Portfolio() {
     const entries = Object.entries(values || {})
     return entries.length ? entries.map(([currency, value]) => <em className={valueClass(value)} key={currency}>{currency} {money(value, currency)}</em>) : 'N/A'
   }
+  const portfolioSummary = useMemo(() => {
+    const totalNominalMarketValue = Object.values(totals).reduce((sum, item) => sum + item.value, 0)
+    return {
+      generatedAt: new Date().toISOString(),
+      source: 'TradeMarker',
+      note: 'Currency totals are nominal by quote currency and are not converted through foreign exchange.',
+      account: {
+        cashBalances: cashBalances.map((balance) => ({
+          currency: balance.currency,
+          availableCash: Number(balance.amount.toFixed(4)),
+        })),
+      },
+      totalsByCurrency: Object.values(totals).map((total) => ({
+        currency: total.currency,
+        totalCost: Number(total.cost.toFixed(4)),
+        marketValue: Number(total.value.toFixed(4)),
+        availableCash: Number((cashByCurrency[total.currency] || 0).toFixed(4)),
+        marketValuePlusCash: Number((total.value + (cashByCurrency[total.currency] || 0)).toFixed(4)),
+        unrealizedPL: Number(total.pl.toFixed(4)),
+        unrealizedPLPercent: total.cost ? Number(((total.pl / total.cost) * 100).toFixed(4)) : 0,
+        positionCount: positions.filter((position) => position.quote.currency === total.currency).length,
+      })),
+      currencyDistribution: Object.values(totals).map((total) => ({
+        currency: total.currency,
+        marketValue: Number(total.value.toFixed(4)),
+        nominalSharePercent: totalNominalMarketValue ? Number(((total.value / totalNominalMarketValue) * 100).toFixed(4)) : 0,
+      })),
+      tradingStatistics: {
+        totalUnrealizedPL: singleCurrency ? Number(tradingStats.totalUnrealizedPL.toFixed(4)) : null,
+        totalUnrealizedPLByCurrency: Object.fromEntries(Object.entries(tradingStats.unrealizedByCurrency).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
+        totalRealizedPL: singleCurrency && tradingStats.totalRealizedPL != null ? Number(tradingStats.totalRealizedPL.toFixed(4)) : null,
+        totalRealizedPLByCurrency: Object.fromEntries(Object.entries(tradingStats.realizedByCurrency).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
+        openPositions: tradingStats.openPositions,
+        closedTrades: tradingStats.closedTrades,
+        bestRealizedTrade: tradingStats.bestRealizedTrade ? {
+          symbol: tradingStats.bestRealizedTrade.symbol,
+          side: tradingStats.bestRealizedTrade.side,
+          price: tradingStats.bestRealizedTrade.price,
+          shares: tradingStats.bestRealizedTrade.shares,
+          date: tradingStats.bestRealizedTrade.date,
+          realizedPL: Number(tradingStats.bestRealizedTrade.realizedPL.toFixed(4)),
+        } : null,
+        worstRealizedTrade: tradingStats.worstRealizedTrade ? {
+          symbol: tradingStats.worstRealizedTrade.symbol,
+          side: tradingStats.worstRealizedTrade.side,
+          price: tradingStats.worstRealizedTrade.price,
+          shares: tradingStats.worstRealizedTrade.shares,
+          date: tradingStats.worstRealizedTrade.date,
+          realizedPL: Number(tradingStats.worstRealizedTrade.realizedPL.toFixed(4)),
+        } : null,
+        averageRealizedPL: singleCurrency && tradingStats.averageRealizedPL != null ? Number(tradingStats.averageRealizedPL.toFixed(4)) : null,
+        averageRealizedPLByCurrency: Object.fromEntries(Object.entries(tradingStats.averageRealizedByCurrency).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
+        winRate: tradingStats.winRate == null ? null : Number(tradingStats.winRate.toFixed(4)),
+        largestPosition: tradingStats.largestPosition ? {
+          symbol: tradingStats.largestPosition.symbol,
+          currency: tradingStats.largestPosition.quote.currency,
+          marketValue: Number(tradingStats.largestPosition.marketValue.toFixed(4)),
+        } : null,
+        currencyExposure: Object.fromEntries(Object.entries(tradingStats.currencyExposure).map(([currency, value]) => [currency, Number(value.toFixed(4))])),
+      },
+      positions: positions.map((position) => ({
+        symbol: position.symbol,
+        currency: position.quote.currency,
+        exchange: position.quote.exchange,
+        source: position.quote.source,
+        asOf: position.quote.asOf,
+        latestPrice: position.quote.price,
+        shares: Number(position.shares.toFixed(6)),
+        averageCost: Number(position.averageCost.toFixed(4)),
+        totalCost: Number(position.costBasis.toFixed(4)),
+        marketValue: Number(position.marketValue.toFixed(4)),
+        unrealizedPL: Number(position.unrealizedPL.toFixed(4)),
+        unrealizedPLPercent: Number(position.unrealizedPLPercent.toFixed(4)),
+      })).sort((a, b) => a.symbol.localeCompare(b.symbol)),
+    }
+  }, [cashBalances, cashByCurrency, positions, singleCurrency, totals, tradingStats])
+  useEffect(() => {
+    if (!loading) savePortfolioSummaryToGitHub(portfolioSummary).catch(() => {})
+  }, [loading, positions.length, portfolioSummary])
   const updateCashBalance = (currency, rawValue) => {
     const amount = Number(rawValue)
     const next = cashCurrencies.map((item) => ({
       currency: item,
-      amount: item === currency ? (Number.isFinite(amount) ? Number(amount.toFixed(2)) : 0) : (cashByCurrency[item] || 0),
+      amount: item === currency ? (Number.isFinite(amount) ? amount : 0) : (cashByCurrency[item] || 0),
     }))
     setCashBalances(next)
     saveCashBalances(next)
   }
-  useEffect(() => {
-    if (loading || !isGitHubSyncConfigured()) return undefined
-    let cancelled = false
-    const timer = setTimeout(async () => {
-      setPortfolioSyncStatus('Saving portfolio summary...')
-      try {
-        const summary = buildPortfolioSummaryExport(positions, cashBalances, allTrades)
-        await savePortfolioSummaryToGitHub(summary)
-        if (!cancelled) setPortfolioSyncStatus(`Portfolio summary saved ${new Date().toLocaleTimeString()}`)
-      } catch (error) {
-        if (!cancelled) setPortfolioSyncStatus(error.message || 'Portfolio summary sync failed.')
-      }
-    }, 1200)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [allTrades, cashBalances, loading, positions])
   const sortedPositions = useMemo(() => [...positions].sort((a, b) => {
     const direction = sort.direction === 'asc' ? 1 : -1
     if (sort.key === 'symbol') return a.symbol.localeCompare(b.symbol) * direction
@@ -89,7 +148,7 @@ export default function Portfolio() {
   if (loading) return <div className="loading">{t('loadingPortfolio')}</div>
   return <section><div className="page-head"><div><p className="eyebrow">{t('portfolioEyebrow')}</p><h1>{t('portfolioTitle')}</h1><p>{t('portfolioSubtitle')}</p></div></div>
     <div className="portfolio-summary">{Object.values(totals).map((total) => <div className="panel portfolio-card" key={total.currency}><span>{total.currency} {t('portfolioTitle').toLowerCase()}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} {money(total.cost, total.currency)}</small><small className={valueClass(total.pl)}>{t('pl')} {money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</small></div></div>)}
-      <div className="panel portfolio-card cash-card"><span>{t('availableCash')}</span><strong>{cashCurrencies.map((currency) => `${currency} ${money(cashByCurrency[currency] || 0, currency)}`).join(' · ')}</strong><p>{t('availableCashHint')}</p>{portfolioSyncStatus && <small className="portfolio-sync-status">{portfolioSyncStatus}</small>}<div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></div>
+      <div className="panel portfolio-card cash-card"><span>{t('availableCash')}</span><strong>{cashCurrencies.map((currency) => `${currency} ${money(cashByCurrency[currency] || 0, currency)}`).join(' · ')}</strong><p>{t('availableCashHint')}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></div>
     </div>
     <div className="panel trading-stats"><h2>{t('tradingStatistics')}</h2><div className="stats-grid">
       <span>{t('totalUnrealizedPL')}<strong className={valueClass(singleCurrency ? tradingStats.totalUnrealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalUnrealizedPL) : currencyLines(tradingStats.unrealizedByCurrency)}</strong></span>

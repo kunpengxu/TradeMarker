@@ -12,7 +12,7 @@ const config = () => {
 }
 
 const apiUrl = ({ owner, repo, path }) => `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`
-const headers = (token) => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache', 'X-GitHub-Api-Version': '2022-11-28' })
+const headers = (token) => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' })
 const encode = (value) => btoa(unescape(encodeURIComponent(value)))
 const decode = (value) => decodeURIComponent(escape(atob(value.replace(/\n/g, ''))))
 const siblingPath = (path, filename) => {
@@ -20,7 +20,6 @@ const siblingPath = (path, filename) => {
   parts[parts.length - 1] = filename
   return parts.join('/')
 }
-const saveQueues = new Map()
 const hasUserData = (data) => Boolean(
   data?.watchlist?.length ||
   data?.trades?.length ||
@@ -29,11 +28,10 @@ const hasUserData = (data) => Boolean(
 )
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function getRemote(path = config().path, { parseData = true } = {}) {
   const settings = { ...config(), path }
-  const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}&t=${Date.now()}`, { headers: headers(settings.token), cache: 'no-store' })
+  const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}`, { headers: headers(settings.token) })
   if (response.status === 404) return null
   const result = await response.json()
   if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
@@ -42,40 +40,20 @@ async function getRemote(path = config().path, { parseData = true } = {}) {
   return { sha: result.sha, data: JSON.parse(decode(result.content)) }
 }
 
-async function writeJsonFile(path, data, message) {
-  const settings = { ...config(), path }
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const remote = await getRemote(path, { parseData: false })
-    const body = {
-      message,
-      content: encode(JSON.stringify(data, null, 2)),
-      branch: settings.branch,
-      ...(remote?.sha ? { sha: remote.sha } : {}),
-    }
-    const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    const result = await response.json()
-    if (response.ok) return { status: 'saved', path }
-    if (response.status === 409 && attempt < 5) {
-      await sleep(250 * (attempt + 1))
-      continue
-    }
-    const message = response.status === 409
-      ? `GitHub file version changed while saving ${path}. TradeMarker will try again on the next automatic sync.`
-      : result.message || `GitHub sync failed (${response.status}).`
-    throw new Error(message)
-  }
-  throw new Error('GitHub sync failed after retrying the latest file version.')
-}
-
 async function saveJsonFile(path, data, message) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
-  const previous = saveQueues.get(path) || Promise.resolve()
-  const next = previous.catch(() => {}).then(() => writeJsonFile(path, data, message))
-  saveQueues.set(path, next)
-  next.finally(() => {
-    if (saveQueues.get(path) === next) saveQueues.delete(path)
-  })
-  return next
+  const settings = { ...config(), path }
+  const remote = await getRemote(path, { parseData: false })
+  const body = {
+    message,
+    content: encode(JSON.stringify(data, null, 2)),
+    branch: settings.branch,
+    ...(remote?.sha ? { sha: remote.sha } : {}),
+  }
+  const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
+  return { status: 'saved', path }
 }
 
 export async function loadFromGitHub({ force = false } = {}) {

@@ -49,11 +49,9 @@ export default function Dashboard() {
   const [updated, setUpdated] = useState(null)
   const [loading, setLoading] = useState(false)
   const [marketError, setMarketError] = useState('')
-  const [syncStatus, setSyncStatus] = useState('')
 
   const refresh = useCallback(async (symbols = getWatchlist(), replace = true) => {
     setLoading(true)
-    setSyncStatus('')
     const rows = await Promise.all(symbols.map(async (ticker) => {
       try {
         const snapshot = await getMarketSnapshot(ticker, { force: true })
@@ -74,18 +72,10 @@ export default function Dashboard() {
     setSelected((current) => current && getWatchlist().includes(current) ? current : getWatchlist()[0] || null)
     setUpdated(new Date())
     setLoading(false)
-    setSyncStatus('Saving GitHub JSON...')
-    const results = await Promise.allSettled([
-      saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)),
-      buildEventsCalendarExport(getWatchlist()).then(saveEventsCalendarToGitHub),
-    ])
-    const failed = results.find((result) => result.status === 'rejected')
-    if (failed) {
-      setSyncStatus(`GitHub JSON sync failed: ${failed.reason?.message || 'unknown error'}`)
-      return
-    }
-    const disabled = results.find((result) => result.value?.status === 'disabled')
-    setSyncStatus(disabled ? 'GitHub sync is not configured.' : `GitHub JSON synced ${new Date().toLocaleTimeString()}`)
+    saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
+    buildEventsCalendarExport(getWatchlist())
+      .then(saveEventsCalendarToGitHub)
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -184,7 +174,6 @@ export default function Dashboard() {
         <div className="workspace-status">
           <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
           {updated ? `${getMarketDataProviderName()} · ${t('refreshed')} ${updated.toLocaleTimeString()}` : t('loadingReferenceData')}
-          {syncStatus ? <small className={syncStatus.includes('failed') || syncStatus.includes('not configured') ? 'workspace-sync-status error' : 'workspace-sync-status'}>{syncStatus}</small> : null}
           <button className="toolbar-button density-toggle" title={t('density')} onClick={() => setDensity((current) => current === 'compact' ? 'comfortable' : 'compact')}>{density === 'compact' ? t('compact') : t('comfortable')}</button>
           <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ {t('refresh')}</button>
         </div>
