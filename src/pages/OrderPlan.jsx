@@ -160,8 +160,8 @@ export default function OrderPlan() {
       <span>{t('generated')}<strong>{formatDate(plan.generatedAt)}</strong></span>
       <span>{t('orders')}<strong>{plan.orders.length}</strong></span>
     </div>}
-    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} />}
     {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel"><h2>{t('planSummary')}</h2><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
+    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} />}
     {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {loading ? <div className="loading">{t('loadingOrderPlan')}</div> : plan ? <>
