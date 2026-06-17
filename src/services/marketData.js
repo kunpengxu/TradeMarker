@@ -1,6 +1,7 @@
 import { getSettings } from './storage.js'
 
 const round = (value) => Number(Number(value).toFixed(2))
+const isValidPrice = (value) => Number.isFinite(Number(value)) && Number(value) > 0
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
 const DEFAULT_YAHOO_PROXY = 'https://trademarker-yahoo-proxy.kunp-xu.workers.dev'
@@ -140,7 +141,7 @@ async function fetchYahooSnapshot(symbol) {
     low: Number(quote.low[index]),
     close: Number(quote.close[index]),
     volume: Number(quote.volume[index] || 0),
-  })).filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite))
+  })).filter((candle) => [candle.open, candle.high, candle.low, candle.close].every(isValidPrice))
 
   if (candles.length < 2) throw new Error(`Yahoo Finance returned insufficient OHLC data for ${symbol}.`)
   return createSnapshot(symbol, candles, {
@@ -195,9 +196,10 @@ async function fetchTwelveDataSnapshot(symbol, apiKey) {
 
 function createSnapshot(symbol, candles, metadata) {
   const latest = candles.at(-1)
-  const previous = candles.at(-2)
+  const previous = [...candles].slice(0, -1).reverse().find((candle) => isValidPrice(candle.close))
   const change = latest.close - previous.close
-  return { candles, intradayCandles: [], quote: { symbol, exchange: metadata.exchange, currency: metadata.currency, price: round(latest.close), change: round(change), changePercent: round((change / previous.close) * 100), asOf: latest.time, source: metadata.source, closeOnly: metadata.closeOnly } }
+  const changePercent = isValidPrice(previous.close) ? round((change / previous.close) * 100) : 0
+  return { candles, intradayCandles: [], quote: { symbol, exchange: metadata.exchange, currency: metadata.currency, price: round(latest.close), change: round(change), changePercent, asOf: latest.time, source: metadata.source, closeOnly: metadata.closeOnly } }
 }
 
 export async function getMarketSnapshot(symbol, { force = false } = {}) {
