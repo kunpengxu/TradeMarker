@@ -13,6 +13,9 @@ const zh = {
   language: '语言',
   english: 'English',
   chinese: '中文',
+  theme: '主题',
+  lightTheme: '浅色',
+  darkTheme: '深色',
 
   orderEyebrow: 'GPT 挂单计划',
   orderTitle: '今日挂单',
@@ -250,6 +253,9 @@ const en = {
   language: 'Language',
   english: 'English',
   chinese: '中文',
+  theme: 'Theme',
+  lightTheme: 'Light',
+  darkTheme: 'Dark',
 
   orderEyebrow: 'GPT order plan',
   orderTitle: 'Today’s Orders',

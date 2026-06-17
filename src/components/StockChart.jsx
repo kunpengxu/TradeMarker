@@ -5,6 +5,7 @@ import { resampleCandles } from '../services/resampleCandles'
 import { ema, macd, rsi, sma, vwap } from '../services/technicalIndicators'
 import { DEFAULT_CHART_INDICATORS, normalizeChartIndicators } from '../hooks/useChartIndicators'
 import { money, number } from '../utils/formatters'
+import { useTheme } from '../theme'
 
 const day = (value) => new Date(value).toISOString().slice(0, 10)
 const candleDay = (value) => typeof value === 'number' ? new Date(value * 1000).toISOString().slice(0, 10) : day(value)
@@ -16,17 +17,19 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => 
 
 export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD', quoteChange = null, quotePrice = null, indicators = DEFAULT_CHART_INDICATORS }) {
   const containerRef = useRef(null)
+  const { theme } = useTheme()
 
   useEffect(() => {
     if (!containerRef.current || !candles.length) return
+    const light = theme === 'light'
     const chart = createChart(containerRef.current, {
       autoSize: true,
       height: 460,
-      layout: { background: { color: '#111a2d' }, textColor: '#94a3b8' },
-      grid: { vertLines: { color: '#1c2941' }, horzLines: { color: '#1c2941' } },
+      layout: { background: { color: light ? '#f8fafc' : '#111a2d' }, textColor: light ? '#64748b' : '#94a3b8' },
+      grid: { vertLines: { color: light ? '#e2e8f0' : '#1c2941' }, horzLines: { color: light ? '#e2e8f0' : '#1c2941' } },
       crosshair: { mode: CrosshairMode.Normal },
-      timeScale: { borderColor: '#263650', timeVisible: true, rightOffset: interval === '1m' ? 3 : 0, barSpacing: interval === '1m' ? 5 : undefined },
-      rightPriceScale: { borderColor: '#263650' },
+      timeScale: { borderColor: light ? '#cbd5e1' : '#263650', timeVisible: true, rightOffset: interval === '1m' ? 3 : 0, barSpacing: interval === '1m' ? 5 : undefined },
+      rightPriceScale: { borderColor: light ? '#cbd5e1' : '#263650' },
     })
     const data = interval === '1m' ? candles : resampleCandles(candles, interval)
     const enabledIndicators = normalizeChartIndicators(indicators)
@@ -264,7 +267,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       markerLayer.remove()
       chart.remove()
     }
-  }, [candles, interval, trades, averageCost, closeOnly, currency, quoteChange, quotePrice, indicators])
+  }, [candles, interval, trades, averageCost, closeOnly, currency, quoteChange, quotePrice, indicators, theme])
 
   return <div className="chart" ref={containerRef} />
 }
