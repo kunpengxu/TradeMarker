@@ -26,13 +26,21 @@ const matchesSymbol = (orderSymbol, symbol) => {
   return order === current || cleanSymbol(order) === cleanSymbol(current)
 }
 const DENSITY_KEY = 'trademarker.displayDensity'
+const SELECTED_SYMBOL_KEY = 'trademarker.selectedSymbol'
+const getSavedSelectedSymbol = () => {
+  try {
+    return normalizeSymbol(localStorage.getItem(SELECTED_SYMBOL_KEY) || '')
+  } catch {
+    return ''
+  }
+}
 
 export default function Dashboard() {
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
   const requestedSymbol = searchParams.get('symbol') ? normalizeSymbol(searchParams.get('symbol')) : ''
   const [items, setItems] = useState([])
-  const [selected, setSelected] = useState(requestedSymbol || null)
+  const [selected, setSelectedState] = useState(() => requestedSymbol || getSavedSelectedSymbol() || null)
   const [candles, setCandles] = useState([])
   const [historyCache, setHistoryCache] = useState({})
   const [intradayCache, setIntradayCache] = useState({})
@@ -49,6 +57,13 @@ export default function Dashboard() {
   const [updated, setUpdated] = useState(null)
   const [loading, setLoading] = useState(false)
   const [marketError, setMarketError] = useState('')
+  const setSelected = useCallback((symbol) => {
+    setSelectedState(symbol)
+    try {
+      if (symbol) localStorage.setItem(SELECTED_SYMBOL_KEY, symbol)
+      else localStorage.removeItem(SELECTED_SYMBOL_KEY)
+    } catch {}
+  }, [])
 
   const refresh = useCallback(async (symbols = getWatchlist(), replace = true) => {
     setLoading(true)
@@ -79,11 +94,12 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    const symbols = requestedSymbol ? [...new Set([...getWatchlist(), requestedSymbol])] : getWatchlist()
+    const savedSymbol = getSavedSelectedSymbol()
+    const symbols = [...new Set([...getWatchlist(), requestedSymbol, savedSymbol].filter(Boolean))]
     refresh(symbols).then(() => {
       if (requestedSymbol) setSelected(requestedSymbol)
     })
-  }, [refresh, requestedSymbol])
+  }, [refresh, requestedSymbol, setSelected])
   useEffect(() => { localStorage.setItem(DENSITY_KEY, density) }, [density])
   useEffect(() => {
     loadOrderPlanFromGitHub('order-plan.json')
