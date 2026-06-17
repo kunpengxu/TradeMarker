@@ -14,6 +14,11 @@ const compactText = (value, max = 130) => {
   const text = String(value || '').trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
+const orderTone = (order) => {
+  const side = String(order.side || '').toLowerCase().replace(/[^a-z]/g, '-')
+  const priority = String(order.priority || '').toLowerCase().replace(/[^a-z]/g, '-')
+  return ['summary-row', side, priority && `priority-${priority}`].filter(Boolean).join(' ')
+}
 const tokenLabel = (value, language) => {
   const key = String(value || '').toUpperCase().replace(/\s+/g, '_')
   const zh = {
@@ -84,7 +89,7 @@ function OrderPlanSummaryTable({ orders, language, t }) {
           const current = localizedText(order.currentSituationText, language) || order.currentSituation || localizedText(order.reasonText, language) || order.reason || '—'
           const suggestion = localizedText(order.suggestionText, language) || order.suggestion || localizedText(order.noteText, language) || order.note || fallbackSuggestion(order, language)
           const plannedOrder = localizedText(order.plannedOrderText, language) || order.plannedOrder || summarizeLegs(order, language)
-          return <tr key={order.id || `${order.symbol}-${index}`}>
+          return <tr className={orderTone(order)} key={order.id || `${order.symbol}-${index}`}>
             <td>{index + 1}</td>
             <td><strong>{order.symbol || '—'}</strong></td>
             <td>{compactText(current, 150)}</td>
@@ -152,7 +157,7 @@ export default function OrderPlan() {
   const emptyLabel = { BUY: t('noBuyRecommendations'), SELL: t('noSellRecommendations'), WATCH: t('noWatchRecommendations') }
 
   return <section><div className="page-head"><div><p className="eyebrow">{t('orderEyebrow')}</p><h1>{t('orderTitle')}</h1><p>{t('orderSubtitle')}</p></div><button onClick={load} disabled={loading}>{loading ? t('loading') : t('reloadPlan')}</button></div>
-    <div className="panel order-plan-source"><label>{t('githubJsonFile')}<input value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="order-plan.json" /></label><small>{t('orderFileHint')}</small></div>
+    <details className="panel order-plan-source"><summary><span>{t('githubJsonFile')}</span><strong>{filename}</strong></summary><label><input value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="order-plan.json" /></label><small>{t('orderFileHint')}</small></details>
     {message && <p className="notice">{message}</p>}
     {plan && <div className="order-plan-summary">
       <span>{t('title')}<strong>{localizedText(plan.titleText, language) || plan.title}</strong></span>
@@ -160,7 +165,7 @@ export default function OrderPlan() {
       <span>{t('generated')}<strong>{formatDate(plan.generatedAt)}</strong></span>
       <span>{t('orders')}<strong>{plan.orders.length}</strong></span>
     </div>}
-    {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel"><h2>{t('planSummary')}</h2><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
+    {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel plan-briefing-panel"><div><span>{t('todayFocus')}</span><h2>{t('planSummary')}</h2></div><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
     {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} />}
     {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
