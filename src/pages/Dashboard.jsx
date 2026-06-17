@@ -134,6 +134,9 @@ export default function Dashboard() {
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
   const chartCandles = interval === '1m' ? intradayCache[selected] || [] : candles
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
+  const selectedOrderFocus = selectedOrders.length
+    ? `${selected} · ${t('currentSymbolOrders', { count: selectedOrders.length })}${position?.shares ? ` · ${number(position.shares, 4)} ${t('shares').toLowerCase()}` : ''}`
+    : t('orderFocusHint')
   const reloadJournal = () => {
     const nextTrades = getTrades(selected)
     setTrades(nextTrades)
@@ -172,16 +175,15 @@ export default function Dashboard() {
       <div className="workspace-toolbar">
         <SymbolSearch onSelect={openSelectedSymbol} />
         <div className="workspace-status">
-          <span className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />
-          {updated ? `${getMarketDataProviderName()} · ${t('refreshed')} ${updated.toLocaleTimeString()}` : t('loadingReferenceData')}
+          <span className="market-status-pill"><i className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />{updated ? <><strong>{getMarketDataProviderName()}</strong><em>{t('refreshed')} {updated.toLocaleTimeString()}</em></> : t('loadingReferenceData')}</span>
           <button className="toolbar-button density-toggle" title={t('density')} onClick={() => setDensity((current) => current === 'compact' ? 'comfortable' : 'compact')}>{density === 'compact' ? t('compact') : t('comfortable')}</button>
-          <button className="toolbar-button" onClick={() => refresh()} disabled={loading}>↻ {t('refresh')}</button>
+          <button className="toolbar-button refresh-button" onClick={() => refresh()} disabled={loading}>↻ {t('refresh')}</button>
         </div>
       </div>
       {orders.length ? <div className="today-focus-strip">
         <span>{t('todayFocus')}</span>
         <strong>{t('stocksWithOrders', { count: plannedWatchlistCount || orderSymbols.length })}</strong>
-        <em>{selectedOrders.length ? t('currentSymbolOrders', { count: selectedOrders.length }) : t('orderFocusHint')}</em>
+        <em>{selectedOrderFocus}</em>
         {selectedOrders.length ? <button onClick={() => setShowOrders(true)}>{t('orderSuggestions')}</button> : null}
       </div> : null}
 
@@ -213,6 +215,11 @@ export default function Dashboard() {
                 <div className="quote-price">
                   <strong className={valueClass(selectedItem.quote.change)}>{money(selectedItem.quote.price, selectedItem.quote.currency)}</strong>
                   <span className={valueClass(selectedItem.quote.change)}>{selectedItem.quote.change >= 0 ? '+' : ''}{money(selectedItem.quote.change, selectedItem.quote.currency)} &nbsp; {percent(selectedItem.quote.changePercent)}</span>
+                  <div className="quote-position-metrics">
+                    <span>{t('shares')} <strong>{number(position.shares, 4)}</strong></span>
+                    <span>{t('averageCost')} <strong>{money(position.averageCost, selectedItem.quote.currency)}</strong></span>
+                    <span>{t('pl')} <strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} · {percent(position.unrealizedPLPercent)}</strong></span>
+                  </div>
                 </div>
                 <div className="action-group">
                   <button
@@ -235,12 +242,6 @@ export default function Dashboard() {
                 <button className={activeSection === 'position' ? 'active' : ''} onClick={() => { setActiveSection('position'); document.querySelector('.position-ribbon')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}>{t('position')}</button>
                 <button className={activeSection === 'journal' ? 'active' : ''} onClick={() => { setActiveSection('journal'); document.querySelector('.workspace-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{t('journal')}</button>
                 <span>{t('journalOnlyWorkspace')}</span>
-              </div>
-              <div className="quote-mini-strip">
-                <span>{t('shares')} <strong>{number(position.shares, 4)}</strong></span>
-                <span>{t('averageCost')} <strong>{money(position.averageCost, selectedItem.quote.currency)}</strong></span>
-                <span>{t('pl')} <strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} · {percent(position.unrealizedPLPercent)}</strong></span>
-                <button className={selectedOrders.length ? 'has-orders' : ''} onClick={() => selectedOrders.length && setShowOrders(true)} disabled={!selectedOrders.length}>{t('orderSuggestions')} <strong>{selectedOrders.length}</strong></button>
               </div>
 
               <div className="chart-toolbar">

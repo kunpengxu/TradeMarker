@@ -109,7 +109,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
               const item = itemMap.get(symbol)
               const orders = orderCount(symbol)
               return <div
-                className={`watch-row ${selected === symbol ? 'selected' : ''} ${valueClass(item.position?.unrealizedPL || item.quote?.change)}`}
+                className={`watch-row ${selected === symbol ? 'selected' : ''} ${orders ? 'has-orders' : ''} ${valueClass(item.position?.unrealizedPL || item.quote?.change)}`}
                 key={symbol}
                 role="button"
                 tabIndex="0"
