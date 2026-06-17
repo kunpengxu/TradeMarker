@@ -2,11 +2,98 @@ import { useEffect, useMemo, useState } from 'react'
 import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
 import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { normalizeOrderPlan } from '../services/orderPlan'
+import { number } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
 const formatDate = (date) => {
   const value = String(date || '')
   return value ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: value.includes('T') || value.includes(':') ? 'short' : undefined }) : 'Not specified'
+}
+const hasValue = (value) => value != null && Number.isFinite(Number(value)) && Number(value) !== 0
+const compactText = (value, max = 130) => {
+  const text = String(value || '').trim()
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
+const tokenLabel = (value, language) => {
+  const key = String(value || '').toUpperCase().replace(/\s+/g, '_')
+  const zh = {
+    BUY: '买',
+    SELL: '卖',
+    WATCH: '观察',
+    HIGH: '高',
+    MEDIUM: '中',
+    LOW: '低',
+    READY: '可执行',
+    CONDITIONAL: '条件触发',
+    PROPOSED: '建议',
+    NO_ACTION: '不操作',
+    LIMIT: '限价',
+    MARKET: '市价',
+  }
+  const en = {
+    BUY: 'buy',
+    SELL: 'sell',
+    WATCH: 'watch',
+    HIGH: 'high',
+    MEDIUM: 'medium',
+    LOW: 'low',
+    READY: 'ready',
+    CONDITIONAL: 'conditional',
+    PROPOSED: 'proposed',
+    NO_ACTION: 'no action',
+    LIMIT: 'limit',
+    MARKET: 'market',
+  }
+  return language === 'zh' ? zh[key] || value : en[key] || value
+}
+const formatPrice = (value) => hasValue(value) ? Number(value).toFixed(2) : null
+const summarizeLegs = (order, language) => {
+  const rows = (order.legs || []).map((leg) => {
+    const parts = [
+      formatPrice(leg.price),
+      tokenLabel(order.side, language),
+      hasValue(leg.shares) ? language === 'zh' ? `${number(leg.shares, 4)}股` : `${number(leg.shares, 4)} sh` : null,
+      hasValue(leg.amount) ? language === 'zh' ? `金额 ${number(leg.amount, 2)}` : `amount ${number(leg.amount, 2)}` : null,
+      hasValue(leg.percent) ? `${leg.percent}%` : null,
+    ].filter(Boolean)
+    return parts.join(language === 'zh' ? ' ' : ' ')
+  }).filter(Boolean)
+  return rows.length ? rows.join(language === 'zh' ? '；' : '; ') : '—'
+}
+const fallbackSuggestion = (order, language) => {
+  const side = tokenLabel(order.side, language)
+  const status = order.status ? tokenLabel(order.status, language) : ''
+  if (language === 'zh') return [side, status].filter(Boolean).join(' · ') || '—'
+  return [side, status].filter(Boolean).join(' · ') || '—'
+}
+
+function OrderPlanSummaryTable({ orders, language, t }) {
+  if (!orders.length) return null
+  return <div className="panel order-summary-table-panel">
+    <h2>{t('orderQuickSummary')}</h2>
+    <div className="order-summary-table-wrap">
+      <table className="order-summary-table">
+        <thead><tr>
+          <th>{t('priority')}</th>
+          <th>{t('orderSymbol')}</th>
+          <th>{t('currentSituation')}</th>
+          <th>{t('suggestion')}</th>
+          <th>{t('plannedOrder')}</th>
+        </tr></thead>
+        <tbody>{orders.map((order, index) => {
+          const current = localizedText(order.currentSituationText, language) || order.currentSituation || localizedText(order.reasonText, language) || order.reason || '—'
+          const suggestion = localizedText(order.suggestionText, language) || order.suggestion || localizedText(order.noteText, language) || order.note || fallbackSuggestion(order, language)
+          return <tr key={order.id || `${order.symbol}-${index}`}>
+            <td>{index + 1}</td>
+            <td><strong>{order.symbol || '—'}</strong></td>
+            <td>{compactText(current, 150)}</td>
+            <td><strong>{compactText(suggestion, 120)}</strong></td>
+            <td>{summarizeLegs(order, language)}</td>
+          </tr>
+        })}</tbody>
+      </table>
+    </div>
+  </div>
 }
 
 export default function OrderPlan() {
@@ -72,6 +159,7 @@ export default function OrderPlan() {
       <span>{t('generated')}<strong>{formatDate(plan.generatedAt)}</strong></span>
       <span>{t('orders')}<strong>{plan.orders.length}</strong></span>
     </div>}
+    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} />}
     {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel"><h2>{t('planSummary')}</h2><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
     {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
