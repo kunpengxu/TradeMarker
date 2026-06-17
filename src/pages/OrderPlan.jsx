@@ -83,12 +83,13 @@ function OrderPlanSummaryTable({ orders, language, t }) {
         <tbody>{orders.map((order, index) => {
           const current = localizedText(order.currentSituationText, language) || order.currentSituation || localizedText(order.reasonText, language) || order.reason || '—'
           const suggestion = localizedText(order.suggestionText, language) || order.suggestion || localizedText(order.noteText, language) || order.note || fallbackSuggestion(order, language)
+          const plannedOrder = localizedText(order.plannedOrderText, language) || order.plannedOrder || summarizeLegs(order, language)
           return <tr key={order.id || `${order.symbol}-${index}`}>
             <td>{index + 1}</td>
             <td><strong>{order.symbol || '—'}</strong></td>
             <td>{compactText(current, 150)}</td>
             <td><strong>{compactText(suggestion, 120)}</strong></td>
-            <td>{summarizeLegs(order, language)}</td>
+            <td>{plannedOrder}</td>
           </tr>
         })}</tbody>
       </table>
