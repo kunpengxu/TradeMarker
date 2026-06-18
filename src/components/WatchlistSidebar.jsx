@@ -50,6 +50,10 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
   const visible = (symbol) => {
     const item = itemMap.get(symbol)
     if (!item || !symbol.toLowerCase().includes(query.toLowerCase())) return false
+    if (filter.startsWith('group:')) {
+      const groupId = filter.slice(6)
+      return groups.find((group) => group.id === groupId)?.symbols.includes(symbol)
+    }
     if (filter === 'positions') return item.position.shares > 0
     if (filter === 'orders') return orderSymbolSet.has(String(symbol).toUpperCase()) || orderSymbolSet.has(cleanSymbol(symbol))
     return true
@@ -96,7 +100,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
       </div>
       <div className="watch-tools">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('filterSymbols')} />
-        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option></select>
+        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option>{groups.map((group) => <option value={`group:${group.id}`} key={group.id}>{group.name}</option>)}</select>
         <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">{t('manualOrder')}</option><option value="change">{t('percentChange')}</option><option value="pl">{t('profitLoss')}</option></select>
       </div>
       <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>{t('symbol')}{sortArrow('symbol')}</button><span /> <button onClick={() => toggleSort('price')}>{t('price')}{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>{t('percentChange')}{sortArrow('change')}</button></div>
