@@ -4,6 +4,7 @@ const KEYS = {
   plannedOrders: 'trademarker.plannedOrders',
   settings: 'trademarker.settings',
   watchlistGroups: 'trademarker.watchlistGroups',
+  watchlistGroupPreset: 'trademarker.watchlistGroupPreset.v1',
   account: 'trademarker.account',
   updatedAt: 'trademarker.updatedAt',
 }
@@ -151,6 +152,52 @@ export const saveWatchlistGroups = (groups) => {
     symbols: [...new Set(group.symbols.filter((symbol) => getWatchlist().includes(symbol)))],
   }))
   write(KEYS.watchlistGroups, clean.length ? clean : [{ id: 'default', name: 'Watchlist', symbols: getWatchlist() }])
+}
+
+const PRESET_WATCHLIST_GROUPS = [
+  {
+    id: 'long-core',
+    name: '长期持仓',
+    symbols: ['ASML.NE', 'NVDA.NE', 'AMD', 'AMD.NE', 'AVGO.NE', 'MSFT.NE', 'GOOG.NE', 'GOOGL', 'AMZN.NE', 'META.NE', 'AAPL.NE', 'ORCL', 'TSLA', 'TSLA.NE', 'UNH.NE', 'VFV.TO', 'QQQ', 'XEQT.TO', 'VDY.TO'],
+  },
+  {
+    id: 'long-satellite',
+    name: '长期卫星仓',
+    symbols: ['RKLB', 'RDW', 'ASTS', 'PLTR.NE', 'INTC.NE', 'RBLX', 'IONQ', 'QBTS', 'XE', 'SPCX', 'SMCI.NE', 'AAOI', 'LULU.NE', 'IBM.NE', 'NFLX.NE', 'NOK', 'KULR'],
+  },
+  {
+    id: 'swing',
+    name: '波段仓',
+    symbols: ['QMCO', 'OSCR', 'CLSK', 'DVLT', 'LAES', 'ABTC', 'NIVF', 'FIG', 'GEMI'],
+  },
+  {
+    id: 'leveraged-swing',
+    name: '杠杆波段仓',
+    symbols: ['TSLL', 'TSLU.TO', 'SMCL', 'AMZU', 'ORCX', 'OKLL', 'ETHU', 'MSTU.TO', 'MSTP', 'IONL', 'KBAB', 'METU', 'TEMT', 'GLDU.TO', 'GLDU.NE', 'NVDY'],
+  },
+]
+
+export const applyPresetWatchlistGroupsOnce = () => {
+  if (read(KEYS.watchlistGroupPreset, false)) return false
+  const presetSymbols = PRESET_WATCHLIST_GROUPS.flatMap((group) => group.symbols).map(normalizeSymbol)
+  const presetSymbolSet = new Set(presetSymbols)
+  const nextWatchlist = [...new Set([...getWatchlist(), ...presetSymbols])]
+  saveWatchlist(nextWatchlist)
+
+  const existingGroups = getWatchlistGroups()
+  const existingPresetNames = new Set(PRESET_WATCHLIST_GROUPS.map((group) => group.name))
+  const remainingGroups = existingGroups
+    .filter((group) => !existingPresetNames.has(group.name))
+    .map((group) => ({ ...group, symbols: group.symbols.filter((symbol) => !presetSymbolSet.has(symbol)) }))
+    .filter((group) => group.id === 'default' || group.symbols.length)
+  const presetGroups = PRESET_WATCHLIST_GROUPS.map((group) => ({
+    ...group,
+    symbols: group.symbols.map(normalizeSymbol),
+  }))
+
+  saveWatchlistGroups([...presetGroups, ...remainingGroups])
+  write(KEYS.watchlistGroupPreset, true, false)
+  return true
 }
 
 export const getTrades = (symbol) => {

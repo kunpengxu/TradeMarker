@@ -14,7 +14,7 @@ import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition } from '../services/positionCalculator'
-import { addSymbol, deleteTrade, getTrades, getWatchlist, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
+import { addSymbol, applyPresetWatchlistGroupsOnce, deleteTrade, getTrades, getWatchlist, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useChartIndicators } from '../hooks/useChartIndicators'
 import { useI18n } from '../i18n'
@@ -123,6 +123,7 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
+    applyPresetWatchlistGroupsOnce()
     const savedSymbol = getSavedSelectedSymbol()
     const symbols = [...new Set([...getWatchlist(), requestedSymbol, savedSymbol].filter(Boolean))]
     refresh(symbols).then(() => {
