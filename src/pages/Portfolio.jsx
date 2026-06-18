@@ -15,6 +15,15 @@ export default function Portfolio() {
   const [cashBalances, setCashBalances] = useState(() => getCashBalances())
   const [loading, setLoading] = useState(true)
   useEffect(() => {
+    const syncCashBalances = () => setCashBalances(getCashBalances())
+    window.addEventListener('trademarker:data-changed', syncCashBalances)
+    window.addEventListener('trademarker:data-imported', syncCashBalances)
+    return () => {
+      window.removeEventListener('trademarker:data-changed', syncCashBalances)
+      window.removeEventListener('trademarker:data-imported', syncCashBalances)
+    }
+  }, [])
+  useEffect(() => {
     Promise.all(getWatchlist().map(async (symbol) => {
       try {
         const snapshot = await getMarketSnapshot(symbol)

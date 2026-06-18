@@ -126,6 +126,18 @@ const applyTradeCashImpact = (account, trade, direction = 1) => {
   return { ...account, cashBalances: normalizeCashBalances(balances) }
 }
 
+const normalizeTradeWithCashImpact = (trade) => normalizeTrade({
+  ...trade,
+  id: trade.id || uid(),
+  currency: trade.currency || inferTradeCurrency(trade.symbol),
+  cashImpactApplied: true,
+})
+
+const applyNewTradeCashImpacts = (account, trades) => trades.reduce(
+  (nextAccount, trade) => applyTradeCashImpact(nextAccount, trade, 1),
+  account,
+)
+
 export const getWatchlist = () => read(KEYS.watchlist, [])
 export const saveWatchlist = (symbols) => write(KEYS.watchlist, [...new Set(symbols.map(normalizeSymbol))])
 export const addSymbol = (symbol) => {
@@ -235,16 +247,18 @@ export const getTrades = (symbol) => {
   return symbol ? trades.filter((trade) => trade.symbol === normalizeSymbol(symbol)) : trades
 }
 export const saveTrade = (trade) => {
-  const normalized = normalizeTrade({ ...trade, id: trade.id || uid(), currency: trade.currency || inferTradeCurrency(trade.symbol), cashImpactApplied: true })
+  const normalized = normalizeTradeWithCashImpact(trade)
   write(KEYS.account, applyTradeCashImpact(getAccount(), normalized, 1), false)
   const next = [...getTrades(), normalized]
   write(KEYS.trades, next)
   return next
 }
 export const saveTrades = (trades) => {
+  const normalizedTrades = trades.map(normalizeTradeWithCashImpact)
+  write(KEYS.account, applyNewTradeCashImpacts(getAccount(), normalizedTrades), false)
   const next = [
     ...getTrades(),
-    ...trades.map((trade) => normalizeTrade({ ...trade, id: trade.id || uid() })),
+    ...normalizedTrades,
   ]
   write(KEYS.trades, next)
   return next
