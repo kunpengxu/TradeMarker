@@ -5,9 +5,11 @@ const KEYS = {
   settings: 'trademarker.settings',
   watchlistGroups: 'trademarker.watchlistGroups',
   watchlistGroupPreset: 'trademarker.watchlistGroupPreset.v1',
+  cdrSymbolMigration: 'trademarker.cdrSymbolMigration.ne-to-to.v1',
   account: 'trademarker.account',
   updatedAt: 'trademarker.updatedAt',
 }
+const SELECTED_SYMBOL_KEY = 'trademarker.selectedSymbol'
 
 const read = (key, fallback) => {
   try {
@@ -55,12 +57,14 @@ const normalizeConfidence = (value) => {
 }
 export const normalizeSymbol = (symbol) => {
   const clean = symbol.trim().toUpperCase()
-  return clean.endsWith(':US') ? clean.slice(0, -3) : clean
+  if (clean.endsWith(':US')) return clean.slice(0, -3)
+  if (clean.endsWith(':CA')) return `${clean.slice(0, -3)}.TO`
+  return clean.replace(/\.NE$/i, '.TO')
 }
 export const normalizeTrade = (trade) => ({
   ...TRADE_DEFAULTS,
   ...trade,
-  symbol: trade.symbol?.toUpperCase() || '',
+  symbol: normalizeSymbol(trade.symbol || ''),
   side: trade.side || 'BUY',
   price: Number(trade.price || 0),
   shares: Number(trade.shares || 0),
@@ -132,9 +136,10 @@ export const addSymbol = (symbol) => {
   return next
 }
 export const removeSymbol = (symbol) => {
-  const next = getWatchlist().filter((item) => item !== symbol)
+  const clean = normalizeSymbol(symbol)
+  const next = getWatchlist().filter((item) => item !== clean)
   saveWatchlist(next)
-  saveWatchlistGroups(getWatchlistGroups().map((group) => ({ ...group, symbols: group.symbols.filter((item) => item !== symbol) })))
+  saveWatchlistGroups(getWatchlistGroups().map((group) => ({ ...group, symbols: group.symbols.filter((item) => item !== clean) })))
   return next
 }
 export const getWatchlistGroups = () => {
@@ -158,12 +163,12 @@ const PRESET_WATCHLIST_GROUPS = [
   {
     id: 'long-core',
     name: '长期持仓',
-    symbols: ['ASML.NE', 'NVDA.NE', 'AMD', 'AMD.NE', 'AVGO.NE', 'MSFT.NE', 'GOOG.NE', 'GOOGL', 'AMZN.NE', 'META.NE', 'AAPL.NE', 'ORCL', 'TSLA', 'TSLA.NE', 'UNH.NE', 'VFV.TO', 'QQQ', 'XEQT.TO', 'VDY.TO'],
+    symbols: ['ASML.TO', 'NVDA.TO', 'AMD', 'AMD.TO', 'AVGO.TO', 'MSFT.TO', 'GOOG.TO', 'GOOGL', 'AMZN.TO', 'META.TO', 'AAPL.TO', 'ORCL', 'TSLA', 'TSLA.TO', 'UNH.TO', 'VFV.TO', 'QQQ', 'XEQT.TO', 'VDY.TO'],
   },
   {
     id: 'long-satellite',
     name: '长期卫星仓',
-    symbols: ['RKLB', 'RDW', 'ASTS', 'PLTR.NE', 'INTC.NE', 'RBLX', 'IONQ', 'QBTS', 'XE', 'SPCX', 'SMCI.NE', 'AAOI', 'LULU.NE', 'IBM.NE', 'NFLX.NE', 'NOK', 'KULR'],
+    symbols: ['RKLB', 'RDW', 'ASTS', 'PLTR.TO', 'INTC.TO', 'RBLX', 'IONQ', 'QBTS', 'XE', 'SPCX', 'SMCI.TO', 'AAOI', 'LULU.TO', 'IBM.TO', 'NFLX.TO', 'NOK', 'KULR'],
   },
   {
     id: 'swing',
@@ -173,9 +178,34 @@ const PRESET_WATCHLIST_GROUPS = [
   {
     id: 'leveraged-swing',
     name: '杠杆波段仓',
-    symbols: ['TSLL', 'TSLU.TO', 'SMCL', 'AMZU', 'ORCX', 'OKLL', 'ETHU', 'MSTU.TO', 'MSTP', 'IONL', 'KBAB', 'METU', 'TEMT', 'GLDU.TO', 'GLDU.NE', 'NVDY'],
+    symbols: ['TSLL', 'TSLU.TO', 'SMCL', 'AMZU', 'ORCX', 'OKLL', 'ETHU', 'MSTU.TO', 'MSTP', 'IONL', 'KBAB', 'METU', 'TEMT', 'GLDU.TO', 'NVDY'],
   },
 ]
+
+const migrateSymbol = (symbol) => normalizeSymbol(String(symbol || ''))
+const migrateSymbolList = (symbols = []) => [...new Set(symbols.map(migrateSymbol).filter(Boolean))]
+const migrateGroup = (group) => ({ ...group, symbols: migrateSymbolList(group.symbols || []) })
+const migrateOrder = (order) => ({ ...order, symbol: migrateSymbol(order.symbol || '') })
+
+export const migrateCdrSymbolsToTorontoOnce = () => {
+  if (read(KEYS.cdrSymbolMigration, false)) return false
+  const watchlist = read(KEYS.watchlist, [])
+  const groups = read(KEYS.watchlistGroups, [])
+  const trades = read(KEYS.trades, [])
+  const orders = read(KEYS.plannedOrders, [])
+  write(KEYS.watchlist, migrateSymbolList(watchlist), false)
+  if (groups.length) write(KEYS.watchlistGroups, groups.map(migrateGroup), false)
+  if (trades.length) write(KEYS.trades, trades.map(normalizeTrade), false)
+  if (orders.length) write(KEYS.plannedOrders, orders.map(migrateOrder), false)
+  try {
+    const selected = localStorage.getItem(SELECTED_SYMBOL_KEY)
+    if (selected) localStorage.setItem(SELECTED_SYMBOL_KEY, migrateSymbol(selected))
+  } catch {}
+  write(KEYS.cdrSymbolMigration, true, false)
+  write(KEYS.updatedAt, new Date().toISOString(), false)
+  window.dispatchEvent(new CustomEvent('trademarker:data-changed'))
+  return true
+}
 
 export const applyPresetWatchlistGroupsOnce = () => {
   if (read(KEYS.watchlistGroupPreset, false)) return false
@@ -202,7 +232,7 @@ export const applyPresetWatchlistGroupsOnce = () => {
 
 export const getTrades = (symbol) => {
   const trades = read(KEYS.trades, []).map(normalizeTrade)
-  return symbol ? trades.filter((trade) => trade.symbol === symbol) : trades
+  return symbol ? trades.filter((trade) => trade.symbol === normalizeSymbol(symbol)) : trades
 }
 export const saveTrade = (trade) => {
   const normalized = normalizeTrade({ ...trade, id: trade.id || uid(), currency: trade.currency || inferTradeCurrency(trade.symbol), cashImpactApplied: true })
@@ -241,16 +271,16 @@ export const deleteTrade = (id) => {
 }
 
 export const getOrders = (symbol) => {
-  const orders = read(KEYS.plannedOrders, [])
-  return symbol ? orders.filter((order) => order.symbol === symbol) : orders
+  const orders = read(KEYS.plannedOrders, []).map(migrateOrder)
+  return symbol ? orders.filter((order) => order.symbol === normalizeSymbol(symbol)) : orders
 }
 export const saveOrder = (order) => {
-  const next = [...getOrders(), { ...order, id: order.id || uid(), symbol: order.symbol.toUpperCase() }]
+  const next = [...getOrders(), { ...order, id: order.id || uid(), symbol: migrateSymbol(order.symbol) }]
   write(KEYS.plannedOrders, next)
   return next
 }
 export const updateOrder = (updated) => {
-  const next = getOrders().map((order) => (order.id === updated.id ? { ...order, ...updated } : order))
+  const next = getOrders().map((order) => (order.id === updated.id ? migrateOrder({ ...order, ...updated }) : order))
   write(KEYS.plannedOrders, next)
   return next
 }
@@ -274,9 +304,9 @@ export const importData = (data) => {
     throw new Error('Invalid TradeMarker data file.')
   }
   saveWatchlist(data.watchlist)
-  write(KEYS.watchlistGroups, data.watchlistGroups || [{ id: 'default', name: 'Watchlist', symbols: data.watchlist }], false)
+  write(KEYS.watchlistGroups, (data.watchlistGroups || [{ id: 'default', name: 'Watchlist', symbols: data.watchlist }]).map(migrateGroup), false)
   write(KEYS.trades, data.trades.map(normalizeTrade), false)
-  write(KEYS.plannedOrders, data.plannedOrders, false)
+  write(KEYS.plannedOrders, data.plannedOrders.map(migrateOrder), false)
   write(KEYS.account, {
     ...(data.account || {}),
     cashBalances: normalizeCashBalances(data.account?.cashBalances || data.cashBalances || []),

@@ -15,6 +15,7 @@ const normalizeSide = (value) => {
   if (['SELL', 'S', 'TRIM', 'TAKE_PROFIT', 'STOP'].includes(side)) return 'SELL'
   return side || 'WATCH'
 }
+const normalizePlanSymbol = (value) => String(value || '').toUpperCase().replace(/\.NE$/i, '.TO')
 
 const sourceOrders = (plan) => [
   ...asArray(plan.orders),
@@ -56,7 +57,7 @@ const normalizeLeg = (leg, parent = {}, index = 0) => ({
 })
 
 const normalizeOrder = (order, index) => {
-  const symbol = String(first(order.symbol, order.ticker, order.name, order.target, order['标的'], order['股票代码'], '')).toUpperCase()
+  const symbol = normalizePlanSymbol(first(order.symbol, order.ticker, order.name, order.target, order['标的'], order['股票代码'], ''))
   const side = normalizeSide(first(order.side, order.action, order.recommendation, order.type, order['方向'], order['操作'], order['建议']))
   const rawLegs = [
     ...asArray(order.legs),

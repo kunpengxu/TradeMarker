@@ -62,7 +62,7 @@ TradeMarker uses Yahoo Finance as its default reference-data provider. Yahoo cov
 
 FMP's free light endpoint may provide closing prices without full daily OHLC fields. In that case, Daily displays an honest closing-price line chart; Weekly, Monthly, Quarterly, and Yearly aggregate those daily prices into candles.
 
-Search by company name or ticker and choose the exact Yahoo symbol from the results. For example, `TSLA` is US Tesla and `TSLA.NE` is the Canadian Tesla CDR. TradeMarker keeps these securities, positions, and journal markers separate.
+Search by company name or ticker and choose the exact Yahoo symbol from the results. For example, `TSLA` is US Tesla and `TSLA.TO` is the Canadian Tesla CDR. TradeMarker keeps these securities, positions, and journal markers separate.
 
 Yahoo's search returns up to 20 related stocks and ETFs for each query. Because the endpoints are unofficial, Yahoo may return `429 Too Many Requests` or block browser requests with CORS. Wait and retry later, or select FMP/Twelve Data in Settings when Yahoo is unavailable.
 

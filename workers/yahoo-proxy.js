@@ -18,7 +18,7 @@ export default {
     if (incoming.pathname === '/') {
       const origin = incoming.origin
       return new Response(
-        `TradeMarker Yahoo proxy is running.\n\nTest search:\n${origin}/v1/finance/search?q=tesla&quotesCount=5&newsCount=0\n\nTest chart:\n${origin}/v8/finance/chart/TSLA.NE?interval=1d&range=5d\n`,
+        `TradeMarker Yahoo proxy is running.\n\nTest search:\n${origin}/v1/finance/search?q=tesla&quotesCount=5&newsCount=0\n\nTest chart:\n${origin}/v8/finance/chart/TSLA.TO?interval=1d&range=5d\n`,
         { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' } },
       )
     }

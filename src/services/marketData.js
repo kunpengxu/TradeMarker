@@ -2,6 +2,7 @@ import { getSettings } from './storage.js'
 
 const round = (value) => Number(Number(value).toFixed(2))
 const isValidPrice = (value) => Number.isFinite(Number(value)) && Number(value) > 0
+const toYahooSymbol = (symbol) => symbol.endsWith(':CA') ? `${symbol.slice(0, -3)}.TO` : symbol.endsWith(':US') ? symbol.slice(0, -3) : symbol.replace(/\.NE$/i, '.TO')
 const snapshotCache = new Map()
 const pendingSnapshots = new Map()
 const DEFAULT_YAHOO_PROXY = 'https://trademarker-yahoo-proxy.kunp-xu.workers.dev'
@@ -119,7 +120,7 @@ export async function searchSymbols(query) {
   const params = new URLSearchParams({ q: clean, quotesCount: '20', newsCount: '0', enableFuzzyQuery: 'true' })
   const data = await fetchYahooJson(`/v1/finance/search?${params}`)
   return (data.quotes || []).filter((item) => item.symbol && ['EQUITY', 'ETF'].includes(item.quoteType)).map((item) => ({
-    symbol: item.symbol,
+    symbol: item.symbol.replace(/\.NE$/i, '.TO'),
     name: item.shortname || item.longname || item.symbol,
     exchange: item.exchDisp || item.exchange || 'Unknown',
     type: item.typeDisp || item.quoteType,
@@ -127,7 +128,7 @@ export async function searchSymbols(query) {
 }
 
 async function fetchYahooSnapshot(symbol) {
-  const yahooSymbol = symbol.endsWith(':CA') ? `${symbol.slice(0, -3)}.NE` : symbol.endsWith(':US') ? symbol.slice(0, -3) : symbol
+  const yahooSymbol = toYahooSymbol(symbol)
   const params = new URLSearchParams({ interval: '1d', range: '2y', events: 'history', includeAdjustedClose: 'true' })
   const data = await fetchYahooJson(`/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${params}`)
   const result = data.chart?.result?.[0]
@@ -155,7 +156,7 @@ async function fetchYahooSnapshot(symbol) {
 export async function getIntradayCandles(symbol) {
   const { provider } = providerConfig()
   if (provider !== 'yahoo') return []
-  const yahooSymbol = symbol.endsWith(':CA') ? `${symbol.slice(0, -3)}.NE` : symbol.endsWith(':US') ? symbol.slice(0, -3) : symbol
+  const yahooSymbol = toYahooSymbol(symbol)
   const params = new URLSearchParams({ interval: '1m', range: '1d', includePrePost: 'false' })
   const data = await fetchYahooJson(`/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${params}`)
   const result = data.chart?.result?.[0]

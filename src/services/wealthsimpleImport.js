@@ -50,8 +50,8 @@ export const mapWealthsimpleSymbol = (row) => {
   const currency = (row.currency || row['Market Price Currency'])?.trim().toUpperCase()
   const name = row.Name || row.name || ''
   if (!symbol) return ''
-  if ((exchange === 'TSX' || mic === 'XTSE') && /CDR \(CAD Hedged\)/i.test(name)) return `${symbol}.NE`
-  if (!exchange && !mic && /CDR \(CAD Hedged\)/i.test(name)) return `${symbol}.NE`
+  if ((exchange === 'TSX' || mic === 'XTSE') && /CDR \(CAD Hedged\)/i.test(name)) return `${symbol}.TO`
+  if (!exchange && !mic && /CDR \(CAD Hedged\)/i.test(name)) return `${symbol}.TO`
   if (!exchange && !mic && currency === 'CAD') return `${symbol}.TO`
   if (exchange === 'TSX' || mic === 'XTSE' || exchange === 'TSXV' || mic === 'XTSX') return `${symbol}.TO`
   return symbol
