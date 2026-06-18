@@ -11,6 +11,12 @@ const matchesSymbol = (first, second) => {
   const right = String(second || '').toUpperCase()
   return left === right || cleanSymbol(left) === cleanSymbol(right)
 }
+const presetGroupLabelKey = (id) => ({
+  'long-core': 'groupLongCore',
+  'long-satellite': 'groupLongSatellite',
+  swing: 'groupSwing',
+  'leveraged-swing': 'groupLeveragedSwing',
+})[id]
 
 export default function WatchlistSidebar({ items, selected, onSelect, onRemove, orderSymbols = [], orderPlans = [], sparklines = {} }) {
   const { t } = useI18n()
@@ -91,6 +97,10 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
     const name = prompt(t('groupName'))
     if (name?.trim()) persist([...groups, { id: `${Date.now()}`, name: name.trim(), symbols: [] }])
   }
+  const groupLabel = (group) => {
+    const key = presetGroupLabelKey(group.id)
+    return key ? t(key) : group.name
+  }
 
   return (
     <aside className="market-sidebar" ref={sidebarRef}>
@@ -100,7 +110,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
       </div>
       <div className="watch-tools">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('filterSymbols')} />
-        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option>{groups.map((group) => <option value={`group:${group.id}`} key={group.id}>{group.name}</option>)}</select>
+        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option>{groups.map((group) => <option value={`group:${group.id}`} key={group.id}>{groupLabel(group)}</option>)}</select>
         <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">{t('manualOrder')}</option><option value="change">{t('percentChange')}</option><option value="pl">{t('profitLoss')}</option></select>
       </div>
       <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>{t('symbol')}{sortArrow('symbol')}</button><span /> <button onClick={() => toggleSort('price')}>{t('price')}{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>{t('percentChange')}{sortArrow('change')}</button></div>
@@ -108,7 +118,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
         {groups.map((group) => {
           const symbols = sortSymbols(group.symbols.filter(visible))
           return <section className="watch-group" key={group.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => moveSymbol(event.dataTransfer.getData('text/plain'), group.id)}>
-            <div className="watch-group-head"><strong>{group.name}</strong><span>{symbols.length}</span></div>
+            <div className="watch-group-head"><strong>{groupLabel(group)}</strong><span>{symbols.length}</span></div>
             {symbols.map((symbol) => {
               const item = itemMap.get(symbol)
               const orders = orderCount(symbol)
@@ -137,7 +147,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? money(item.quote.price, item.quote.currency) : '—'}</strong>
                 <strong className={valueClass(item.quote?.change)}>{item.quote ? percent(item.quote.changePercent) : '—'}</strong>
                 <select className="watch-group-select" value={group.id} onClick={(event) => event.stopPropagation()} onChange={(event) => moveSymbol(symbol, event.target.value)}>
-                  {groups.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                  {groups.map((option) => <option key={option.id} value={option.id}>{groupLabel(option)}</option>)}
                 </select>
                 <button className="remove-watch" onClick={(event) => { event.stopPropagation(); setOrderPopover(null); onRemove(symbol) }}>×</button>
               </div>
