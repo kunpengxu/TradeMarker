@@ -41,12 +41,14 @@ const eventMatchesSymbol = (event, symbol) => {
   const symbols = event.symbol ? [event.symbol] : event.symbols || []
   return symbols.some((item) => matchesSymbol(item, current))
 }
+const eventPriority = (event) => ({ earnings: 0, 'stock-news': 1, 'market-news': 2, economic: 3 }[event.type] ?? 4)
 
-function SymbolEventsPanel({ events, selected, t }) {
-  return <aside className="symbol-events-panel">
-    <div className="symbol-events-head"><span>{t('eventsEyebrow')}</span><strong>{t('currentSymbolEvents')}</strong></div>
+function SymbolEventsPanel({ events, selected, collapsed, onToggle, onFocusEvent, t }) {
+  return <aside className={`symbol-events-panel ${collapsed ? 'collapsed' : ''}`}>
+    <div className="symbol-events-head"><span>{t('eventsEyebrow')}</span><strong>{t('currentSymbolEvents')}</strong><button type="button" onClick={onToggle}>{collapsed ? t('expandEvents') : t('collapseEvents')}</button></div>
+    {collapsed ? null : <>
     {events.length ? <div className="symbol-events-list">{events.map((event) => (
-      <article className="symbol-event-card" key={event.id}>
+      <article className="symbol-event-card" key={event.id} onClick={() => onFocusEvent(event)}>
         <time>{formatEventDate(event.date)}</time>
         <div>
           <span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>
@@ -56,7 +58,7 @@ function SymbolEventsPanel({ events, selected, t }) {
           {event.url && <a href={event.url} target="_blank" rel="noreferrer">{t('openSource')}</a>}
         </div>
       </article>
-    ))}</div> : <div className="symbol-events-empty">{t('noCurrentSymbolEvents')}</div>}
+    ))}</div> : <div className="symbol-events-empty">{t('noCurrentSymbolEvents')}</div>}</>}
   </aside>
 }
 
@@ -78,17 +80,22 @@ export default function Dashboard() {
   const [editingTrade, setEditingTrade] = useState(null)
   const [orders, setOrders] = useState([])
   const [eventsCalendar, setEventsCalendar] = useState(null)
+  const [eventsCollapsed, setEventsCollapsed] = useState(false)
+  const [focusedEventDate, setFocusedEventDate] = useState(null)
   const [showOrders, setShowOrders] = useState(false)
   const [density, setDensity] = useState(() => localStorage.getItem(DENSITY_KEY) || 'comfortable')
   const [updated, setUpdated] = useState(null)
   const [loading, setLoading] = useState(false)
   const [marketError, setMarketError] = useState('')
-  const setSelected = useCallback((symbol) => {
-    setSelectedState(symbol)
-    try {
-      if (symbol) localStorage.setItem(SELECTED_SYMBOL_KEY, symbol)
-      else localStorage.removeItem(SELECTED_SYMBOL_KEY)
-    } catch {}
+  const setSelected = useCallback((symbolOrUpdater) => {
+    setSelectedState((current) => {
+      const symbol = typeof symbolOrUpdater === 'function' ? symbolOrUpdater(current) : symbolOrUpdater
+      try {
+        if (symbol) localStorage.setItem(SELECTED_SYMBOL_KEY, symbol)
+        else localStorage.removeItem(SELECTED_SYMBOL_KEY)
+      } catch {}
+      return symbol
+    })
   }, [])
 
   const refresh = useCallback(async (symbols = getWatchlist(), replace = true) => {
@@ -175,7 +182,10 @@ export default function Dashboard() {
   const selectedItem = items.find((item) => item.symbol === selected)
   const selectedInWatchlist = selected ? getWatchlist().includes(selected) : false
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
-  const selectedEvents = useMemo(() => (eventsCalendar?.symbolEvents || []).filter((event) => eventMatchesSymbol(event, selected)).slice(0, 8), [eventsCalendar, selected])
+  const selectedEvents = useMemo(() => (eventsCalendar?.symbolEvents || [])
+    .filter((event) => eventMatchesSymbol(event, selected))
+    .sort((a, b) => eventPriority(a) - eventPriority(b) || new Date(b.date || 0) - new Date(a.date || 0))
+    .slice(0, 8), [eventsCalendar, selected])
   const orderSymbols = useMemo(() => [...new Set(orders.map((order) => order.symbol).filter(Boolean))], [orders])
   const plannedWatchlistCount = useMemo(() => items.filter((item) => orderSymbols.some((symbol) => matchesSymbol(symbol, item.symbol))).length, [items, orderSymbols])
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
@@ -300,9 +310,9 @@ export default function Dashboard() {
                       <IntervalSelector value={interval} onChange={setInterval} />
                     </div>
                   </div>
-                  {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} />}
+                  {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} orderPlans={selectedOrders} eventDates={selectedEvents.map((event) => event.date).filter(Boolean)} focusDate={focusedEventDate} />}
                 </div>
-                <SymbolEventsPanel events={selectedEvents} selected={selected} t={t} />
+                <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed((value) => !value)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} />
               </div>
 
               <div className="position-ribbon">

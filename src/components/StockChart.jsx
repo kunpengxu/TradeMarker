@@ -14,8 +14,25 @@ const stars = (confidence) => confidence ? `${'★'.repeat(confidence)}${'☆'.r
 const preview = (value, length = 74) => value && value.length > length ? `${value.slice(0, length)}…` : value
 const targetsText = (targets = [], currency) => targets.length ? targets.map((target, index) => `TP${index + 1} ${money(target, currency)}`).join(', ') : '—'
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
+const eventDay = (value) => {
+  try {
+    return value ? day(value) : ''
+  } catch {
+    return ''
+  }
+}
+const orderLineColor = (order, kind) => {
+  if (kind === 'stop') return '#fb7185'
+  if (kind === 'target') return '#22c55e'
+  return order.side === 'SELL' ? '#f472b6' : '#38bdf8'
+}
+const orderLineTitle = (order, kind, index) => {
+  if (kind === 'stop') return 'Stop'
+  if (kind === 'target') return `TP${index + 1}`
+  return `${order.side || 'ORDER'} ${index + 1}`
+}
 
-export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD', quoteChange = null, quotePrice = null, indicators = DEFAULT_CHART_INDICATORS }) {
+export default function StockChart({ candles, interval, trades, averageCost, closeOnly = false, currency = 'USD', quoteChange = null, quotePrice = null, indicators = DEFAULT_CHART_INDICATORS, orderPlans = [], eventDates = [], focusDate = null }) {
   const containerRef = useRef(null)
   const { theme } = useTheme()
 
@@ -212,7 +229,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       bounds.max = Math.max(bounds.max, price)
       tradeBounds.set(time, bounds)
     })
-    const sortedTradeBounds = [...tradeBounds].sort(([firstTime], [secondTime]) => firstTime.localeCompare(secondTime))
+    const sortedTradeBounds = [...tradeBounds].sort(([firstTime], [secondTime]) => String(firstTime).localeCompare(String(secondTime)))
     const hiddenSeriesOptions = { color: 'rgba(0, 0, 0, 0)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }
     const tradeMinSeries = chart.addLineSeries(hiddenSeriesOptions)
     const tradeMaxSeries = chart.addLineSeries(hiddenSeriesOptions)
@@ -256,7 +273,51 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
     if (averageCost > 0 && !showIntradayLine) {
       series.createPriceLine({ price: averageCost, color: '#60a5fa', lineWidth: 2, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'Average cost' })
     }
-    chart.timeScale().fitContent()
+    orderPlans.forEach((order) => {
+      const legs = Array.isArray(order.legs) ? order.legs : []
+      legs.forEach((leg, index) => {
+        const price = Number(leg.price)
+        if (!Number.isFinite(price) || price <= 0) return
+        series.createPriceLine({
+          price,
+          color: orderLineColor(order, 'leg'),
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: leg.label || orderLineTitle(order, 'leg', index),
+        })
+      })
+      ;(Array.isArray(order.targets) ? order.targets : []).forEach((target, index) => {
+        const price = Number(target)
+        if (!Number.isFinite(price) || price <= 0) return
+        series.createPriceLine({ price, color: orderLineColor(order, 'target'), lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: orderLineTitle(order, 'target', index) })
+      })
+      const stop = Number(order.stopLoss)
+      if (Number.isFinite(stop) && stop > 0) {
+        series.createPriceLine({ price: stop, color: orderLineColor(order, 'stop'), lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: orderLineTitle(order, 'stop') })
+      }
+    })
+    const eventDays = [...new Set(eventDates.map(eventDay).filter(Boolean))]
+    if (eventDays.length && typeof series.setMarkers === 'function') {
+      const markers = eventDays.map((targetDay) => {
+        const candle = data.find((row) => candleDay(row.time) === targetDay) || data.find((row) => candleDay(row.time) > targetDay)
+        return candle ? { time: candle.time, position: 'aboveBar', color: '#60a5fa', shape: 'circle', text: 'E' } : null
+      }).filter(Boolean)
+      series.setMarkers(markers)
+    }
+    if (focusDate) {
+      const focusDay = eventDay(focusDate)
+      const focusIndex = data.findIndex((row) => candleDay(row.time) >= focusDay)
+      if (focusIndex >= 0) {
+        const start = Math.max(0, focusIndex - 28)
+        const end = Math.min(data.length - 1, focusIndex + 28)
+        chart.timeScale().setVisibleRange({ from: data[start].time, to: data[end].time })
+      } else {
+        chart.timeScale().fitContent()
+      }
+    } else {
+      chart.timeScale().fitContent()
+    }
     return () => {
       resizeObserver.disconnect()
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(positionMarkers)
@@ -267,7 +328,7 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
       markerLayer.remove()
       chart.remove()
     }
-  }, [candles, interval, trades, averageCost, closeOnly, currency, quoteChange, quotePrice, indicators, theme])
+  }, [candles, interval, trades, averageCost, closeOnly, currency, quoteChange, quotePrice, indicators, theme, orderPlans, eventDates, focusDate])
 
   return <div className="chart" ref={containerRef} />
 }

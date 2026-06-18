@@ -27,6 +27,7 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'manual', direction: 'desc' })
   const [orderPopover, setOrderPopover] = useState(null)
+  const [managingGroups, setManagingGroups] = useState(false)
 
   useEffect(() => setGroups(getWatchlistGroups()), [items])
   useEffect(() => () => window.clearTimeout(hidePopoverTimer.current), [])
@@ -62,6 +63,10 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
     }
     if (filter === 'positions') return item.position.shares > 0
     if (filter === 'orders') return orderSymbolSet.has(String(symbol).toUpperCase()) || orderSymbolSet.has(cleanSymbol(symbol))
+    if (filter === 'gainers') return Number(item.quote?.changePercent) > 0
+    if (filter === 'losers') return Number(item.quote?.changePercent) < 0
+    if (filter === 'big-gainers') return Number(item.quote?.changePercent) >= 5
+    if (filter === 'big-losers') return Number(item.quote?.changePercent) <= -5
     return true
   }
   const sortSymbols = (symbols) => {
@@ -101,6 +106,26 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
     const key = presetGroupLabelKey(group.id)
     return key ? t(key) : group.name
   }
+  const filteredSymbols = groups.flatMap((group) => group.symbols.filter(visible))
+  const summaryGroup = filter.startsWith('group:')
+    ? groupLabel(groups.find((group) => group.id === filter.slice(6)) || { name: t('allStocks') })
+    : filter === 'all' ? t('allStocks')
+      : filter === 'positions' ? t('positionsOnly')
+        : filter === 'orders' ? t('withOrderSuggestions')
+          : filter === 'gainers' ? t('gainers')
+            : filter === 'losers' ? t('losers')
+              : filter === 'big-gainers' ? t('bigGainers')
+                : filter === 'big-losers' ? t('bigLosers')
+                  : t('allStocks')
+  const summaryPositions = filteredSymbols.filter((symbol) => (itemMap.get(symbol)?.position?.shares || 0) > 0).length
+  const summaryOrders = filteredSymbols.filter((symbol) => orderCount(symbol)).length
+  const renameGroup = (group) => {
+    const name = prompt(t('renameGroup'), group.name)
+    if (name?.trim()) persist(groups.map((item) => item.id === group.id ? { ...item, name: name.trim() } : item))
+  }
+  const deleteEmptyGroup = (group) => {
+    if (!group.symbols.length) persist(groups.filter((item) => item.id !== group.id))
+  }
 
   return (
     <aside className="market-sidebar" ref={sidebarRef}>
@@ -110,9 +135,11 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
       </div>
       <div className="watch-tools">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('filterSymbols')} />
-        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option>{groups.map((group) => <option value={`group:${group.id}`} key={group.id}>{groupLabel(group)}</option>)}</select>
+        <select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">{t('allStocks')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option><option value="gainers">{t('gainers')}</option><option value="losers">{t('losers')}</option><option value="big-gainers">{t('bigGainers')}</option><option value="big-losers">{t('bigLosers')}</option>{groups.map((group) => <option value={`group:${group.id}`} key={group.id}>{groupLabel(group)}</option>)}</select>
         <select value={sort.key} onChange={(event) => setSort({ key: event.target.value, direction: 'desc' })}><option value="manual">{t('manualOrder')}</option><option value="change">{t('percentChange')}</option><option value="pl">{t('profitLoss')}</option></select>
+        <button type="button" className="manage-groups-button" onClick={() => setManagingGroups(true)}>{t('manageGroups')}</button>
       </div>
+      <p className="watch-filter-summary">{t('watchlistSummary', { group: summaryGroup, count: filteredSymbols.length, positions: summaryPositions, orders: summaryOrders })}</p>
       <div className="watch-columns"><button onClick={() => toggleSort('symbol')}>{t('symbol')}{sortArrow('symbol')}</button><span /> <button onClick={() => toggleSort('price')}>{t('price')}{sortArrow('price')}</button><button onClick={() => toggleSort('change')}>{t('percentChange')}{sortArrow('change')}</button></div>
       <div className="watch-rows">
         {groups.map((group) => {
@@ -168,6 +195,20 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
         </div>
         <div className="watch-order-popover-body">
           {ordersForSymbol(orderPopover.symbol).map((order) => <OrderPlanCard order={order} key={order.id} />)}
+        </div>
+      </div> : null}
+      {managingGroups ? <div className="modal-backdrop" onMouseDown={() => setManagingGroups(false)}>
+        <div className="modal group-manager-modal" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="modal-head"><h2>{t('manageGroups')}</h2><button type="button" className="icon-button" onClick={() => setManagingGroups(false)}>×</button></div>
+          <div className="modal-body group-manager-list">
+            {groups.map((group, index) => <div className="group-manager-row" key={group.id}>
+              <strong>{groupLabel(group)}</strong><span>{group.symbols.length}</span>
+              <button type="button" className="secondary" onClick={() => renameGroup(group)}>{t('renameGroup')}</button>
+              <button type="button" className="secondary" disabled={index === 0} onClick={() => { const next = [...groups]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; persist(next) }}>↑</button>
+              <button type="button" className="secondary" disabled={index === groups.length - 1} onClick={() => { const next = [...groups]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; persist(next) }}>↓</button>
+              <button type="button" className="danger-button" disabled={group.symbols.length > 0} onClick={() => deleteEmptyGroup(group)}>{t('deleteEmptyGroup')}</button>
+            </div>)}
+          </div>
         </div>
       </div> : null}
     </aside>
