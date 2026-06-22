@@ -102,3 +102,20 @@
 [data-theme="light"] .group-manager-row strong{color:#0f172a}
 [data-theme="light"] .symbol-event-card:hover{background:#eaf2ff;border-color:#93c5fd}
 @media(max-width:980px){.symbol-events-panel.collapsed{display:block}.symbol-events-panel.collapsed .symbol-events-head{width:auto;min-height:46px;display:flex}.symbol-events-panel.collapsed .symbol-events-head span,.symbol-events-panel.collapsed .symbol-events-head strong{writing-mode:horizontal-tb}.market-chart-layout:has(.symbol-events-panel.collapsed){grid-template-columns:1fr}.group-manager-row{grid-template-columns:1fr 42px repeat(4,auto)}}@media(max-width:760px){.group-manager-row{grid-template-columns:1fr 42px;align-items:stretch}.group-manager-row button{width:100%}.watch-tools{grid-template-columns:1fr}.watch-filter-summary{font-size:.68rem}.symbol-events-head button{padding:5px 7px}.chart-controls{width:100%;justify-content:flex-start}}
+
+/* Light mode contrast fixes */
+[data-theme="light"] .trade-log-summary strong,[data-theme="light"] .order-plan-summary strong,[data-theme="light"] .event-summary strong,[data-theme="light"] .stats-grid strong{color:#0f172a!important}
+[data-theme="light"] .trade-log-summary span,[data-theme="light"] .order-plan-summary span,[data-theme="light"] .event-summary span{color:#64748b;background:#fff;border-color:#d5dfeb;box-shadow:0 14px 34px #64748b1c}
+[data-theme="light"] .action-column h2,[data-theme="light"] .order-plan-groups>section>h2,[data-theme="light"] .side-breakdown summary{color:#0f172a}
+[data-theme="light"] .action-column h2 small,[data-theme="light"] .order-plan-groups h2 small{color:#64748b}
+[data-theme="light"] .order-plan-card{background:#fff!important;border-color:#d5dfeb;color:#334155}
+[data-theme="light"] .order-plan-card:hover{background:#f8fbff!important;border-color:#bfdbfe}
+[data-theme="light"] .order-plan-card header>strong{background:#eef5ff;color:#1e40af}
+[data-theme="light"] .order-compact-meta,[data-theme="light"] .order-compact-note,[data-theme="light"] .order-leg p,[data-theme="light"] .order-leg.compact p,[data-theme="light"] .order-bullets p{color:#475569}
+[data-theme="light"] .order-leg,[data-theme="light"] .order-leg.compact{background:#f8fafc;border-color:#cbd5e1}
+[data-theme="light"] .order-leg span,[data-theme="light"] .order-leg.compact span{color:#475569}
+[data-theme="light"] .order-compact-note{border-top-color:#cbd5e1}
+[data-theme="light"] .order-compact-note b{color:#2563eb}
+[data-theme="light"] .order-compact-note b.risk,[data-theme="light"] .order-bullets.warning p{color:#e11d48}
+[data-theme="light"] .plan-briefing-panel p{color:#334155}
+[data-theme="light"] .order-summary-table-panel,[data-theme="light"] .order-summary-table th{background:#fff}
