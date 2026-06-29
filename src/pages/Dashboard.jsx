@@ -13,7 +13,7 @@ import { buildEventsCalendarExport } from '../services/eventsData'
 import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
-import { calculatePosition } from '../services/positionCalculator'
+import { calculatePosition, calculateRealizedPLByTrade } from '../services/positionCalculator'
 import { addSymbol, applyPresetWatchlistGroupsOnce, deleteTrade, getTrades, getWatchlist, migrateCdrSymbolsToTorontoOnce, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useChartIndicators } from '../hooks/useChartIndicators'
@@ -193,6 +193,11 @@ export default function Dashboard() {
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
   const chartCandles = interval === '1m' ? intradayCache[selected] || [] : candles
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
+  const realizedPL = useMemo(() => {
+    const realizedByTrade = calculateRealizedPLByTrade(trades)
+    return [...realizedByTrade.values()].reduce((sum, value) => sum + value, 0)
+  }, [trades])
+  const totalPL = (position?.unrealizedPL || 0) + realizedPL
   const selectedOrderFocus = selectedOrders.length
     ? `${selected} · ${t('currentSymbolOrders', { count: selectedOrders.length })}${position?.shares ? ` · ${number(position.shares, 4)} ${t('shares').toLowerCase()}` : ''}`
     : t('orderFocusHint')
@@ -278,6 +283,8 @@ export default function Dashboard() {
                     <span>{t('shares')} <strong>{number(position.shares, 4)}</strong></span>
                     <span>{t('averageCost')} <strong>{money(position.averageCost, selectedItem.quote.currency)}</strong></span>
                     <span>{t('pl')} <strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} · {percent(position.unrealizedPLPercent)}</strong></span>
+                    <span>{t('soldPL')} <strong className={valueClass(realizedPL)}>{money(realizedPL, selectedItem.quote.currency)}</strong></span>
+                    <span>{t('totalPL')} <strong className={valueClass(totalPL)}>{money(totalPL, selectedItem.quote.currency)}</strong></span>
                   </div>
                 </div>
                 <div className="action-group">
