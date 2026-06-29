@@ -119,3 +119,5 @@
 [data-theme="light"] .order-compact-note b.risk,[data-theme="light"] .order-bullets.warning p{color:#e11d48}
 [data-theme="light"] .plan-briefing-panel p{color:#334155}
 [data-theme="light"] .order-summary-table-panel,[data-theme="light"] .order-summary-table th{background:#fff}
+.order-summary-symbol{display:inline-flex;align-items:center;color:inherit;text-decoration:none}.order-summary-symbol:hover{color:#60a5fa;text-decoration:underline;text-underline-offset:3px}
+[data-theme="light"] .order-summary-symbol:hover{color:#2563eb}

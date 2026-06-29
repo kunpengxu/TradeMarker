@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
+import SymbolLink from '../components/SymbolLink'
 import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { normalizeOrderPlan } from '../services/orderPlan'
 import { number } from '../utils/formatters'
@@ -91,7 +92,7 @@ function OrderPlanSummaryTable({ orders, language, t }) {
           const plannedOrder = localizedText(order.plannedOrderText, language) || order.plannedOrder || summarizeLegs(order, language)
           return <tr className={orderTone(order)} key={order.id || `${order.symbol}-${index}`}>
             <td>{index + 1}</td>
-            <td><strong>{order.symbol || '—'}</strong></td>
+            <td><strong>{order.symbol ? <SymbolLink symbol={order.symbol} className="order-summary-symbol" /> : '—'}</strong></td>
             <td>{compactText(current, 150)}</td>
             <td><strong>{compactText(suggestion, 120)}</strong></td>
             <td>{plannedOrder}</td>
