@@ -3,6 +3,7 @@ const KEYS = {
   trades: 'trademarker.trades',
   plannedOrders: 'trademarker.plannedOrders',
   orderCommitments: 'trademarker.orderCommitments',
+  orderPlanSignature: 'trademarker.orderPlanSignature',
   settings: 'trademarker.settings',
   watchlistGroups: 'trademarker.watchlistGroups',
   watchlistGroupPreset: 'trademarker.watchlistGroupPreset.v1',
@@ -201,6 +202,20 @@ const migrateSymbol = (symbol) => normalizeSymbol(String(symbol || ''))
 const migrateSymbolList = (symbols = []) => [...new Set(symbols.map(migrateSymbol).filter(Boolean))]
 const migrateGroup = (group) => ({ ...group, symbols: migrateSymbolList(group.symbols || []) })
 const migrateOrder = (order) => ({ ...order, symbol: migrateSymbol(order.symbol || '') })
+const orderLegKey = (order) => (order.legs || []).map((leg) => [
+  Number(leg.price || 0).toFixed(4),
+  Number(leg.shares || 0).toFixed(6),
+  Number(leg.amount || 0).toFixed(2),
+].join(':')).join(',')
+export const orderCommitmentKey = (order) => [
+  migrateSymbol(order.symbol || ''),
+  String(order.side || 'WATCH').toUpperCase(),
+  orderLegKey(order) || [
+    Number(order.targetPrice || 0).toFixed(4),
+    Number(order.totalShares || 0).toFixed(6),
+    String(order.plannedOrder || '').trim(),
+  ].join(':'),
+].join('|')
 const inferOrderCurrency = (order) => String(order.currency || inferTradeCurrency(order.symbol)).toUpperCase()
 const orderCashAmount = (order) => {
   if (String(order.side).toUpperCase() !== 'BUY') return 0
@@ -219,7 +234,7 @@ const orderCashAmount = (order) => {
   return Number.isFinite(totalShares) && Number.isFinite(targetPrice) && totalShares > 0 && targetPrice > 0 ? totalShares * targetPrice : 0
 }
 const normalizeOrderCommitment = (order) => migrateOrder({
-  id: order.id || `${migrateSymbol(order.symbol)}-${order.side || 'ORDER'}`,
+  id: orderCommitmentKey(order),
   symbol: order.symbol,
   side: order.side || 'WATCH',
   currency: inferOrderCurrency(order),
@@ -279,23 +294,29 @@ const upsertOrderCommitmentTrade = (order) => {
   write(KEYS.trades, next, false)
 }
 const deleteOrderCommitmentTrade = (id) => {
-  write(KEYS.trades, getTrades().filter((trade) => trade.id !== orderCommitmentTradeId(id)), false)
+  write(KEYS.trades, getTrades().filter((trade) => trade.id !== orderCommitmentTradeId(id) && trade.orderCommitmentId !== id), false)
 }
+const isOrderCommitmentTrade = (trade) => Boolean(trade.orderCommitmentId) || trade.source === 'order-plan' || String(trade.id || '').startsWith('order-')
 const syncOrderCommitmentTrades = () => {
   const commitments = read(KEYS.orderCommitments, []).map(normalizeOrderCommitment)
   const existingTrades = read(KEYS.trades, []).map(normalizeTrade)
   if (!commitments.length) {
-    const next = existingTrades.filter((trade) => !trade.orderCommitmentId)
+    const next = existingTrades.filter((trade) => !isOrderCommitmentTrade(trade))
     if (next.length !== existingTrades.length) write(KEYS.trades, next, false)
     return
   }
   const generatedTrades = commitments.map(orderCommitmentToTrade)
   const generatedTradeIds = new Set(generatedTrades.map((trade) => trade.id))
   const next = [
-    ...existingTrades.filter((trade) => !trade.orderCommitmentId && !generatedTradeIds.has(trade.id)),
+    ...existingTrades.filter((trade) => !isOrderCommitmentTrade(trade) && !generatedTradeIds.has(trade.id)),
     ...generatedTrades,
   ]
   if (JSON.stringify(existingTrades) !== JSON.stringify(next)) write(KEYS.trades, next, false)
+}
+const removeOrderCommitmentTrades = () => {
+  const existingTrades = read(KEYS.trades, []).map(normalizeTrade)
+  const next = existingTrades.filter((trade) => !isOrderCommitmentTrade(trade))
+  if (next.length !== existingTrades.length) write(KEYS.trades, next, false)
 }
 
 export const migrateCdrSymbolsToTorontoOnce = () => {
@@ -408,6 +429,19 @@ export const updateOrder = (updated) => {
 export const deleteOrder = (id) => write(KEYS.plannedOrders, getOrders().filter((order) => order.id !== id))
 
 export const getOrderCommitments = () => read(KEYS.orderCommitments, []).map(normalizeOrderCommitment)
+export const clearOrderCommitments = () => {
+  removeOrderCommitmentTrades()
+  write(KEYS.orderCommitments, [])
+  return []
+}
+export const reconcileOrderPlanSignature = (signature) => {
+  const nextSignature = String(signature || '')
+  const previousSignature = read(KEYS.orderPlanSignature, '')
+  if (previousSignature === nextSignature) return false
+  write(KEYS.orderPlanSignature, nextSignature, false)
+  clearOrderCommitments()
+  return true
+}
 export const saveOrderCommitment = (order) => {
   const normalized = normalizeOrderCommitment(order)
   const next = [...getOrderCommitments().filter((item) => item.id !== normalized.id), normalized]
