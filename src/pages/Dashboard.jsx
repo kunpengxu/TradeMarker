@@ -120,7 +120,7 @@ export default function Dashboard() {
     setSelected((current) => current && getWatchlist().includes(current) ? current : getWatchlist()[0] || null)
     setUpdated(new Date())
     setLoading(false)
-    saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
+    if (replace) saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
     buildEventsCalendarExport(getWatchlist())
       .then((events) => {
         setEventsCalendar(events)
