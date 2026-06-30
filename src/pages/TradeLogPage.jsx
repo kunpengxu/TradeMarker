@@ -24,6 +24,7 @@ export default function TradeLogPage() {
     [t('totalTrades'), trades.length],
     [t('buyTrades'), trades.filter((trade) => trade.side === 'BUY').length],
     [t('sellTrades'), trades.filter((trade) => trade.side === 'SELL').length],
+    [t('placedOrders'), trades.filter((trade) => trade.side === 'ORDER').length],
     [t('soldPL'), realizedDisplay, realizedClass],
     [t('notedTrades'), trades.filter((trade) => trade.note).length],
   ]

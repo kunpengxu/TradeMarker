@@ -15,6 +15,10 @@ const compactNote = (note, max = 64) => {
   const text = String(note || '').trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
+const sideLabel = (trade, t) => {
+  if (trade.side === 'ORDER') return trade.orderSide ? `${t('placedOrder')} · ${trade.orderSide}` : t('placedOrder')
+  return trade.side
+}
 
 export default function TradeLog({ trades, onDelete, onEdit, showSymbol = false, currency = 'USD' }) {
   const { t } = useI18n()
@@ -27,13 +31,13 @@ export default function TradeLog({ trades, onDelete, onEdit, showSymbol = false,
         const tradeDate = formatTradeDate(trade.date)
         return <tr className={`trade-row ${trade.side.toLowerCase()} ${soldPL == null ? '' : soldPL >= 0 ? 'positive' : 'negative'}`} key={trade.id}>
           {showSymbol && <td><strong><SymbolLink symbol={trade.symbol} /></strong></td>}
-          <td><span className={`side ${trade.side.toLowerCase()}`}>{trade.side}</span></td>
+          <td><span className={`side ${trade.side.toLowerCase()}`}>{sideLabel(trade, t)}</span></td>
           <td>{money(trade.price, trade.currency || currency)}</td>
           <td>{number(trade.shares, 4)}</td>
           <td className={soldPL == null ? '' : soldPL >= 0 ? 'positive' : 'negative'}>{soldPL == null ? '—' : <strong>{money(soldPL, trade.currency || currency)}</strong>}</td>
           <td><span className="trade-date"><strong>{tradeDate.date}</strong><small>{tradeDate.time || dateTime(trade.date)}</small></span></td>
           <td>{trade.note ? <span className="trade-note-chip">{compactNote(trade.note)}</span> : <span className="muted-dash">—</span>}</td>
-          <td><div className="row-actions">{onEdit && <button className="text-button" onClick={() => onEdit(trade)}>{t('edit')}</button>}<button className="text-button danger" onClick={() => onDelete(trade.id)}>{t('delete')}</button></div></td>
+          <td><div className="row-actions">{onEdit && !trade.orderCommitmentId && <button className="text-button" onClick={() => onEdit(trade)}>{t('edit')}</button>}<button className="text-button danger" onClick={() => onDelete(trade.id)}>{t('delete')}</button></div></td>
         </tr>
       })}</tbody>
     </table></div>

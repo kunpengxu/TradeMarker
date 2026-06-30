@@ -2,14 +2,14 @@ export function calculatePosition(trades, latestPrice = 0) {
   let shares = 0
   let costBasis = 0
 
-  const sortedTrades = [...trades].sort((a, b) => new Date(a.date) - new Date(b.date))
+  const sortedTrades = [...trades].filter((trade) => trade.side === 'BUY' || trade.side === 'SELL').sort((a, b) => new Date(a.date) - new Date(b.date))
   sortedTrades.forEach((trade) => {
     const quantity = Number(trade.shares)
     const price = Number(trade.price)
     if (trade.side === 'BUY') {
       costBasis += quantity * price
       shares += quantity
-    } else {
+    } else if (trade.side === 'SELL') {
       const averageCost = shares > 0 ? costBasis / shares : 0
       costBasis = Math.max(0, costBasis - quantity * averageCost)
       shares -= quantity
@@ -35,7 +35,7 @@ export function calculateRealizedPLByTrade(trades) {
   tradesBySymbol.forEach((symbolTrades) => {
     let shares = 0
     let costBasis = 0
-    const sortedTrades = [...symbolTrades].sort((a, b) => new Date(a.date) - new Date(b.date))
+    const sortedTrades = [...symbolTrades].filter((trade) => trade.side === 'BUY' || trade.side === 'SELL').sort((a, b) => new Date(a.date) - new Date(b.date))
     sortedTrades.forEach((trade) => {
       const quantity = Number(trade.shares)
       const price = Number(trade.price)
@@ -43,7 +43,7 @@ export function calculateRealizedPLByTrade(trades) {
       if (trade.side === 'BUY') {
         costBasis += quantity * price
         shares += quantity
-      } else {
+      } else if (trade.side === 'SELL') {
         const averageCost = shares > 0 ? costBasis / shares : 0
         realized.set(trade.id, (price - averageCost) * quantity)
         costBasis = Math.max(0, costBasis - quantity * averageCost)

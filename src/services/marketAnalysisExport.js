@@ -75,6 +75,10 @@ const buildIntervalData = (dailyCandles, interval) => {
 const compactTrade = (trade) => ({
   id: trade.id,
   side: trade.side,
+  orderSide: trade.orderSide || null,
+  status: trade.status || null,
+  source: trade.source || null,
+  orderCommitmentId: trade.orderCommitmentId || null,
   price: round(trade.price),
   shares: round(trade.shares, 6),
   date: trade.date,
