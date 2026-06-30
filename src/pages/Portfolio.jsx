@@ -3,7 +3,7 @@ import SymbolLink from '../components/SymbolLink'
 import { savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { calculatePosition } from '../services/positionCalculator'
-import { getCashBalances, getTrades, getWatchlist, saveCashBalances } from '../services/storage'
+import { calculateReservedCashByCurrency, getCashBalances, getOrderCommitments, getTrades, getWatchlist, saveCashBalances } from '../services/storage'
 import { calculateTradingStatistics } from '../services/tradeAnalytics'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useI18n } from '../i18n'
@@ -13,14 +13,18 @@ export default function Portfolio() {
   const [positions, setPositions] = useState([])
   const [sort, setSort] = useState({ key: 'symbol', direction: 'asc' })
   const [cashBalances, setCashBalances] = useState(() => getCashBalances())
+  const [orderCommitments, setOrderCommitments] = useState(() => getOrderCommitments())
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    const syncCashBalances = () => setCashBalances(getCashBalances())
-    window.addEventListener('trademarker:data-changed', syncCashBalances)
-    window.addEventListener('trademarker:data-imported', syncCashBalances)
+    const syncCashContext = () => {
+      setCashBalances(getCashBalances())
+      setOrderCommitments(getOrderCommitments())
+    }
+    window.addEventListener('trademarker:data-changed', syncCashContext)
+    window.addEventListener('trademarker:data-imported', syncCashContext)
     return () => {
-      window.removeEventListener('trademarker:data-changed', syncCashBalances)
-      window.removeEventListener('trademarker:data-imported', syncCashBalances)
+      window.removeEventListener('trademarker:data-changed', syncCashContext)
+      window.removeEventListener('trademarker:data-imported', syncCashContext)
     }
   }, [])
   useEffect(() => {
@@ -46,8 +50,10 @@ export default function Portfolio() {
   const allTrades = useMemo(() => getTrades(), [])
   const tradingStats = useMemo(() => calculateTradingStatistics(positions, allTrades), [positions, allTrades])
   const currencies = Object.keys(totals)
-  const cashCurrencies = useMemo(() => [...new Set(['USD', 'CAD', ...currencies, ...cashBalances.map((balance) => balance.currency)])].sort(), [cashBalances, currencies])
   const cashByCurrency = useMemo(() => Object.fromEntries(cashBalances.map((balance) => [balance.currency, balance.amount])), [cashBalances])
+  const reservedCashByCurrency = useMemo(() => calculateReservedCashByCurrency(orderCommitments), [orderCommitments])
+  const cashCurrencies = useMemo(() => [...new Set(['USD', 'CAD', ...currencies, ...cashBalances.map((balance) => balance.currency), ...Object.keys(reservedCashByCurrency)])].sort(), [cashBalances, currencies, reservedCashByCurrency])
+  const cashAfterOrdersByCurrency = useMemo(() => Object.fromEntries(cashCurrencies.map((currency) => [currency, (cashByCurrency[currency] || 0) - (reservedCashByCurrency[currency] || 0)])), [cashByCurrency, cashCurrencies, reservedCashByCurrency])
   const singleCurrency = currencies.length === 1 ? currencies[0] : null
   const moneyOrNA = (value) => value == null || !singleCurrency ? 'N/A' : money(value, singleCurrency)
   const currencyLines = (values) => {
@@ -61,9 +67,11 @@ export default function Portfolio() {
       source: 'TradeMarker',
       note: 'Currency totals are nominal by quote currency and are not converted through foreign exchange.',
       account: {
-        cashBalances: cashBalances.map((balance) => ({
-          currency: balance.currency,
-          availableCash: Number(balance.amount.toFixed(4)),
+        cashBalances: cashCurrencies.map((currency) => ({
+          currency,
+          availableCash: Number((cashByCurrency[currency] || 0).toFixed(4)),
+          reservedByPlacedOrders: Number((reservedCashByCurrency[currency] || 0).toFixed(4)),
+          availableCashAfterPlacedOrders: Number((cashAfterOrdersByCurrency[currency] || 0).toFixed(4)),
         })),
       },
       totalsByCurrency: Object.values(totals).map((total) => ({
@@ -71,6 +79,8 @@ export default function Portfolio() {
         totalCost: Number(total.cost.toFixed(4)),
         marketValue: Number(total.value.toFixed(4)),
         availableCash: Number((cashByCurrency[total.currency] || 0).toFixed(4)),
+        reservedByPlacedOrders: Number((reservedCashByCurrency[total.currency] || 0).toFixed(4)),
+        availableCashAfterPlacedOrders: Number(((cashByCurrency[total.currency] || 0) - (reservedCashByCurrency[total.currency] || 0)).toFixed(4)),
         marketValuePlusCash: Number((total.value + (cashByCurrency[total.currency] || 0)).toFixed(4)),
         unrealizedPL: Number(total.pl.toFixed(4)),
         unrealizedPLPercent: total.cost ? Number(((total.pl / total.cost) * 100).toFixed(4)) : 0,
@@ -129,7 +139,7 @@ export default function Portfolio() {
         unrealizedPLPercent: Number(position.unrealizedPLPercent.toFixed(4)),
       })).sort((a, b) => a.symbol.localeCompare(b.symbol)),
     }
-  }, [cashBalances, cashByCurrency, positions, singleCurrency, totals, tradingStats])
+  }, [cashAfterOrdersByCurrency, cashByCurrency, cashCurrencies, positions, reservedCashByCurrency, singleCurrency, totals, tradingStats])
   useEffect(() => {
     if (!loading) savePortfolioSummaryToGitHub(portfolioSummary).catch(() => {})
   }, [loading, positions.length, portfolioSummary])
@@ -155,6 +165,8 @@ export default function Portfolio() {
   const sortArrow = (key) => sort.key === key ? (sort.direction === 'desc' ? ' ↓' : ' ↑') : ''
   const nominalPortfolioValue = Object.values(totals).reduce((sum, item) => sum + item.value, 0)
   const cashDisplay = cashCurrencies.map((currency) => `${currency} ${money(cashByCurrency[currency] || 0, currency)}`).join(' · ')
+  const cashAfterOrdersDisplay = cashCurrencies.map((currency) => `${currency} ${money(cashAfterOrdersByCurrency[currency] || 0, currency)}`).join(' · ')
+  const reservedCashDisplay = cashCurrencies.map((currency) => `${currency} ${money(reservedCashByCurrency[currency] || 0, currency)}`).join(' · ')
   const statGroups = [
     [t('performance'), [
       [t('totalUnrealizedPL'), <strong className={valueClass(singleCurrency ? tradingStats.totalUnrealizedPL : 0)}>{singleCurrency ? moneyOrNA(tradingStats.totalUnrealizedPL) : currencyLines(tradingStats.unrealizedByCurrency)}</strong>],
@@ -177,7 +189,7 @@ export default function Portfolio() {
   if (loading) return <div className="loading">{t('loadingPortfolio')}</div>
   return <section><div className="page-head"><div><p className="eyebrow">{t('portfolioEyebrow')}</p><h1>{t('portfolioTitle')}</h1><p>{t('portfolioSubtitle')}</p></div></div>
     <div className="portfolio-summary">{Object.values(totals).map((total) => <div className={`panel portfolio-card portfolio-overview-card ${valueClass(total.pl)}`} key={total.currency}><span>{total.currency} {t('portfolioOverview')}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} <b>{money(total.cost, total.currency)}</b></small><small className={valueClass(total.pl)}>{t('pl')} <b>{money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</b></small></div></div>)}
-      <details className="panel portfolio-card cash-card"><summary><span>{t('availableCash')}</span><strong>{cashDisplay}</strong></summary><p>{t('availableCashHint')}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></details>
+      <details className="panel portfolio-card cash-card"><summary><span>{t('availableCash')}</span><strong>{cashDisplay}</strong><small className="cash-after-orders">{t('cashAfterOrders')} <b>{cashAfterOrdersDisplay}</b></small></summary><p>{t('availableCashHint')}</p><p className="portfolio-note">{t('reservedByOrders')}: {reservedCashDisplay}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></details>
     </div>
     <div className="panel trading-stats"><h2>{t('tradingStatistics')}</h2><div className="stats-grid grouped-stats">{statGroups.map(([group, rows]) => <section className="stat-group" key={group}><h3>{group}</h3>{rows.map(([label, value]) => <span key={label}>{label}{value}</span>)}</section>)}</div><p className="portfolio-note">{t('mixedCurrencyNote')}</p></div>
     <div className="portfolio-grid">

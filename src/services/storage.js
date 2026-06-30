@@ -2,6 +2,7 @@ const KEYS = {
   watchlist: 'trademarker.watchlist',
   trades: 'trademarker.trades',
   plannedOrders: 'trademarker.plannedOrders',
+  orderCommitments: 'trademarker.orderCommitments',
   settings: 'trademarker.settings',
   watchlistGroups: 'trademarker.watchlistGroups',
   watchlistGroupPreset: 'trademarker.watchlistGroupPreset.v1',
@@ -198,6 +199,38 @@ const migrateSymbol = (symbol) => normalizeSymbol(String(symbol || ''))
 const migrateSymbolList = (symbols = []) => [...new Set(symbols.map(migrateSymbol).filter(Boolean))]
 const migrateGroup = (group) => ({ ...group, symbols: migrateSymbolList(group.symbols || []) })
 const migrateOrder = (order) => ({ ...order, symbol: migrateSymbol(order.symbol || '') })
+const inferOrderCurrency = (order) => String(order.currency || inferTradeCurrency(order.symbol)).toUpperCase()
+const orderCashAmount = (order) => {
+  if (String(order.side).toUpperCase() !== 'BUY') return 0
+  const legAmount = (order.legs || []).reduce((sum, leg) => {
+    const amount = Number(leg.amount)
+    if (Number.isFinite(amount) && amount > 0) return sum + amount
+    const price = Number(leg.price)
+    const shares = Number(leg.shares)
+    return Number.isFinite(price) && Number.isFinite(shares) && price > 0 && shares > 0 ? sum + price * shares : sum
+  }, 0)
+  if (legAmount > 0) return legAmount
+  const totalAmount = Number(order.totalAmount)
+  if (Number.isFinite(totalAmount) && totalAmount > 0) return totalAmount
+  const totalShares = Number(order.totalShares)
+  const targetPrice = Number(order.targetPrice || order.legs?.[0]?.price)
+  return Number.isFinite(totalShares) && Number.isFinite(targetPrice) && totalShares > 0 && targetPrice > 0 ? totalShares * targetPrice : 0
+}
+const normalizeOrderCommitment = (order) => migrateOrder({
+  id: order.id || `${migrateSymbol(order.symbol)}-${order.side || 'ORDER'}`,
+  symbol: order.symbol,
+  side: order.side || 'WATCH',
+  currency: inferOrderCurrency(order),
+  totalAmount: orderCashAmount(order),
+  legs: (order.legs || []).map((leg) => ({
+    id: leg.id,
+    label: leg.label,
+    price: Number(leg.price || 0),
+    shares: Number(leg.shares || 0),
+    amount: Number(leg.amount || 0),
+  })),
+  updatedAt: order.updatedAt || new Date().toISOString(),
+})
 
 export const migrateCdrSymbolsToTorontoOnce = () => {
   if (read(KEYS.cdrSymbolMigration, false)) return false
@@ -209,6 +242,8 @@ export const migrateCdrSymbolsToTorontoOnce = () => {
   if (groups.length) write(KEYS.watchlistGroups, groups.map(migrateGroup), false)
   if (trades.length) write(KEYS.trades, trades.map(normalizeTrade), false)
   if (orders.length) write(KEYS.plannedOrders, orders.map(migrateOrder), false)
+  const commitments = read(KEYS.orderCommitments, [])
+  if (commitments.length) write(KEYS.orderCommitments, commitments.map(normalizeOrderCommitment), false)
   try {
     const selected = localStorage.getItem(SELECTED_SYMBOL_KEY)
     if (selected) localStorage.setItem(SELECTED_SYMBOL_KEY, migrateSymbol(selected))
@@ -300,6 +335,26 @@ export const updateOrder = (updated) => {
 }
 export const deleteOrder = (id) => write(KEYS.plannedOrders, getOrders().filter((order) => order.id !== id))
 
+export const getOrderCommitments = () => read(KEYS.orderCommitments, []).map(normalizeOrderCommitment)
+export const saveOrderCommitment = (order) => {
+  const normalized = normalizeOrderCommitment(order)
+  const next = [...getOrderCommitments().filter((item) => item.id !== normalized.id), normalized]
+  write(KEYS.orderCommitments, next)
+  return next
+}
+export const deleteOrderCommitment = (id) => {
+  const next = getOrderCommitments().filter((item) => item.id !== id)
+  write(KEYS.orderCommitments, next)
+  return next
+}
+export const calculateReservedCashByCurrency = (commitments = getOrderCommitments()) => commitments.reduce((result, order) => {
+  const amount = orderCashAmount(order)
+  if (!Number.isFinite(amount) || amount <= 0) return result
+  const currency = inferOrderCurrency(order)
+  result[currency] = (result[currency] || 0) + amount
+  return result
+}, {})
+
 export const getSettings = () => read(KEYS.settings, {})
 export const saveSettings = (settings) => write(KEYS.settings, settings)
 
@@ -308,6 +363,7 @@ export const exportData = () => ({
   watchlistGroups: getWatchlistGroups(),
   trades: getTrades(),
   plannedOrders: getOrders(),
+  orderCommitments: getOrderCommitments(),
   account: getAccount(),
   settings: { ...getSettings(), twelveDataApiKey: undefined, fmpApiKey: undefined, marketauxApiKey: undefined, githubToken: undefined },
   updatedAt: read(KEYS.updatedAt, new Date().toISOString()),
@@ -321,6 +377,7 @@ export const importData = (data) => {
   write(KEYS.watchlistGroups, (data.watchlistGroups || [{ id: 'default', name: 'Watchlist', symbols: data.watchlist }]).map(migrateGroup), false)
   write(KEYS.trades, data.trades.map(normalizeTrade), false)
   write(KEYS.plannedOrders, data.plannedOrders.map(migrateOrder), false)
+  write(KEYS.orderCommitments, (data.orderCommitments || []).map(normalizeOrderCommitment), false)
   write(KEYS.account, {
     ...(data.account || {}),
     cashBalances: normalizeCashBalances(data.account?.cashBalances || data.cashBalances || []),

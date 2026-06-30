@@ -3,6 +3,7 @@ import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
 import SymbolLink from '../components/SymbolLink'
 import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { normalizeOrderPlan } from '../services/orderPlan'
+import { deleteOrderCommitment, getOrderCommitments, saveOrderCommitment } from '../services/storage'
 import { number } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
@@ -73,13 +74,14 @@ const fallbackSuggestion = (order, language) => {
   return [side, status].filter(Boolean).join(' · ') || '—'
 }
 
-function OrderPlanSummaryTable({ orders, language, t }) {
+function OrderPlanSummaryTable({ orders, language, t, committedIds, onToggleCommitment }) {
   if (!orders.length) return null
   return <div className="panel order-summary-table-panel">
     <h2>{t('orderQuickSummary')}</h2>
     <div className="order-summary-table-wrap">
       <table className="order-summary-table">
         <thead><tr>
+          <th>{t('orderPlaced')}</th>
           <th>{t('priority')}</th>
           <th>{t('orderSymbol')}</th>
           <th>{t('currentSituation')}</th>
@@ -90,7 +92,9 @@ function OrderPlanSummaryTable({ orders, language, t }) {
           const current = localizedText(order.currentSituationText, language) || order.currentSituation || localizedText(order.reasonText, language) || order.reason || '—'
           const suggestion = localizedText(order.suggestionText, language) || order.suggestion || localizedText(order.noteText, language) || order.note || fallbackSuggestion(order, language)
           const plannedOrder = localizedText(order.plannedOrderText, language) || order.plannedOrder || summarizeLegs(order, language)
-          return <tr className={orderTone(order)} key={order.id || `${order.symbol}-${index}`}>
+          const checked = committedIds.has(order.id)
+          return <tr className={`${orderTone(order)} ${checked ? 'committed' : ''}`} key={order.id || `${order.symbol}-${index}`}>
+            <td><label className="order-commit-checkbox"><input type="checkbox" checked={checked} onChange={() => onToggleCommitment(order)} aria-label={t('orderPlacedFor', { symbol: order.symbol || index + 1 })} /><span /></label></td>
             <td>{index + 1}</td>
             <td><strong>{order.symbol ? <SymbolLink symbol={order.symbol} className="order-summary-symbol" /> : '—'}</strong></td>
             <td>{compactText(current, 150)}</td>
@@ -109,6 +113,7 @@ export default function OrderPlan() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [filename, setFilename] = useState('order-plan.json')
+  const [orderCommitments, setOrderCommitments] = useState(() => getOrderCommitments())
 
   const load = async () => {
     setLoading(true)
@@ -134,6 +139,10 @@ export default function OrderPlan() {
   }
 
   useEffect(() => { load() }, [])
+  const committedIds = useMemo(() => new Set(orderCommitments.map((order) => order.id)), [orderCommitments])
+  const toggleCommitment = (order) => {
+    setOrderCommitments(committedIds.has(order.id) ? deleteOrderCommitment(order.id) : saveOrderCommitment(order))
+  }
 
   const grouped = useMemo(() => {
     const groups = { BUY: [], SELL: [], WATCH: [] }
@@ -167,7 +176,7 @@ export default function OrderPlan() {
       <span>{t('orders')}<strong>{plan.orders.length}</strong></span>
     </div>}
     {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel plan-briefing-panel"><div><span>{t('todayFocus')}</span><h2>{t('planSummary')}</h2></div><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
-    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} />}
+    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} committedIds={committedIds} onToggleCommitment={toggleCommitment} />}
     {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {loading ? <div className="loading">{t('loadingOrderPlan')}</div> : plan ? <>
