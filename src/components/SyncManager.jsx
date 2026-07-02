@@ -45,12 +45,7 @@ export default function SyncManager() {
             window.location.reload()
             return
           }
-          if (['current', 'empty', 'skipped-empty-remote'].includes(result.status)) {
-            const saveResult = await saveToGitHub({ skipIfRemoteCurrent: true })
-            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: saveResult }))
-          } else {
-            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
-          }
+          window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
         } while (pendingSync && !cancelled)
       } finally {
         isSyncing = false

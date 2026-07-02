@@ -26,6 +26,13 @@ const hasUserData = (data) => Boolean(
   data?.plannedOrders?.length ||
   data?.watchlistGroups?.some((group) => group.symbols?.length),
 )
+const dataSummary = (data = {}) => ({
+  updatedAt: data.updatedAt || null,
+  watchlist: data.watchlist?.length || 0,
+  trades: data.trades?.length || 0,
+  plannedOrders: data.plannedOrders?.length || 0,
+  orderCommitments: data.orderCommitments?.length || 0,
+})
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
 
@@ -58,21 +65,24 @@ async function saveJsonFile(path, data, message) {
 
 export async function loadFromGitHub({ force = false } = {}) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
+  const settings = config()
   const remote = await getRemote()
   if (!remote) return { status: 'empty' }
   const local = exportData()
+  const summary = dataSummary(remote.data)
+  const meta = { path: settings.path, repo: `${settings.owner}/${settings.repo}`, branch: settings.branch, remote: summary }
   const remoteHasUserData = hasUserData(remote.data)
   const localHasUserData = hasUserData(local)
-  if (!remoteHasUserData && localHasUserData) return { status: 'skipped-empty-remote' }
+  if (!remoteHasUserData && localHasUserData && !force) return { status: 'skipped-empty-remote', ...meta }
   if (remoteHasUserData && !localHasUserData) {
     importData(remote.data)
-    return { status: 'loaded', updatedAt: remote.data.updatedAt }
+    return { status: 'loaded', updatedAt: remote.data.updatedAt, ...meta }
   }
   if (force || !getDataUpdatedAt() || new Date(remote.data.updatedAt) > new Date(getDataUpdatedAt())) {
     importData(remote.data)
-    return { status: 'loaded', updatedAt: remote.data.updatedAt }
+    return { status: 'loaded', updatedAt: remote.data.updatedAt, ...meta }
   }
-  return { status: 'current', updatedAt: remote.data.updatedAt }
+  return { status: 'current', updatedAt: remote.data.updatedAt, ...meta }
 }
 
 export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {

@@ -10,7 +10,11 @@ export default function Settings() {
   const wealthsimpleRef = useRef()
   const wealthsimpleActivitiesRef = useRef()
   const settings = getSettings()
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(() => {
+    const saved = sessionStorage.getItem('trademarker.syncMessage') || ''
+    if (saved) sessionStorage.removeItem('trademarker.syncMessage')
+    return saved
+  })
   const [isImportingWealthsimple, setIsImportingWealthsimple] = useState(false)
   const [isImportingActivities, setIsImportingActivities] = useState(false)
   const [provider, setProvider] = useState(() => settings.marketDataProviderChosen ? settings.marketDataProvider : 'yahoo')
@@ -68,6 +72,8 @@ export default function Settings() {
     const onAutoSyncStatus = (event) => {
       if (event.detail?.status === 'missing-github-settings') {
         setMessage('Logged in, but GitHub data settings are missing. Fill Owner, Repository, Branch, JSON path, and token once, then save GitHub sync settings.')
+      } else if (event.detail?.status) {
+        setMessage(syncResultMessage(event.detail))
       }
     }
     window.addEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)
@@ -249,11 +255,19 @@ export default function Settings() {
       const result = await loadSettingsFromAccount()
       applySettingsToForm()
       setMessage(result.status === 'empty' ? 'No synced settings found for this account yet.' : 'Loaded API keys and GitHub sync settings from your account.')
+      if (result.status === 'loaded') window.dispatchEvent(new CustomEvent('trademarker:auth-changed'))
     } catch (error) {
       setMessage(error.message)
     } finally {
       setIsAuthBusy(false)
     }
+  }
+  const syncResultMessage = (result) => {
+    const remote = result.remote
+    const location = [result.repo, result.branch, result.path].filter(Boolean).join(' · ')
+    const details = remote ? ` Remote has ${remote.trades} trades, ${remote.watchlist} watchlist symbols, updated ${remote.updatedAt || 'unknown time'}.` : ''
+    const prefix = location ? `${location}.` : ''
+    return `${prefix} GitHub sync ${result.status}.${details}`
   }
   const runGitHubSync = async (direction) => {
     try {
@@ -264,8 +278,12 @@ export default function Settings() {
         'skipped-empty-local': 'Skipped GitHub save because this browser has no watchlist or trades.',
         'skipped-empty-remote': 'Skipped GitHub load because the remote file is empty and local data exists.',
       }
-      setMessage(labels[result.status] || `GitHub sync ${result.status}.`)
-      if (result.status === 'loaded') window.location.reload()
+      const nextMessage = labels[result.status] || syncResultMessage(result)
+      setMessage(nextMessage)
+      if (result.status === 'loaded') {
+        sessionStorage.setItem('trademarker.syncMessage', nextMessage)
+        window.location.reload()
+      }
     } catch (error) { setMessage(error.message) }
   }
   return (
