@@ -73,7 +73,7 @@ export async function loadFromGitHub({ force = false } = {}) {
   const meta = { path: settings.path, repo: `${settings.owner}/${settings.repo}`, branch: settings.branch, remote: summary }
   const remoteHasUserData = hasUserData(remote.data)
   const localHasUserData = hasUserData(local)
-  if (!remoteHasUserData && localHasUserData && !force) return { status: 'skipped-empty-remote', ...meta }
+  if (!remoteHasUserData && localHasUserData) return { status: 'skipped-empty-remote', ...meta }
   if (remoteHasUserData && !localHasUserData) {
     importData(remote.data)
     return { status: 'loaded', updatedAt: remote.data.updatedAt, ...meta }

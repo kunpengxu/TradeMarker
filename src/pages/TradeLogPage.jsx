@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import { calculateRealizedPLByTrade } from '../services/positionCalculator'
@@ -10,6 +10,11 @@ export default function TradeLogPage() {
   const { t } = useI18n()
   const [trades, setTrades] = useState(getTrades())
   const [editingTrade, setEditingTrade] = useState(null)
+  useEffect(() => {
+    const syncTrades = () => setTrades(getTrades())
+    window.addEventListener('trademarker:data-imported', syncTrades)
+    return () => window.removeEventListener('trademarker:data-imported', syncTrades)
+  }, [])
   const realizedPL = calculateRealizedPLByTrade(trades)
   const realizedByCurrency = trades.reduce((totals, trade) => {
     if (trade.side !== 'SELL' || !realizedPL.has(trade.id)) return totals

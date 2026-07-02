@@ -39,12 +39,8 @@ export default function SyncManager() {
             window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'missing-github-settings' } }))
             return
           }
-          const result = await loadFromGitHub()
+          const result = await loadFromGitHub({ force: Boolean(getAuthToken()) })
           if (cancelled) return
-          if (result.status === 'loaded') {
-            window.location.reload()
-            return
-          }
           window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
         } while (pendingSync && !cancelled)
       } finally {

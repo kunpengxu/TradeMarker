@@ -98,7 +98,7 @@ export default function Dashboard() {
     })
   }, [])
 
-  const refresh = useCallback(async (symbols = getWatchlist(), replace = true) => {
+  const refresh = useCallback(async (symbols = getWatchlist(), replace = true, saveAnalysis = true) => {
     setLoading(true)
     const rows = await Promise.all(symbols.map(async (ticker) => {
       try {
@@ -120,11 +120,11 @@ export default function Dashboard() {
     setSelected((current) => current && getWatchlist().includes(current) ? current : getWatchlist()[0] || null)
     setUpdated(new Date())
     setLoading(false)
-    if (replace) saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
+    if (saveAnalysis && replace) saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows)).catch(() => {})
     buildEventsCalendarExport(getWatchlist())
       .then((events) => {
         setEventsCalendar(events)
-        return saveEventsCalendarToGitHub(events)
+        return saveAnalysis ? saveEventsCalendarToGitHub(events) : null
       })
       .catch(() => {})
   }, [])
@@ -138,6 +138,16 @@ export default function Dashboard() {
       if (requestedSymbol) setSelected(requestedSymbol)
     })
   }, [refresh, requestedSymbol, setSelected])
+  useEffect(() => {
+    const syncImportedData = () => {
+      const savedSymbol = getSavedSelectedSymbol()
+      const symbols = [...new Set([...getWatchlist(), requestedSymbol, savedSymbol].filter(Boolean))]
+      refresh(symbols, true, false)
+      if (selected) setTrades(getTrades(selected))
+    }
+    window.addEventListener('trademarker:data-imported', syncImportedData)
+    return () => window.removeEventListener('trademarker:data-imported', syncImportedData)
+  }, [refresh, requestedSymbol, selected])
   useEffect(() => { localStorage.setItem(DENSITY_KEY, density) }, [density])
   useEffect(() => {
     loadOrderPlanFromGitHub('order-plan.json')

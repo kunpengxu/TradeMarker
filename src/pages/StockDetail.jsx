@@ -50,6 +50,14 @@ export default function StockDetail() {
   }, [symbol])
   useEffect(() => { load() }, [load])
   useEffect(() => {
+    const syncImportedData = () => {
+      setTrades(getTrades(symbol))
+      load()
+    }
+    window.addEventListener('trademarker:data-imported', syncImportedData)
+    return () => window.removeEventListener('trademarker:data-imported', syncImportedData)
+  }, [load, symbol])
+  useEffect(() => {
     loadOrderPlanFromGitHub('order-plan.json')
       .then((result) => {
         if (result.status !== 'loaded') return setSymbolOrders([])
