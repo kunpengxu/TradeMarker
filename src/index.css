@@ -129,3 +129,19 @@
 [data-theme="light"] .cash-after-orders{color:#64748b}
 [data-theme="light"] .cash-after-orders b{color:#1e40af}
 [data-theme="light"] .side.order{background:#dbeafe;color:#1d4ed8}
+
+@media(max-width:650px){
+  .workspace-body{display:flex;flex-direction:column}
+  .market-main{order:1}
+  .market-sidebar{order:2;border-top:1px solid #29313e;border-bottom:0}
+  .market-sidebar .sidebar-title{height:auto;padding:12px 14px}
+  .market-sidebar .watch-tools{padding:8px 10px}
+  .watch-rows{max-height:none}
+  .market-main>.chart,.chart-column>.chart,.compact-density .market-main>.chart,.compact-density .chart-column>.chart{height:390px}
+  .quote-header{padding:14px 16px}
+  .quote-identity{min-width:0}
+  .quote-price>strong{font-size:1.9rem}
+  .quote-position-metrics span{flex:0 0 auto}
+  .market-tabs{position:sticky;top:0;z-index:3;background:#0f141d}
+  [data-theme="light"] .market-tabs{background:#fff}
+}
