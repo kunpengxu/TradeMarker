@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import SymbolLink from '../components/SymbolLink'
 import { buildEventsCalendarExport } from '../services/eventsData'
 import { saveEventsCalendarToGitHub } from '../services/githubSync'
-import { getWatchlist } from '../services/storage'
+import { calculatePosition } from '../services/positionCalculator'
+import { getOrderCommitments, getTrades, getWatchlist } from '../services/storage'
 import { useI18n } from '../i18n'
 
 const badgeClass = (type) => type.replace(/[^a-z]/gi, '-').toLowerCase()
@@ -36,6 +37,7 @@ export default function Events() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [selectedSymbol, setSelectedSymbol] = useState('all')
+  const [relevance, setRelevance] = useState('all')
   const watchlist = getWatchlist()
 
   const load = async () => {
@@ -62,7 +64,21 @@ export default function Events() {
     return event.symbol === symbol || event.symbol === clean || event.symbols?.includes(symbol) || event.symbols?.includes(clean)
   }
   const stockEvents = (calendar?.symbolEvents || []).filter((event) => symbolMatches(event, selectedSymbol))
-  const macroEvents = calendar?.macroEvents || []
+  const positionSymbols = new Set(watchlist.filter((symbol) => calculatePosition(getTrades(symbol), 0).shares > 0))
+  const orderSymbols = new Set(getOrderCommitments().map((order) => order.symbol))
+  const relevantStockEvents = stockEvents.filter((event) => {
+    const symbols = eventSymbols(event)
+    if (relevance === 'positions') return symbols.some((symbol) => positionSymbols.has(symbol))
+    if (relevance === 'orders') return symbols.some((symbol) => orderSymbols.has(symbol))
+    return true
+  })
+  const groupedStockEvents = relevantStockEvents.reduce((groups, event) => {
+    const symbols = eventSymbols(event)
+    const key = symbols.find((symbol) => watchlist.includes(symbol)) || symbols[0] || event.query || 'Market'
+    groups.set(key, [...(groups.get(key) || []), event])
+    return groups
+  }, new Map())
+  const macroEvents = relevance === 'macro' || relevance === 'all' ? calendar?.macroEvents || [] : []
   const diagnosticCount = (calendar?.skipped?.length || 0) + (calendar?.errors?.length || 0)
   return <section><div className="page-head"><div><p className="eyebrow">{t('eventsEyebrow')}</p><h1>{t('eventsTitle')}</h1><p>{t('eventsSubtitle')}</p></div><button onClick={load} disabled={loading}>{loading ? t('loading') : t('refreshEvents')}</button></div>
     {message && <p className="notice">{message}</p>}
@@ -73,10 +89,13 @@ export default function Events() {
         <span className="recent">{t('recent')}<strong>{calendar.recent?.length || 0}</strong></span>
         <span className={`status ${calendar.status}`}>{t('status')}<strong>{calendar.status}</strong></span>
       </div>
-      <label className="event-filter">{t('stockFilter')}<select value={selectedSymbol} onChange={(event) => setSelectedSymbol(event.target.value)}><option value="all">{t('allWatchlistStocks')}</option>{watchlist.map((symbol) => <option value={symbol} key={symbol}>{symbol}</option>)}</select></label>
+      <div className="event-filter-stack">
+        <label className="event-filter">{t('stockFilter')}<select value={selectedSymbol} onChange={(event) => setSelectedSymbol(event.target.value)}><option value="all">{t('allWatchlistStocks')}</option>{watchlist.map((symbol) => <option value={symbol} key={symbol}>{symbol}</option>)}</select></label>
+        <label className="event-filter">{t('relevanceFilter')}<select value={relevance} onChange={(event) => setRelevance(event.target.value)}><option value="all">{t('allEvents')}</option><option value="positions">{t('positionsOnly')}</option><option value="orders">{t('withOrderSuggestions')}</option><option value="macro">{t('macroOnly')}</option></select></label>
+      </div>
     </div>}
     {loading ? <div className="loading">{t('loadingEvents')}</div> : <div className="events-grid">
-      <div><h2>{t('stockNewsEvents')}</h2>{stockEvents.length ? <div className="events-list">{stockEvents.map((event) => <EventCard event={event} key={event.id} t={t} />)}</div> : <div className="empty-inline">{t('noStockEvents')}</div>}</div>
+      <div><h2>{t('stockNewsEvents')}</h2>{groupedStockEvents.size ? <div className="event-symbol-groups">{[...groupedStockEvents.entries()].map(([symbol, events]) => <section className="event-symbol-group" key={symbol}><h3>{symbol}<small>{events.length}</small></h3><div className="events-list">{events.map((event) => <EventCard event={event} key={event.id} t={t} />)}</div></section>)}</div> : <div className="empty-inline">{t('noStockEvents')}</div>}</div>
       <div><h2>{t('macroNewsEvents')}</h2>{macroEvents.length ? <div className="events-list">{macroEvents.map((event) => <EventCard event={event} key={event.id} t={t} />)}</div> : <div className="empty-inline">{t('noMacroEvents')}</div>}</div>
     </div>}
     {diagnosticCount ? <details className="panel event-diagnostics">

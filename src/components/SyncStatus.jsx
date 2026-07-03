@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../i18n'
+import { recordSyncStatus } from '../services/syncHistory'
 
 const toneFor = (status) => {
   if (status === 'error' || status === 'remote-newer') return 'warning'
@@ -16,6 +17,7 @@ export default function SyncStatus() {
     let timer
     const onStatus = (event) => {
       window.clearTimeout(timer)
+      recordSyncStatus(event.detail || {})
       setSync({ ...(event.detail || {}), at: new Date() })
       if (['saved', 'loaded', 'current'].includes(event.detail?.status)) {
         timer = window.setTimeout(() => setSync(null), 5000)

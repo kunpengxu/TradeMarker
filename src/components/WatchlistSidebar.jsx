@@ -119,6 +119,21 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
                   : t('allStocks')
   const summaryPositions = filteredSymbols.filter((symbol) => (itemMap.get(symbol)?.position?.shares || 0) > 0).length
   const summaryOrders = filteredSymbols.filter((symbol) => orderCount(symbol)).length
+  const groupStats = (symbols) => {
+    const rows = symbols.map((symbol) => itemMap.get(symbol)).filter(Boolean)
+    const positioned = rows.filter((item) => (item.position?.shares || 0) > 0)
+    const marketValue = positioned.reduce((sum, item) => sum + (item.position?.marketValue || 0), 0)
+    const unrealizedPL = positioned.reduce((sum, item) => sum + (item.position?.unrealizedPL || 0), 0)
+    const currencies = [...new Set(positioned.map((item) => item.quote?.currency).filter(Boolean))]
+    return {
+      positions: positioned.length,
+      gainers: rows.filter((item) => Number(item.quote?.changePercent) > 0).length,
+      losers: rows.filter((item) => Number(item.quote?.changePercent) < 0).length,
+      marketValue,
+      unrealizedPL,
+      currency: currencies.length === 1 ? currencies[0] : null,
+    }
+  }
   const renameGroup = (group) => {
     const name = prompt(t('renameGroup'), group.name)
     if (name?.trim()) persist(groups.map((item) => item.id === group.id ? { ...item, name: name.trim() } : item))
@@ -144,8 +159,14 @@ export default function WatchlistSidebar({ items, selected, onSelect, onRemove, 
       <div className="watch-rows">
         {groups.map((group) => {
           const symbols = sortSymbols(group.symbols.filter(visible))
+          const stats = groupStats(symbols)
           return <section className="watch-group" key={group.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => moveSymbol(event.dataTransfer.getData('text/plain'), group.id)}>
             <div className="watch-group-head"><strong>{groupLabel(group)}</strong><span>{symbols.length}</span></div>
+            {symbols.length ? <div className="watch-group-stats">
+              <span>{t('openPositions')} {stats.positions}</span>
+              <span className={valueClass(stats.unrealizedPL)}>{stats.currency ? money(stats.unrealizedPL, stats.currency) : t('mixed')}</span>
+              <span>{stats.gainers}↑ {stats.losers}↓</span>
+            </div> : null}
             {symbols.map((symbol) => {
               const item = itemMap.get(symbol)
               const orders = orderCount(symbol)

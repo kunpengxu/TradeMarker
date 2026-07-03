@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { clearData, exportData, getSettings, getTrades, getWatchlist, importData, saveSettings, saveTrades, saveWatchlist } from '../services/storage'
 import { loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
+import { getSyncHistory } from '../services/syncHistory'
 import { buildWealthsimpleActivities, buildWealthsimpleHoldings, createImportedTrade } from '../services/wealthsimpleImport'
 import { clearAuthToken, getAuthToken, getAuthUser, getAuthWorkerUrl, loadSettingsFromAccount, saveAuthTokenFromHash, saveSettingsToAccount, startGitHubLogin } from '../services/authSync'
 
@@ -30,6 +31,7 @@ export default function Settings() {
   const [authWorkerUrl, setAuthWorkerUrl] = useState(() => settings.authWorkerUrl ?? getAuthWorkerUrl())
   const [authUser, setAuthUser] = useState(null)
   const [isAuthBusy, setIsAuthBusy] = useState(false)
+  const [syncHistory, setSyncHistory] = useState(() => getSyncHistory())
 
   const refreshAuthUser = async () => {
     try {
@@ -70,6 +72,7 @@ export default function Settings() {
       }
     }
     const onAutoSyncStatus = (event) => {
+      setSyncHistory(getSyncHistory())
       if (event.detail?.status === 'missing-github-settings') {
         setMessage('Logged in, but GitHub data settings are missing. Fill Owner, Repository, Branch, JSON path, and token once, then save GitHub sync settings.')
       } else if (event.detail?.status) {
@@ -295,6 +298,13 @@ export default function Settings() {
         <div className="sync-actions">{authUser ? <button type="button" className="secondary" onClick={logout}>Sign out</button> : <button type="button" onClick={loginWithGitHub}>Login with GitHub</button>}<button type="button" className="secondary" onClick={saveAuthWorkerSetting}>Save Worker URL</button></div>
         <div className="sync-actions"><button type="button" disabled={!authUser || isAuthBusy} onClick={loadCloudSettings}>Load settings from account</button><button type="button" className="secondary" disabled={!authUser || isAuthBusy} onClick={saveCloudSettings}>Save settings to account</button></div>
         <small>This sync stores market-data keys and GitHub sync settings in your Cloudflare Worker KV. Deploy your own Worker and use restricted personal API keys.</small>
+      </div>
+      <div className="panel sync-history-panel"><h2>Sync status</h2><p>Recent automatic GitHub data sync events on this browser.</p>
+        {syncHistory.length ? <div className="sync-history-list">{syncHistory.slice(0, 8).map((entry, index) => <article key={`${entry.at}-${index}`} className={`sync-history-row ${entry.status}`}>
+          <span><strong>{entry.status}</strong><small>{new Date(entry.at).toLocaleString()}</small></span>
+          <p>{[entry.repo, entry.branch, entry.path].filter(Boolean).join(' · ') || entry.message || 'Local browser event'}</p>
+          {entry.remote ? <small>Remote: {entry.remote.trades} trades · {entry.remote.watchlist} symbols · {entry.remote.updatedAt || 'unknown time'}</small> : null}
+        </article>)}</div> : <div className="empty-inline">No sync history yet.</div>}
       </div>
       <form className="panel api-key-panel" onSubmit={saveMarketData}><h2>Reference market data</h2><p>Yahoo Finance is the recommended default for this personal journal because it covers US and Canadian symbols and returns complete daily OHLCV without an API key.</p>
         <label>Data provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="yahoo">Yahoo Finance (recommended)</option><option value="fmp">Financial Modeling Prep</option><option value="twelveData">Twelve Data</option></select></label>

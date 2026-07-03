@@ -3,8 +3,8 @@ import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
 import SymbolLink from '../components/SymbolLink'
 import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { normalizeOrderPlan } from '../services/orderPlan'
-import { deleteOrderCommitment, getOrderCommitments, orderCommitmentKey, reconcileOrderPlanSignature, saveOrderCommitment } from '../services/storage'
-import { number } from '../utils/formatters'
+import { calculateReservedCashByCurrency, deleteOrderCommitment, getOrderCommitments, orderCommitmentKey, reconcileOrderPlanSignature, saveOrderCommitment } from '../services/storage'
+import { money, number } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
 const formatDate = (date) => {
@@ -143,6 +143,20 @@ export default function OrderPlan() {
 
   useEffect(() => { load() }, [])
   const committedKeys = useMemo(() => new Set(orderCommitments.map(orderCommitmentKey)), [orderCommitments])
+  const committedSellValueByCurrency = useMemo(() => orderCommitments.reduce((result, order) => {
+    if (order.side !== 'SELL') return result
+    const currency = order.currency || 'USD'
+    const legValue = (order.legs || []).reduce((sum, leg) => {
+      const price = Number(leg.price)
+      const shares = Number(leg.shares)
+      return Number.isFinite(price) && Number.isFinite(shares) ? sum + price * shares : sum
+    }, 0)
+    const value = legValue || Number(order.totalAmount || 0)
+    result[currency] = (result[currency] || 0) + value
+    return result
+  }, {}), [orderCommitments])
+  const reservedCash = useMemo(() => calculateReservedCashByCurrency(orderCommitments), [orderCommitments])
+  const moneyLines = (values) => Object.entries(values).map(([currency, value]) => money(value, currency)).join(' · ') || '—'
   const toggleCommitment = (order) => {
     const key = orderCommitmentKey(order)
     setOrderCommitments(committedKeys.has(key) ? deleteOrderCommitment(key) : saveOrderCommitment(order))
@@ -178,6 +192,9 @@ export default function OrderPlan() {
       <span>{t('tradingDate')}<strong>{plan.tradingDate || '—'}</strong></span>
       <span>{t('generated')}<strong>{formatDate(plan.generatedAt)}</strong></span>
       <span>{t('orders')}<strong>{plan.orders.length}</strong></span>
+      <span>{t('committedOrders')}<strong>{orderCommitments.length}</strong></span>
+      <span>{t('reservedByOrders')}<strong>{moneyLines(reservedCash)}</strong></span>
+      <span>{t('sellReleaseEstimate')}<strong>{moneyLines(committedSellValueByCurrency)}</strong></span>
     </div>}
     {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel plan-briefing-panel"><div><span>{t('todayFocus')}</span><h2>{t('planSummary')}</h2></div><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
     {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} committedKeys={committedKeys} onToggleCommitment={toggleCommitment} />}

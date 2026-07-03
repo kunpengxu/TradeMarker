@@ -131,6 +131,14 @@
 [data-theme="light"] .cash-after-orders b{color:#1e40af}
 [data-theme="light"] .side.order{background:#dbeafe;color:#1d4ed8}
 [data-theme="light"] .sync-status{background:#e8f1ffd9;border-bottom-color:#bfd5f5;color:#1e40af}[data-theme="light"] .sync-status.warning{background:#fff7ed}[data-theme="light"] .sync-status.warning span{background:#dc2626}
+.sync-history-panel{align-content:start}.sync-history-list{display:grid;gap:8px;margin-top:12px}.sync-history-row{display:grid;gap:4px;padding:10px 12px;border:1px solid #263650;border-radius:10px;background:#0b1424}.sync-history-row span{display:flex;align-items:center;justify-content:space-between;gap:10px}.sync-history-row strong{color:#e5edf8;text-transform:uppercase;font-size:.74rem}.sync-history-row small{color:#7f90a9;font-size:.68rem}.sync-history-row p{margin:0;color:#aab7c8;font-size:.76rem}.sync-history-row.saved,.sync-history-row.loaded,.sync-history-row.current{border-color:#145f57}.sync-history-row.error,.sync-history-row.remote-newer{border-color:#7f1d38}.trade-log-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}.trade-log-filters label{display:grid;gap:6px;color:#8fa0b7;font-size:.72rem;font-weight:900;text-transform:uppercase}.trade-log-filters select{width:100%;background:#0b1424;color:#e5edf8;border:1px solid #2a3c59;border-radius:9px;padding:9px}.portfolio-group-panel{margin:16px 0;background:linear-gradient(180deg,#101a2c,#0d1626)}.portfolio-group-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:12px}.portfolio-group-grid article{padding:12px;border:1px solid #22314b;border-radius:12px;background:#0b1424}.portfolio-group-grid span{display:block;color:#8fa0b7;font-size:.68rem;font-weight:900;text-transform:uppercase}.portfolio-group-grid strong{display:block;margin-top:5px;color:#e5edf8;font-size:1.08rem}.portfolio-group-grid small{display:block;margin-top:6px;color:#8fa0b7}.watch-group-stats{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:0 13px 7px;background:#0c1118;border-bottom:1px solid #1f2d44;color:#7f8da4;font-size:.62rem}.watch-group-stats span{white-space:nowrap}.event-filter-stack{display:grid;gap:10px}.event-symbol-groups{display:grid;gap:16px}.event-symbol-group{display:grid;gap:8px}.event-symbol-group>h3{display:flex;align-items:center;gap:8px;margin:0;color:#f8fafc;font-size:.95rem}.event-symbol-group>h3 small{display:grid;place-items:center;min-width:22px;height:20px;border-radius:999px;background:#17243a;color:#bfdbfe;font-size:.65rem}.event-symbol-group .events-list:before{display:none}
+[data-theme="light"] .sync-history-row,[data-theme="light"] .portfolio-group-grid article{background:#f8fafc;border-color:#d5dfeb}
+[data-theme="light"] .sync-history-row strong,[data-theme="light"] .portfolio-group-grid strong,[data-theme="light"] .event-symbol-group>h3{color:#0f172a}
+[data-theme="light"] .sync-history-row p,[data-theme="light"] .sync-history-row small,[data-theme="light"] .portfolio-group-grid span,[data-theme="light"] .portfolio-group-grid small{color:#64748b}
+[data-theme="light"] .trade-log-filters select{background:#f8fafc;color:#0f172a;border-color:#cbd5e1}
+[data-theme="light"] .portfolio-group-panel{background:#fff;border-color:#dbe4ef}
+[data-theme="light"] .watch-group-stats{background:#f1f5f9;border-bottom-color:#dbe4ef;color:#64748b}
+[data-theme="light"] .event-symbol-group>h3 small{background:#eef5ff;color:#1d4ed8}
 
 @media(max-width:650px){
   .sync-status{top:0;font-size:.72rem}
@@ -139,7 +147,11 @@
   .market-sidebar{order:2;border-top:1px solid #29313e;border-bottom:0}
   .market-sidebar .sidebar-title{height:auto;padding:12px 14px}
   .market-sidebar .watch-tools{padding:8px 10px}
-  .watch-rows{max-height:none}
+  .watch-rows{max-height:46vh}
+  .watch-group-stats{font-size:.6rem;overflow-x:auto}
+  .trade-log-filters{grid-template-columns:1fr}
+  .portfolio-group-grid{grid-template-columns:1fr}
+  .event-filter-stack{grid-template-columns:1fr}
   .market-main>.chart,.chart-column>.chart,.compact-density .market-main>.chart,.compact-density .chart-column>.chart{height:390px}
   .quote-header{padding:14px 16px}
   .quote-identity{min-width:0}
