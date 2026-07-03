@@ -26,7 +26,7 @@ const write = (key, value, notify = true) => {
   localStorage.setItem(key, JSON.stringify(value))
   if (notify && key !== KEYS.updatedAt) {
     localStorage.setItem(KEYS.updatedAt, JSON.stringify(new Date().toISOString()))
-    window.dispatchEvent(new CustomEvent('trademarker:data-changed'))
+    window.dispatchEvent(new CustomEvent('trademarker:data-changed', { detail: { key } }))
   }
 }
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -481,7 +481,7 @@ export const importData = (data) => {
   if (!data || !Array.isArray(data.watchlist) || !Array.isArray(data.trades) || !Array.isArray(data.plannedOrders)) {
     throw new Error('Invalid TradeMarker data file.')
   }
-  saveWatchlist(data.watchlist)
+  write(KEYS.watchlist, [...new Set(data.watchlist.map(normalizeSymbol))], false)
   write(KEYS.watchlistGroups, (data.watchlistGroups || [{ id: 'default', name: 'Watchlist', symbols: data.watchlist }]).map(migrateGroup), false)
   write(KEYS.trades, data.trades.map(normalizeTrade), false)
   write(KEYS.plannedOrders, data.plannedOrders.map(migrateOrder), false)

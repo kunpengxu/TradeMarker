@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useI18n } from '../i18n'
 import { useTheme } from '../theme'
+import SyncStatus from './SyncStatus'
 
 export default function Layout() {
   const { language, setLanguage, t } = useI18n()
@@ -27,6 +28,7 @@ export default function Layout() {
           </div>
         </div>
       </header>
+      <SyncStatus />
       <main className="app-content"><Outlet /></main>
       <footer>{t('footer')}</footer>
     </div>

@@ -90,17 +90,22 @@ export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
   const settings = config()
   const remote = await getRemote()
   const local = exportData()
+  const meta = {
+    path: settings.path,
+    repo: `${settings.owner}/${settings.repo}`,
+    branch: settings.branch,
+    local: dataSummary(local),
+    remote: remote?.data ? dataSummary(remote.data) : null,
+  }
   if (!hasUserData(local)) return { status: 'skipped-empty-local' }
   if (remote && hasUserData(remote.data) && !hasUserData(local)) return { status: 'skipped-empty-local' }
-  if (
-    skipIfRemoteCurrent &&
-    remote?.data?.updatedAt &&
-    local.updatedAt &&
-    new Date(remote.data.updatedAt) >= new Date(local.updatedAt)
-  ) {
-    return { status: 'current', updatedAt: remote.data.updatedAt }
+  if (skipIfRemoteCurrent && remote?.data?.updatedAt && local.updatedAt) {
+    const remoteTime = new Date(remote.data.updatedAt)
+    const localTime = new Date(local.updatedAt)
+    if (remoteTime > localTime) return { status: 'remote-newer', updatedAt: remote.data.updatedAt, ...meta }
+    if (remoteTime.getTime() === localTime.getTime()) return { status: 'current', updatedAt: remote.data.updatedAt, ...meta }
   }
-  return saveJsonFile(settings.path, local, 'Update TradeMarker data')
+  return { ...(await saveJsonFile(settings.path, local, 'Update TradeMarker data')), ...meta }
 }
 
 export async function savePortfolioSummaryToGitHub(summary) {

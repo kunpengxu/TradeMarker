@@ -123,14 +123,17 @@
 [data-theme="light"] .order-summary-symbol:hover{color:#2563eb}
 .order-commit-checkbox{display:inline-grid;place-items:center;width:22px;height:22px;cursor:pointer}.order-commit-checkbox input{position:absolute;opacity:0;pointer-events:none}.order-commit-checkbox span{display:block;width:18px;height:18px;border:1px solid #3b4d68;border-radius:5px;background:#0b1424;box-shadow:inset 0 0 0 2px #0b1424}.order-commit-checkbox input:checked+span{background:#2563eb;border-color:#60a5fa;box-shadow:inset 0 0 0 3px #0b1424}.order-commit-checkbox input:checked+span:after{content:"";display:block;width:8px;height:5px;margin:4px 0 0 4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg)}.order-summary-table tr.committed{background:#10223a}.order-summary-table tr.committed td:first-child{border-left-color:#60a5fa}.cash-after-orders{display:block;margin-top:8px;color:#8fa0b7;font-size:.78rem;line-height:1.35}.cash-after-orders b{display:block;margin-top:2px;color:#bfdbfe;font-size:.95rem}.cash-card .portfolio-note{padding:0 20px;margin:0 0 10px}
 .side.order{background:#1d4ed833;color:#bfdbfe}.trade-log-table tbody tr.trade-row.order td:first-child{border-left-color:#60a5fa}
+.sync-status{position:sticky;top:68px;z-index:4;display:flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:7px 16px;border-bottom:1px solid #21314c;background:#0f1b2ed9;color:#bfdbfe;font-size:.78rem;font-weight:800;backdrop-filter:blur(10px)}.sync-status span{width:8px;height:8px;border-radius:999px;background:#64748b}.sync-status.busy span{background:#f59e0b;box-shadow:0 0 0 4px #f59e0b22}.sync-status.ok span{background:#10b981}.sync-status.warning{background:#2a1c12e6;border-bottom-color:#7c2d12;color:#fed7aa}.sync-status.warning span{background:#fb7185}
 [data-theme="light"] .order-commit-checkbox span{background:#fff;border-color:#cbd5e1;box-shadow:inset 0 0 0 2px #fff}
 [data-theme="light"] .order-commit-checkbox input:checked+span{background:#2563eb;border-color:#1d4ed8;box-shadow:inset 0 0 0 3px #fff}
 [data-theme="light"] .order-summary-table tr.committed{background:#eaf2ff}
 [data-theme="light"] .cash-after-orders{color:#64748b}
 [data-theme="light"] .cash-after-orders b{color:#1e40af}
 [data-theme="light"] .side.order{background:#dbeafe;color:#1d4ed8}
+[data-theme="light"] .sync-status{background:#e8f1ffd9;border-bottom-color:#bfd5f5;color:#1e40af}[data-theme="light"] .sync-status.warning{background:#fff7ed}[data-theme="light"] .sync-status.warning span{background:#dc2626}
 
 @media(max-width:650px){
+  .sync-status{top:0;font-size:.72rem}
   .workspace-body{display:flex;flex-direction:column}
   .market-main{order:1}
   .market-sidebar{order:2;border-top:1px solid #29313e;border-bottom:0}

@@ -2,16 +2,35 @@ import { useEffect } from 'react'
 import { isGitHubSyncConfigured, loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getAuthToken, hasGitHubDataSettings, loadSettingsFromAccount, saveSettingsToAccount } from '../services/authSync'
 
+const DATA_KEYS_THAT_SHOULD_SAVE = new Set([
+  'trademarker.watchlist',
+  'trademarker.trades',
+  'trademarker.plannedOrders',
+  'trademarker.orderCommitments',
+  'trademarker.watchlistGroups',
+  'trademarker.account',
+])
+
 export default function SyncManager() {
   useEffect(() => {
     let timer
     let cancelled = false
     let isSyncing = false
     let pendingSync = false
-    const save = () => {
+    const save = (event) => {
+      if (event?.detail?.key && !DATA_KEYS_THAT_SHOULD_SAVE.has(event.detail.key)) return
       if (isSyncing) return
       clearTimeout(timer)
-      timer = setTimeout(() => saveToGitHub().catch(() => {}), 1200)
+      window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'pending-save' } }))
+      timer = setTimeout(async () => {
+        window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'saving' } }))
+        try {
+          const result = await saveToGitHub({ skipIfRemoteCurrent: true })
+          window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
+        } catch (error) {
+          window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'error', message: error.message } }))
+        }
+      }, 1200)
     }
     const syncNow = async () => {
       if (isSyncing) {
