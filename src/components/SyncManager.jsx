@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { isGitHubSyncConfigured, loadFromGitHub, saveToGitHub } from '../services/githubSync'
+import { isGitHubSyncConfigured, loadFromGitHub, savePortfolioSummaryToGitHub, saveToGitHub } from '../services/githubSync'
 import { getAuthToken, hasGitHubDataSettings, loadSettingsFromAccount, saveSettingsToAccount } from '../services/authSync'
+import { buildPortfolioSummary } from '../services/portfolioSummary'
 
 const DATA_KEYS_THAT_SHOULD_SAVE = new Set([
   'trademarker.watchlist',
@@ -26,6 +27,10 @@ export default function SyncManager() {
         window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'saving' } }))
         try {
           const result = await saveToGitHub({ skipIfRemoteCurrent: true })
+          if (result.status === 'saved') {
+            const portfolioSummary = await buildPortfolioSummary()
+            await savePortfolioSummaryToGitHub(portfolioSummary)
+          }
           window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
         } catch (error) {
           window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'error', message: error.message } }))
