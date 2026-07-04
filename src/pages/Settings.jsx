@@ -3,6 +3,8 @@ import { clearData, exportData, getSettings, getTrades, getWatchlist, importData
 import { loadFromGitHub, saveToGitHub } from '../services/githubSync'
 import { getMarketSnapshot } from '../services/marketData'
 import { getSyncHistory } from '../services/syncHistory'
+import { copyAIAnalysisContext } from '../services/aiContext'
+import { buildDataDiagnostics } from '../services/dataDiagnostics'
 import { buildWealthsimpleActivities, buildWealthsimpleHoldings, createImportedTrade } from '../services/wealthsimpleImport'
 import { clearAuthToken, getAuthToken, getAuthUser, getAuthWorkerUrl, loadSettingsFromAccount, saveAuthTokenFromHash, saveSettingsToAccount, startGitHubLogin } from '../services/authSync'
 
@@ -32,6 +34,8 @@ export default function Settings() {
   const [authUser, setAuthUser] = useState(null)
   const [isAuthBusy, setIsAuthBusy] = useState(false)
   const [syncHistory, setSyncHistory] = useState(() => getSyncHistory())
+  const [diagnostics, setDiagnostics] = useState(() => buildDataDiagnostics())
+  const [copyingAIContext, setCopyingAIContext] = useState(false)
 
   const refreshAuthUser = async () => {
     try {
@@ -84,6 +88,15 @@ export default function Settings() {
     return () => {
       window.removeEventListener('trademarker:account-settings-synced', onAccountSettingsSynced)
       window.removeEventListener('trademarker:auto-sync-status', onAutoSyncStatus)
+    }
+  }, [])
+  useEffect(() => {
+    const refresh = () => setDiagnostics(buildDataDiagnostics())
+    window.addEventListener('trademarker:data-changed', refresh)
+    window.addEventListener('trademarker:data-imported', refresh)
+    return () => {
+      window.removeEventListener('trademarker:data-changed', refresh)
+      window.removeEventListener('trademarker:data-imported', refresh)
     }
   }, [])
   const download = () => {
@@ -289,6 +302,18 @@ export default function Settings() {
       }
     } catch (error) { setMessage(error.message) }
   }
+  const refreshDiagnostics = () => setDiagnostics(buildDataDiagnostics())
+  const copyContext = async () => {
+    try {
+      setCopyingAIContext(true)
+      const context = await copyAIAnalysisContext()
+      setMessage(`Copied AI analysis context with ${context.recentTrades.length} recent trades and ${context.portfolio.positions.length} positions.`)
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setCopyingAIContext(false)
+    }
+  }
   return (
     <section><div className="page-head"><div><p className="eyebrow">Local data</p><h1>Settings</h1><p>Your TradeMarker data stays in this browser unless you export it.</p></div></div>
       {message && <p className="notice success">{message}</p>}
@@ -305,6 +330,11 @@ export default function Settings() {
           <p>{[entry.repo, entry.branch, entry.path].filter(Boolean).join(' · ') || entry.message || 'Local browser event'}</p>
           {entry.remote ? <small>Remote: {entry.remote.trades} trades · {entry.remote.watchlist} symbols · {entry.remote.updatedAt || 'unknown time'}</small> : null}
         </article>)}</div> : <div className="empty-inline">No sync history yet.</div>}
+      </div>
+      <div className={`panel data-diagnostics-panel ${diagnostics.status}`}><h2>Data diagnostics</h2><p>Quick checks for duplicate-like trades, negative positions, missing currency, and order-log consistency.</p>
+        <div className="diagnostic-summary"><span>Status<strong>{diagnostics.status}</strong></span><span>Watchlist<strong>{diagnostics.counts.watchlist}</strong></span><span>Trades<strong>{diagnostics.counts.trades}</strong></span><span>Orders<strong>{diagnostics.counts.orderCommitments}</strong></span></div>
+        {diagnostics.issues.length ? <div className="diagnostic-list">{diagnostics.issues.map((item, index) => <article className={item.severity} key={`${item.title}-${index}`}><strong>{item.title}</strong><p>{item.detail}</p><small>{item.count} item(s)</small></article>)}</div> : <div className="empty-inline">No data issues detected.</div>}
+        <div className="sync-actions"><button type="button" className="secondary" onClick={refreshDiagnostics}>Refresh diagnostics</button><button type="button" onClick={copyContext} disabled={copyingAIContext}>{copyingAIContext ? 'Copying…' : 'Copy AI analysis context'}</button></div>
       </div>
       <form className="panel api-key-panel" onSubmit={saveMarketData}><h2>Reference market data</h2><p>Yahoo Finance is the recommended default for this personal journal because it covers US and Canadian symbols and returns complete daily OHLCV without an API key.</p>
         <label>Data provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="yahoo">Yahoo Finance (recommended)</option><option value="fmp">Financial Modeling Prep</option><option value="twelveData">Twelve Data</option></select></label>

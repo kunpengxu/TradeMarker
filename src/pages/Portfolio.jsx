@@ -111,6 +111,20 @@ export default function Portfolio() {
       currency: currencies.length === 1 ? currencies[0] : null,
     }
   }).filter((group) => group.symbols.length || group.openPositions), [positionBySymbol])
+  const concentrationStats = useMemo(() => {
+    const sortedByValue = [...positions].sort((a, b) => b.marketValue - a.marketValue)
+    const topFiveValue = sortedByValue.slice(0, 5).reduce((sum, position) => sum + position.marketValue, 0)
+    const leveragedGroup = groupSummaries.find((group) => group.id === 'leveraged-swing')
+    const bestPosition = positions.reduce((best, position) => !best || position.unrealizedPL > best.unrealizedPL ? position : best, null)
+    const worstPosition = positions.reduce((worst, position) => !worst || position.unrealizedPL < worst.unrealizedPL ? position : worst, null)
+    return {
+      topFiveShare: nominalPortfolioValue ? topFiveValue / nominalPortfolioValue * 100 : 0,
+      largest: sortedByValue[0] || null,
+      leveragedShare: nominalPortfolioValue && leveragedGroup ? leveragedGroup.marketValue / nominalPortfolioValue * 100 : 0,
+      bestPosition,
+      worstPosition,
+    }
+  }, [groupSummaries, nominalPortfolioValue, positions])
   const cashDisplay = cashCurrencies.map((currency) => `${currency} ${money(cashByCurrency[currency] || 0, currency)}`).join(' · ')
   const cashAfterOrdersDisplay = cashCurrencies.map((currency) => `${currency} ${money(cashAfterOrdersByCurrency[currency] || 0, currency)}`).join(' · ')
   const reservedCashDisplay = cashCurrencies.map((currency) => `${currency} ${money(reservedCashByCurrency[currency] || 0, currency)}`).join(' · ')
@@ -139,6 +153,13 @@ export default function Portfolio() {
       <details className="panel portfolio-card cash-card"><summary><span>{t('availableCash')}</span><strong>{cashDisplay}</strong><small className="cash-after-orders">{t('cashAfterOrders')} <b>{cashAfterOrdersDisplay}</b></small></summary><p>{t('availableCashHint')}</p><p className="portfolio-note">{t('reservedByOrders')}: {reservedCashDisplay}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></details>
     </div>
     <div className="panel trading-stats"><h2>{t('tradingStatistics')}</h2><div className="stats-grid grouped-stats">{statGroups.map(([group, rows]) => <section className="stat-group" key={group}><h3>{group}</h3>{rows.map(([label, value]) => <span key={label}>{label}{value}</span>)}</section>)}</div><p className="portfolio-note">{t('mixedCurrencyNote')}</p></div>
+    <div className="panel portfolio-risk-panel"><h2>{t('riskConcentration')}</h2><div className="risk-card-grid">
+      <span>{t('topFiveExposure')}<strong>{number(concentrationStats.topFiveShare)}%</strong></span>
+      <span>{t('largestPosition')}{concentrationStats.largest ? <strong><SymbolLink symbol={concentrationStats.largest.symbol} /> {money(concentrationStats.largest.marketValue, concentrationStats.largest.quote.currency)}</strong> : <strong>N/A</strong>}</span>
+      <span>{t('leveragedExposure')}<strong>{number(concentrationStats.leveragedShare)}%</strong></span>
+      <span>{t('bestOpenPosition')}{concentrationStats.bestPosition ? <strong className={valueClass(concentrationStats.bestPosition.unrealizedPL)}><SymbolLink symbol={concentrationStats.bestPosition.symbol} /> {money(concentrationStats.bestPosition.unrealizedPL, concentrationStats.bestPosition.quote.currency)}</strong> : <strong>N/A</strong>}</span>
+      <span>{t('worstOpenPosition')}{concentrationStats.worstPosition ? <strong className={valueClass(concentrationStats.worstPosition.unrealizedPL)}><SymbolLink symbol={concentrationStats.worstPosition.symbol} /> {money(concentrationStats.worstPosition.unrealizedPL, concentrationStats.worstPosition.quote.currency)}</strong> : <strong>N/A</strong>}</span>
+    </div></div>
     <div className="panel portfolio-group-panel"><h2>{t('groupExposure')}</h2><div className="portfolio-group-grid">{groupSummaries.map((group) => <article className={valueClass(group.unrealizedPL)} key={group.id}>
       <span>{groupDisplayName(group)}</span>
       <strong>{group.currency ? money(group.marketValue, group.currency) : `${number(group.openPositions)} ${t('openPositions')}`}</strong>

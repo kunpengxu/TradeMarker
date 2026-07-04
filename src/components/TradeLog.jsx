@@ -16,7 +16,10 @@ const compactNote = (note, max = 64) => {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 const sideLabel = (trade, t) => {
-  if (trade.side === 'ORDER') return trade.orderSide ? `${t('placedOrder')} · ${trade.orderSide}` : t('placedOrder')
+  if (trade.side === 'ORDER') {
+    const status = trade.status ? t(`orderStatus${trade.status}`) : t('placedOrder')
+    return trade.orderSide ? `${status} · ${trade.orderSide}` : status
+  }
   return trade.side
 }
 

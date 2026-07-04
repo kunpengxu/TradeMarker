@@ -217,7 +217,13 @@ export const orderCommitmentKey = (order) => [
   ].join(':'),
 ].join('|')
 const inferOrderCurrency = (order) => String(order.currency || inferTradeCurrency(order.symbol)).toUpperCase()
+const ORDER_LIFECYCLE_STATUSES = new Set(['PLACED', 'FILLED', 'CANCELLED', 'EXPIRED'])
+const normalizeOrderLifecycleStatus = (value) => {
+  const status = String(value || '').toUpperCase()
+  return ORDER_LIFECYCLE_STATUSES.has(status) ? status : 'PLACED'
+}
 const orderCashAmount = (order) => {
+  if (order.lifecycleStatus && normalizeOrderLifecycleStatus(order.lifecycleStatus) !== 'PLACED') return 0
   if (String(order.side).toUpperCase() !== 'BUY') return 0
   const legAmount = (order.legs || []).reduce((sum, leg) => {
     const amount = Number(leg.amount)
@@ -237,6 +243,7 @@ const normalizeOrderCommitment = (order) => migrateOrder({
   id: orderCommitmentKey(order),
   symbol: order.symbol,
   side: order.side || 'WATCH',
+  lifecycleStatus: normalizeOrderLifecycleStatus(order.lifecycleStatus || order.status),
   currency: inferOrderCurrency(order),
   totalAmount: orderCashAmount(order),
   currentSituation: order.currentSituation || order.currentSituationText?.zh || order.currentSituationText?.en || '',
@@ -278,7 +285,7 @@ const orderCommitmentToTrade = (order) => normalizeTrade({
   symbol: order.symbol,
   side: 'ORDER',
   orderSide: order.side || 'WATCH',
-  status: 'PLACED',
+  status: order.lifecycleStatus || 'PLACED',
   source: 'order-plan',
   orderCommitmentId: order.id,
   price: orderCommitmentPrice(order),
@@ -452,6 +459,14 @@ export const saveOrderCommitment = (order) => {
 export const deleteOrderCommitment = (id) => {
   const next = getOrderCommitments().filter((item) => item.id !== id)
   deleteOrderCommitmentTrade(id)
+  write(KEYS.orderCommitments, next)
+  return next
+}
+export const updateOrderCommitmentStatus = (id, lifecycleStatus) => {
+  const status = normalizeOrderLifecycleStatus(lifecycleStatus)
+  const next = getOrderCommitments().map((item) => item.id === id ? { ...item, lifecycleStatus: status, updatedAt: new Date().toISOString() } : item)
+  const updated = next.find((item) => item.id === id)
+  if (updated) upsertOrderCommitmentTrade(updated)
   write(KEYS.orderCommitments, next)
   return next
 }
