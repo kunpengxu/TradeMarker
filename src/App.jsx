@@ -1,16 +1,18 @@
+import { Suspense, lazy, useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import StockDetail from './pages/StockDetail'
-import TradeLogPage from './pages/TradeLogPage'
-import Settings from './pages/Settings'
 import SyncManager from './components/SyncManager'
-import Portfolio from './pages/Portfolio'
-import Events from './pages/Events'
-import OrderPlan from './pages/OrderPlan'
 import { saveAuthTokenFromHash } from './services/authSync'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const StockDetail = lazy(() => import('./pages/StockDetail'))
+const TradeLogPage = lazy(() => import('./pages/TradeLogPage'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Portfolio = lazy(() => import('./pages/Portfolio'))
+const Events = lazy(() => import('./pages/Events'))
+const OrderPlan = lazy(() => import('./pages/OrderPlan'))
+const AIAnalysis = lazy(() => import('./pages/AIAnalysis'))
 
 function AuthReturnHandler() {
   const navigate = useNavigate()
@@ -30,13 +32,14 @@ export default function App() {
       <AuthReturnHandler />
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/stock/:symbol" element={<StockDetail />} />
-          <Route path="/trades" element={<TradeLogPage />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/orders" element={<OrderPlan />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/" element={<Suspense fallback={<div className="loading">Loading...</div>}><Dashboard /></Suspense>} />
+          <Route path="/stock/:symbol" element={<Suspense fallback={<div className="loading">Loading...</div>}><StockDetail /></Suspense>} />
+          <Route path="/trades" element={<Suspense fallback={<div className="loading">Loading...</div>}><TradeLogPage /></Suspense>} />
+          <Route path="/portfolio" element={<Suspense fallback={<div className="loading">Loading...</div>}><Portfolio /></Suspense>} />
+          <Route path="/orders" element={<Suspense fallback={<div className="loading">Loading...</div>}><OrderPlan /></Suspense>} />
+          <Route path="/events" element={<Suspense fallback={<div className="loading">Loading...</div>}><Events /></Suspense>} />
+          <Route path="/ai" element={<Suspense fallback={<div className="loading">Loading...</div>}><AIAnalysis /></Suspense>} />
+          <Route path="/settings" element={<Suspense fallback={<div className="loading">Loading...</div>}><Settings /></Suspense>} />
         </Route>
       </Routes>
     </>

@@ -30,6 +30,22 @@ const symbolAliases = (symbols) => new Set(symbols.flatMap((symbol) => {
 const eventTimestamp = (event) => new Date(event.date || event.publishedAt || event.datetime || 0).getTime()
 const eventDirection = (event, now = today()) => eventTimestamp(event) >= now.getTime() ? 'upcoming' : 'recent'
 const isMacroEvent = (event) => event.type === 'economic' || event.type === 'market-news'
+const scoreEventImpact = (event, watchAliases, now = today()) => {
+  let score = 10
+  const text = `${event.title || ''} ${event.description || ''} ${event.impact || ''}`.toLowerCase()
+  const symbols = event.symbol ? [event.symbol] : event.symbols || []
+  if (symbols.some((symbol) => watchAliases.has(String(symbol).toUpperCase()) || watchAliases.has(String(symbol).replace(/\.(NE|TO|V)$/i, '').toUpperCase()))) score += 30
+  if (event.type === 'earnings') score += 25
+  if (event.type === 'economic') score += String(event.impact || '').toLowerCase().includes('high') ? 28 : 18
+  if (event.type === 'stock-news') score += 16
+  if (event.type === 'market-news' && textIncludes(text)) score += 18
+  if (['fomc', 'inflation', 'cpi', 'earnings', 'guidance', 'tariff', 'oil', 'rate', 'fed'].some((keyword) => text.includes(keyword))) score += 10
+  const daysAway = Math.abs((eventTimestamp(event) - now.getTime()) / DAY_MS)
+  if (daysAway <= 2) score += 14
+  else if (daysAway <= 7) score += 8
+  if (event.sentiment != null && Math.abs(Number(event.sentiment)) > 0.3) score += 8
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
 const yahooProxyUrls = (path) => {
   const customProxy = getSettings().yahooProxyUrl?.trim().replace(/\/$/, '')
   return [...new Set([customProxy, DEFAULT_YAHOO_PROXY].filter(Boolean))].map((proxy) => `${proxy}${path}`)
@@ -246,7 +262,11 @@ export async function buildEventsCalendarExport(symbols = getWatchlist(), { past
     if (!event.date) return
     unique.set(event.id, event)
   })
-  const sorted = [...unique.values()].sort((a, b) => eventTimestamp(b) - eventTimestamp(a))
+  const scored = [...unique.values()].map((event) => ({
+    ...event,
+    impactScore: scoreEventImpact(event, watchAliases, now),
+  }))
+  const sorted = scored.sort((a, b) => eventTimestamp(b) - eventTimestamp(a))
   const symbolEvents = sorted.filter((event) => !isMacroEvent(event))
   const macroEvents = sorted.filter(isMacroEvent)
   return {

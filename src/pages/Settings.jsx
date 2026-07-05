@@ -7,8 +7,10 @@ import { copyAIAnalysisContext } from '../services/aiContext'
 import { buildDataDiagnostics } from '../services/dataDiagnostics'
 import { buildWealthsimpleActivities, buildWealthsimpleHoldings, createImportedTrade } from '../services/wealthsimpleImport'
 import { clearAuthToken, getAuthToken, getAuthUser, getAuthWorkerUrl, loadSettingsFromAccount, saveAuthTokenFromHash, saveSettingsToAccount, startGitHubLogin } from '../services/authSync'
+import { useI18n } from '../i18n'
 
 export default function Settings() {
+  const { t } = useI18n()
   const fileRef = useRef()
   const wealthsimpleRef = useRef()
   const wealthsimpleActivitiesRef = useRef()
@@ -35,6 +37,7 @@ export default function Settings() {
   const [isAuthBusy, setIsAuthBusy] = useState(false)
   const [syncHistory, setSyncHistory] = useState(() => getSyncHistory())
   const [diagnostics, setDiagnostics] = useState(() => buildDataDiagnostics())
+  const [syncConflict, setSyncConflict] = useState(null)
   const [copyingAIContext, setCopyingAIContext] = useState(false)
 
   const refreshAuthUser = async () => {
@@ -77,6 +80,8 @@ export default function Settings() {
     }
     const onAutoSyncStatus = (event) => {
       setSyncHistory(getSyncHistory())
+      if (event.detail?.status === 'remote-newer') setSyncConflict(event.detail)
+      else if (['loaded', 'saved', 'current'].includes(event.detail?.status)) setSyncConflict(null)
       if (event.detail?.status === 'missing-github-settings') {
         setMessage('Logged in, but GitHub data settings are missing. Fill Owner, Repository, Branch, JSON path, and token once, then save GitHub sync settings.')
       } else if (event.detail?.status) {
@@ -303,6 +308,14 @@ export default function Settings() {
     } catch (error) { setMessage(error.message) }
   }
   const refreshDiagnostics = () => setDiagnostics(buildDataDiagnostics())
+  const repairTradeWatchlistSymbols = () => {
+    const existing = getWatchlist()
+    const symbols = [...new Set(getTrades().map((trade) => trade.symbol).filter(Boolean))]
+    const next = [...new Set([...existing, ...symbols])]
+    saveWatchlist(next)
+    setDiagnostics(buildDataDiagnostics())
+    setMessage(`Added ${next.length - existing.length} trade symbol(s) to the watchlist.`)
+  }
   const copyContext = async () => {
     try {
       setCopyingAIContext(true)
@@ -325,6 +338,7 @@ export default function Settings() {
         <small>This sync stores market-data keys and GitHub sync settings in your Cloudflare Worker KV. Deploy your own Worker and use restricted personal API keys.</small>
       </div>
       <div className="panel sync-history-panel"><h2>Sync status</h2><p>Recent automatic GitHub data sync events on this browser.</p>
+        {syncConflict ? <div className="sync-conflict-box"><h3>{t('syncConflictTitle')}</h3><p>{t('syncConflictText')}</p><div className="sync-actions"><button type="button" className="secondary" onClick={download}>{t('exportLocalBackup')}</button><button type="button" onClick={() => runGitHubSync('load')}>{t('loadRemoteNow')}</button><button type="button" className="danger-button" onClick={() => runGitHubSync('save')}>{t('forceOverwriteRemote')}</button></div></div> : null}
         {syncHistory.length ? <div className="sync-history-list">{syncHistory.slice(0, 8).map((entry, index) => <article key={`${entry.at}-${index}`} className={`sync-history-row ${entry.status}`}>
           <span><strong>{entry.status}</strong><small>{new Date(entry.at).toLocaleString()}</small></span>
           <p>{[entry.repo, entry.branch, entry.path].filter(Boolean).join(' · ') || entry.message || 'Local browser event'}</p>
@@ -334,7 +348,7 @@ export default function Settings() {
       <div className={`panel data-diagnostics-panel ${diagnostics.status}`}><h2>Data diagnostics</h2><p>Quick checks for duplicate-like trades, negative positions, missing currency, and order-log consistency.</p>
         <div className="diagnostic-summary"><span>Status<strong>{diagnostics.status}</strong></span><span>Watchlist<strong>{diagnostics.counts.watchlist}</strong></span><span>Trades<strong>{diagnostics.counts.trades}</strong></span><span>Orders<strong>{diagnostics.counts.orderCommitments}</strong></span></div>
         {diagnostics.issues.length ? <div className="diagnostic-list">{diagnostics.issues.map((item, index) => <article className={item.severity} key={`${item.title}-${index}`}><strong>{item.title}</strong><p>{item.detail}</p><small>{item.count} item(s)</small></article>)}</div> : <div className="empty-inline">No data issues detected.</div>}
-        <div className="sync-actions"><button type="button" className="secondary" onClick={refreshDiagnostics}>Refresh diagnostics</button><button type="button" onClick={copyContext} disabled={copyingAIContext}>{copyingAIContext ? 'Copying…' : 'Copy AI analysis context'}</button></div>
+        <div className="sync-actions"><button type="button" className="secondary" onClick={refreshDiagnostics}>Refresh diagnostics</button>{diagnostics.issues.some((item) => item.title === 'Trades outside watchlist') ? <button type="button" className="secondary" onClick={repairTradeWatchlistSymbols}>{t('addTradeSymbolsToWatchlist')}</button> : null}<button type="button" onClick={copyContext} disabled={copyingAIContext}>{copyingAIContext ? 'Copying…' : 'Copy AI analysis context'}</button></div>
       </div>
       <form className="panel api-key-panel" onSubmit={saveMarketData}><h2>Reference market data</h2><p>Yahoo Finance is the recommended default for this personal journal because it covers US and Canadian symbols and returns complete daily OHLCV without an API key.</p>
         <label>Data provider<select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="yahoo">Yahoo Finance (recommended)</option><option value="fmp">Financial Modeling Prep</option><option value="twelveData">Twelve Data</option></select></label>

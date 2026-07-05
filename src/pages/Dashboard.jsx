@@ -14,7 +14,7 @@ import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition, calculateRealizedPLByTrade } from '../services/positionCalculator'
-import { addSymbol, applyPresetWatchlistGroupsOnce, deleteTrade, getTrades, getWatchlist, migrateCdrSymbolsToTorontoOnce, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
+import { addSymbol, applyPresetWatchlistGroupsOnce, calculateReservedCashByCurrency, deleteTrade, getCashBalances, getOrderCommitments, getTrades, getWatchlist, migrateCdrSymbolsToTorontoOnce, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { money, number, percent, valueClass } from '../utils/formatters'
 import { useChartIndicators } from '../hooks/useChartIndicators'
 import { useI18n } from '../i18n'
@@ -51,7 +51,7 @@ function SymbolEventsPanel({ events, selected, collapsed, onToggle, onFocusEvent
       <article className="symbol-event-card" key={event.id} onClick={() => onFocusEvent(event)}>
         <time>{formatEventDate(event.date)}</time>
         <div>
-          <span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>
+          <span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>{event.impactScore ? <span className="event-impact-score">{event.impactScore}</span> : null}
           <h3>{event.title}</h3>
           <p>{event.site || event.source || selected}</p>
           {event.description && <small>{event.description}</small>}
@@ -195,11 +195,25 @@ export default function Dashboard() {
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
   const selectedEvents = useMemo(() => (eventsCalendar?.symbolEvents || [])
     .filter((event) => eventMatchesSymbol(event, selected))
-    .sort((a, b) => eventPriority(a) - eventPriority(b) || new Date(b.date || 0) - new Date(a.date || 0))
+    .sort((a, b) => (b.impactScore || 0) - (a.impactScore || 0) || eventPriority(a) - eventPriority(b) || new Date(b.date || 0) - new Date(a.date || 0))
     .slice(0, 8), [eventsCalendar, selected])
   const selectedEventDates = useMemo(() => selectedEvents.map((event) => event.date).filter(Boolean), [selectedEvents])
   const orderSymbols = useMemo(() => [...new Set(orders.map((order) => order.symbol).filter(Boolean))], [orders])
   const plannedWatchlistCount = useMemo(() => items.filter((item) => orderSymbols.some((symbol) => matchesSymbol(symbol, item.symbol))).length, [items, orderSymbols])
+  const workflowItems = useMemo(() => {
+    const placedOrders = getOrderCommitments().filter((order) => (order.lifecycleStatus || 'PLACED') === 'PLACED')
+    const cashByCurrency = Object.fromEntries(getCashBalances().map((balance) => [balance.currency, balance.amount]))
+    const reserved = calculateReservedCashByCurrency(placedOrders)
+    const lowCashCurrencies = Object.entries(reserved).filter(([currency, amount]) => amount > (cashByCurrency[currency] || 0)).map(([currency]) => currency)
+    const movers = items.filter((item) => Math.abs(Number(item.quote?.changePercent || 0)) >= 5).slice(0, 5)
+    const highImpactEvents = (eventsCalendar?.events || []).filter((event) => Number(event.impactScore || 0) >= 60).slice(0, 5)
+    return [
+      { key: 'orders', label: t('workflowOrders'), value: placedOrders.length, tone: placedOrders.length ? 'info' : 'muted' },
+      { key: 'cash', label: t('workflowCash'), value: lowCashCurrencies.length ? lowCashCurrencies.join(', ') : t('workflowCashOk'), tone: lowCashCurrencies.length ? 'warning' : 'ok' },
+      { key: 'movers', label: t('workflowMovers'), value: movers.length, tone: movers.length ? 'warning' : 'muted' },
+      { key: 'events', label: t('workflowEvents'), value: highImpactEvents.length, tone: highImpactEvents.length ? 'info' : 'muted' },
+    ]
+  }, [eventsCalendar, items, t])
   const hasIntradayLoaded = selected ? Object.prototype.hasOwnProperty.call(intradayCache, selected) : false
   const chartCandles = interval === '1m' ? intradayCache[selected] || [] : candles
   const position = selectedItem?.quote ? calculatePosition(trades, selectedItem.quote.price) : null
@@ -260,6 +274,7 @@ export default function Dashboard() {
         <em>{selectedOrderFocus}</em>
         {selectedOrders.length ? <button onClick={() => setShowOrders(true)}>{t('orderSuggestions')}</button> : null}
       </div> : null}
+      <div className="workflow-strip">{workflowItems.map((item) => <span className={item.tone} key={item.key}>{item.label}<strong>{item.value}</strong></span>)}</div>
 
       <div className="workspace-body">
         <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} orderPlans={orders} sparklines={{ ...sparklineCache, ...intradayCache }} />

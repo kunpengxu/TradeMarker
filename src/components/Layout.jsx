@@ -16,6 +16,7 @@ export default function Layout() {
           <NavLink to="/orders">{t('navOrders')}</NavLink>
           <NavLink to="/events">{t('navEvents')}</NavLink>
           <NavLink to="/trades">{t('navTradeLog')}</NavLink>
+          <NavLink to="/ai">{t('navAI')}</NavLink>
           <NavLink to="/settings">{t('navSettings')}</NavLink>
         </nav>
         <div className="topbar-controls">
@@ -30,6 +31,13 @@ export default function Layout() {
       </header>
       <SyncStatus />
       <main className="app-content"><Outlet /></main>
+      <nav className="mobile-tabbar" aria-label="Mobile navigation">
+        <NavLink to="/">{t('navDashboard')}</NavLink>
+        <NavLink to="/portfolio">{t('navPortfolio')}</NavLink>
+        <NavLink to="/orders">{t('navOrders')}</NavLink>
+        <NavLink to="/trades">{t('navTradeLog')}</NavLink>
+        <NavLink to="/settings">{t('navSettings')}</NavLink>
+      </nav>
       <footer>{t('footer')}</footer>
     </div>
   )

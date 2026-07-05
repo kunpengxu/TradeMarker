@@ -3,7 +3,7 @@ import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
 import SymbolLink from '../components/SymbolLink'
 import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { normalizeOrderPlan } from '../services/orderPlan'
-import { calculateReservedCashByCurrency, deleteOrderCommitment, getOrderCommitments, orderCommitmentKey, reconcileOrderPlanSignature, saveOrderCommitment, updateOrderCommitmentStatus } from '../services/storage'
+import { calculateReservedCashByCurrency, deleteOrderCommitment, getOrderCommitments, orderCommitmentKey, reconcileOrderPlanSignature, recordOrderCommitmentFill, saveOrderCommitment, updateOrderCommitmentStatus } from '../services/storage'
 import { money, number } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
@@ -74,9 +74,9 @@ const fallbackSuggestion = (order, language) => {
   return [side, status].filter(Boolean).join(' · ') || '—'
 }
 
-const ORDER_LIFECYCLE_STATUSES = ['PLACED', 'FILLED', 'CANCELLED', 'EXPIRED']
+const ORDER_LIFECYCLE_STATUSES = ['PLACED', 'PARTIAL', 'FILLED', 'CANCELLED', 'EXPIRED']
 
-function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitmentsByKey, onToggleCommitment, onStatusChange }) {
+function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitmentsByKey, onToggleCommitment, onStatusChange, onRecordFill }) {
   if (!orders.length) return null
   return <div className="panel order-summary-table-panel">
     <h2>{t('orderQuickSummary')}</h2>
@@ -102,7 +102,7 @@ function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitments
             <td><strong>{order.symbol ? <SymbolLink symbol={order.symbol} className="order-summary-symbol" /> : '—'}</strong></td>
             <td>{compactText(current, 150)}</td>
             <td><strong>{compactText(suggestion, 120)}</strong></td>
-            <td><div className="order-lifecycle-cell"><span>{plannedOrder}</span>{checked && commitment ? <select value={commitment.lifecycleStatus || 'PLACED'} onChange={(event) => onStatusChange(commitment.id, event.target.value)}>{ORDER_LIFECYCLE_STATUSES.map((status) => <option key={status} value={status}>{t(`orderStatus${status}`)}</option>)}</select> : null}</div></td>
+            <td><div className="order-lifecycle-cell"><span>{plannedOrder}</span>{checked && commitment ? <><select value={commitment.lifecycleStatus || 'PLACED'} onChange={(event) => onStatusChange(commitment.id, event.target.value)}>{ORDER_LIFECYCLE_STATUSES.map((status) => <option key={status} value={status}>{t(`orderStatus${status}`)}</option>)}</select>{['BUY', 'SELL'].includes(commitment.side) && ['PARTIAL', 'FILLED'].includes(commitment.lifecycleStatus || 'PLACED') ? <button type="button" className="secondary record-fill-button" onClick={() => onRecordFill(commitment)}>{t('recordFill')}</button> : null}</> : null}</div></td>
           </tr>
         })}</tbody>
       </table>
@@ -167,6 +167,21 @@ export default function OrderPlan() {
     setOrderCommitments(committedKeys.has(key) ? deleteOrderCommitment(key) : saveOrderCommitment(order))
   }
   const changeCommitmentStatus = (id, status) => setOrderCommitments(updateOrderCommitmentStatus(id, status))
+  const recordFill = (commitment) => {
+    const defaultPrice = commitment.legs?.find((leg) => Number(leg.price) > 0)?.price || ''
+    const defaultShares = commitment.legs?.reduce((sum, leg) => sum + (Number(leg.shares) || 0), 0) || ''
+    const price = prompt(t('fillPricePrompt', { symbol: commitment.symbol }), defaultPrice)
+    if (price == null) return
+    const shares = prompt(t('fillSharesPrompt', { symbol: commitment.symbol }), defaultShares)
+    if (shares == null) return
+    try {
+      recordOrderCommitmentFill(commitment.id, { price, shares, lifecycleStatus: commitment.lifecycleStatus })
+      setOrderCommitments(getOrderCommitments())
+      setMessage(t('fillRecorded', { symbol: commitment.symbol }))
+    } catch (error) {
+      setMessage(error.message)
+    }
+  }
 
   const grouped = useMemo(() => {
     const groups = { BUY: [], SELL: [], WATCH: [] }
@@ -203,7 +218,7 @@ export default function OrderPlan() {
       <span>{t('sellReleaseEstimate')}<strong>{moneyLines(committedSellValueByCurrency)}</strong></span>
     </div>}
     {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel plan-briefing-panel"><div><span>{t('todayFocus')}</span><h2>{t('planSummary')}</h2></div><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
-    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} committedKeys={committedKeys} commitmentsByKey={commitmentsByKey} onToggleCommitment={toggleCommitment} onStatusChange={changeCommitmentStatus} />}
+    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} committedKeys={committedKeys} commitmentsByKey={commitmentsByKey} onToggleCommitment={toggleCommitment} onStatusChange={changeCommitmentStatus} onRecordFill={recordFill} />}
     {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {loading ? <div className="loading">{t('loadingOrderPlan')}</div> : plan ? <>

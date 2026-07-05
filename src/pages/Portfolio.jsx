@@ -120,6 +120,10 @@ export default function Portfolio() {
     return {
       topFiveShare: nominalPortfolioValue ? topFiveValue / nominalPortfolioValue * 100 : 0,
       largest: sortedByValue[0] || null,
+      topPositions: sortedByValue.slice(0, 8).map((position) => ({
+        ...position,
+        share: nominalPortfolioValue ? position.marketValue / nominalPortfolioValue * 100 : 0,
+      })),
       leveragedShare: nominalPortfolioValue && leveragedGroup ? leveragedGroup.marketValue / nominalPortfolioValue * 100 : 0,
       bestPosition,
       worstPosition,
@@ -159,7 +163,7 @@ export default function Portfolio() {
       <span>{t('leveragedExposure')}<strong>{number(concentrationStats.leveragedShare)}%</strong></span>
       <span>{t('bestOpenPosition')}{concentrationStats.bestPosition ? <strong className={valueClass(concentrationStats.bestPosition.unrealizedPL)}><SymbolLink symbol={concentrationStats.bestPosition.symbol} /> {money(concentrationStats.bestPosition.unrealizedPL, concentrationStats.bestPosition.quote.currency)}</strong> : <strong>N/A</strong>}</span>
       <span>{t('worstOpenPosition')}{concentrationStats.worstPosition ? <strong className={valueClass(concentrationStats.worstPosition.unrealizedPL)}><SymbolLink symbol={concentrationStats.worstPosition.symbol} /> {money(concentrationStats.worstPosition.unrealizedPL, concentrationStats.worstPosition.quote.currency)}</strong> : <strong>N/A</strong>}</span>
-    </div></div>
+    </div>{concentrationStats.topPositions.length ? <div className="risk-bar-list">{concentrationStats.topPositions.map((position) => <div key={position.symbol}><span><SymbolLink symbol={position.symbol} /><b>{percent(position.share)}</b></span><i style={{ width: `${Math.min(100, position.share)}%` }} /></div>)}</div> : null}</div>
     <div className="panel portfolio-group-panel"><h2>{t('groupExposure')}</h2><div className="portfolio-group-grid">{groupSummaries.map((group) => <article className={valueClass(group.unrealizedPL)} key={group.id}>
       <span>{groupDisplayName(group)}</span>
       <strong>{group.currency ? money(group.marketValue, group.currency) : `${number(group.openPositions)} ${t('openPositions')}`}</strong>

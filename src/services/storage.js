@@ -217,7 +217,7 @@ export const orderCommitmentKey = (order) => [
   ].join(':'),
 ].join('|')
 const inferOrderCurrency = (order) => String(order.currency || inferTradeCurrency(order.symbol)).toUpperCase()
-const ORDER_LIFECYCLE_STATUSES = new Set(['PLACED', 'FILLED', 'CANCELLED', 'EXPIRED'])
+const ORDER_LIFECYCLE_STATUSES = new Set(['PLACED', 'PARTIAL', 'FILLED', 'CANCELLED', 'EXPIRED'])
 const normalizeOrderLifecycleStatus = (value) => {
   const status = String(value || '').toUpperCase()
   return ORDER_LIFECYCLE_STATUSES.has(status) ? status : 'PLACED'
@@ -469,6 +469,30 @@ export const updateOrderCommitmentStatus = (id, lifecycleStatus) => {
   if (updated) upsertOrderCommitmentTrade(updated)
   write(KEYS.orderCommitments, next)
   return next
+}
+export const recordOrderCommitmentFill = (id, fill = {}) => {
+  const commitment = getOrderCommitments().find((item) => item.id === id)
+  if (!commitment || !['BUY', 'SELL'].includes(commitment.side)) return getTrades()
+  const price = Number(fill.price || orderCommitmentPrice(commitment))
+  const shares = Number(fill.shares || orderCommitmentShares(commitment))
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(shares) || shares <= 0) {
+    throw new Error('Fill price and shares must be positive numbers.')
+  }
+  const normalizedStatus = normalizeOrderLifecycleStatus(fill.lifecycleStatus || commitment.lifecycleStatus)
+  const executionTrade = {
+    symbol: commitment.symbol,
+    side: commitment.side,
+    price,
+    shares,
+    currency: fill.currency || inferOrderCurrency(commitment),
+    date: fill.date || new Date().toISOString(),
+    source: 'order-fill',
+    linkedOrderCommitmentId: id,
+    note: fill.note || `Filled from order plan: ${commitment.plannedOrder || commitment.suggestion || id}`,
+  }
+  const trades = saveTrade(executionTrade)
+  updateOrderCommitmentStatus(id, normalizedStatus === 'PARTIAL' ? 'PARTIAL' : 'FILLED')
+  return trades
 }
 export const calculateReservedCashByCurrency = (commitments = getOrderCommitments()) => commitments.reduce((result, order) => {
   const amount = orderCashAmount(order)

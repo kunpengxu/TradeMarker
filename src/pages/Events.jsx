@@ -19,7 +19,7 @@ function EventCard({ event, t }) {
   return <article className="event-card">
     <time>{formatEventDay(event.date)}</time>
     <div className="event-card-body">
-      <div><span className="event-badges"><span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>{symbols.length ? symbols.map((symbol) => <span className="event-symbol" key={symbol}><SymbolLink symbol={symbol} /></span>) : event.query ? <span className="event-symbol muted">query: {event.query}</span> : null}</span><strong>{formatDate(event.date)}</strong></div>
+      <div><span className="event-badges"><span className={`event-type ${badgeClass(event.type)}`}>{event.type}</span>{event.impactScore ? <span className="event-impact-score">{t('impact')} {event.impactScore}</span> : null}{symbols.length ? symbols.map((symbol) => <span className="event-symbol" key={symbol}><SymbolLink symbol={symbol} /></span>) : event.query ? <span className="event-symbol muted">query: {event.query}</span> : null}</span><strong>{formatDate(event.date)}</strong></div>
       <h3>{event.title}</h3>
       <p>{event.symbol ? <><SymbolLink symbol={event.symbol} /> · </> : null}{event.country ? `${event.country} · ` : ''}{event.site || event.source}</p>
       {event.description && <p className="event-description">{event.description}</p>}
@@ -71,7 +71,7 @@ export default function Events() {
     if (relevance === 'positions') return symbols.some((symbol) => positionSymbols.has(symbol))
     if (relevance === 'orders') return symbols.some((symbol) => orderSymbols.has(symbol))
     return true
-  })
+  }).sort((a, b) => (b.impactScore || 0) - (a.impactScore || 0) || new Date(b.date || 0) - new Date(a.date || 0))
   const groupedStockEvents = relevantStockEvents.reduce((groups, event) => {
     const symbols = eventSymbols(event)
     const key = symbols.find((symbol) => watchlist.includes(symbol)) || symbols[0] || event.query || 'Market'
