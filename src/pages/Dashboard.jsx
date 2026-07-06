@@ -113,8 +113,8 @@ function ScoreRadar({ score, t }) {
       <line x1="18" y1="60" x2="102" y2="60" />
       <polygon points={points} />
     </svg>
-    <strong>{score.score}</strong>
-    <div>{axes.map(([label, value]) => <span key={label}>{label}<b>{value}</b></span>)}</div>
+    <div className="score-radar-total"><strong>{score.score}</strong><small>{t('score')}/100</small></div>
+    <div className="score-radar-factors">{axes.map(([label, value]) => <span key={label}>{label}<b>{value}</b></span>)}</div>
   </div>
 }
 
@@ -126,11 +126,30 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
     ['Orders', t('decisionOrders')],
   ]
   const hasPosition = Number(position?.shares || 0) > 0
+  const buyOrders = orders.filter((order) => String(order.side || '').toUpperCase() === 'BUY')
+  const sellOrders = orders.filter((order) => String(order.side || '').toUpperCase() === 'SELL')
+  const [scoreOrderSide, setScoreOrderSide] = useState('')
+  useEffect(() => {
+    setScoreOrderSide(sellOrders.length ? 'SELL' : buyOrders.length ? 'BUY' : '')
+  }, [selected, buyOrders.length, sellOrders.length])
+  const visibleScoreOrders = scoreOrderSide === 'SELL' ? sellOrders : scoreOrderSide === 'BUY' ? buyOrders : []
   return <aside className="decision-panel">
     <div className="decision-tabs">{tabs.map(([key, label]) => <button key={key} className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>)}<button className="collapse-decision" onClick={onCollapse}>−</button></div>
     <div className="decision-score-card">
       <div><span>{t('aiComposite')}</span><strong>{selected || '—'} · {score.score}/100</strong><small>{score.score >= 70 ? t('highConvictionCandidate') : score.score >= 52 ? t('watchForConfirmation') : t('lowerPrioritySetup')}</small></div>
       <ScoreRadar score={score} t={t} />
+      {(buyOrders.length || sellOrders.length) ? <div className="score-order-actions">
+        {sellOrders.length ? <button type="button" className={scoreOrderSide === 'SELL' ? 'active sell' : 'sell'} onClick={() => setScoreOrderSide(scoreOrderSide === 'SELL' ? '' : 'SELL')}>{t('sellOrders')} {sellOrders.length}</button> : null}
+        {buyOrders.length ? <button type="button" className={scoreOrderSide === 'BUY' ? 'active buy' : 'buy'} onClick={() => setScoreOrderSide(scoreOrderSide === 'BUY' ? '' : 'BUY')}>{t('buyOrders')} {buyOrders.length}</button> : null}
+      </div> : null}
+      {visibleScoreOrders.length ? <div className="score-order-detail">
+        {visibleScoreOrders.map((order) => <article className={String(order.side || '').toLowerCase()} key={order.id}>
+          <strong>{order.side || 'WATCH'} {order.symbol}</strong>
+          {order.currentSituation ? <p><b>{t('currentSituation')}</b>{order.currentSituation}</p> : null}
+          {order.suggestion ? <p><b>{t('suggestion')}</b>{order.suggestion}</p> : null}
+          {order.plannedOrder ? <p><b>{t('plannedOrder')}</b>{order.plannedOrder}</p> : null}
+        </article>)}
+      </div> : null}
       <p className="score-formula-note">{t('scoreFormula')}</p>
     </div>
     {activeTab === 'AI' ? <div className="decision-copy">
