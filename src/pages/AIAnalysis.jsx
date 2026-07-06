@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { buildAIAnalysisContext, buildAIAnalysisPrompt, copyAIAnalysisContext } from '../services/aiContext'
-import { getTrades, getWatchlistGroups } from '../services/storage'
+import { getTrades, getWatchlist, getWatchlistGroups } from '../services/storage'
 import { useI18n } from '../i18n'
 
 export default function AIAnalysis() {
@@ -13,7 +13,7 @@ export default function AIAnalysis() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const groups = useMemo(() => getWatchlistGroups(), [])
-  const symbols = useMemo(() => [...new Set(getTrades().map((trade) => trade.symbol).filter(Boolean))].sort(), [])
+  const symbols = useMemo(() => [...new Set([...getWatchlist(), ...getTrades().map((trade) => trade.symbol)].filter(Boolean))].sort(), [])
 
   const options = { symbol, groupId, days: Number(days) || 0, recentTradeLimit: Number(recentTradeLimit) || 50 }
   const generate = async (copy = false) => {

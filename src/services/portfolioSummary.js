@@ -18,14 +18,13 @@ const totalByCurrency = (positions) => positions.reduce((result, position) => {
   return result
 }, {})
 
-export function createPortfolioSummary(positions) {
+export function createPortfolioSummary(positions, { trades = getTrades(), orderCommitments = getOrderCommitments() } = {}) {
   const totals = totalByCurrency(positions)
   const currencies = Object.keys(totals)
-  const allTrades = getTrades()
-  const tradingStats = calculateTradingStatistics(positions, allTrades)
+  const tradingStats = calculateTradingStatistics(positions, trades)
   const cashBalances = getCashBalances()
   const cashByCurrency = Object.fromEntries(cashBalances.map((balance) => [balance.currency, balance.amount]))
-  const reservedCashByCurrency = calculateReservedCashByCurrency(getOrderCommitments())
+  const reservedCashByCurrency = calculateReservedCashByCurrency(orderCommitments)
   const cashCurrencies = [...new Set(['USD', 'CAD', ...currencies, ...cashBalances.map((balance) => balance.currency), ...Object.keys(reservedCashByCurrency)])].sort()
   const cashAfterOrdersByCurrency = Object.fromEntries(cashCurrencies.map((currency) => [
     currency,
@@ -113,8 +112,12 @@ export function createPortfolioSummary(positions) {
   }
 }
 
-export async function buildPortfolioSummary() {
-  const rows = await Promise.all(getWatchlist().map(async (symbol) => {
+export async function buildPortfolioSummary(symbols = getWatchlist()) {
+  const scope = [...new Set(symbols)]
+  const scopeSet = new Set(scope)
+  const scopedTrades = getTrades().filter((trade) => scopeSet.has(trade.symbol))
+  const scopedOrderCommitments = getOrderCommitments().filter((order) => scopeSet.has(order.symbol))
+  const rows = await Promise.all(scope.map(async (symbol) => {
     try {
       const snapshot = await getMarketSnapshot(symbol)
       const position = calculatePosition(getTrades(symbol), snapshot.quote.price)
@@ -123,5 +126,5 @@ export async function buildPortfolioSummary() {
       return null
     }
   }))
-  return createPortfolioSummary(rows.filter(Boolean))
+  return createPortfolioSummary(rows.filter(Boolean), { trades: scopedTrades, orderCommitments: scopedOrderCommitments })
 }
