@@ -117,6 +117,7 @@ export default function OrderPlan() {
   const [loading, setLoading] = useState(true)
   const [filename, setFilename] = useState('order-plan.json')
   const [orderCommitments, setOrderCommitments] = useState(() => getOrderCommitments())
+  const [planType, setPlanType] = useState('REGULAR')
 
   const load = async () => {
     setLoading(true)
@@ -147,6 +148,11 @@ export default function OrderPlan() {
   useEffect(() => { load() }, [])
   const committedKeys = useMemo(() => new Set(orderCommitments.map(orderCommitmentKey)), [orderCommitments])
   const commitmentsByKey = useMemo(() => new Map(orderCommitments.map((order) => [orderCommitmentKey(order), order])), [orderCommitments])
+  const planTypeCounts = useMemo(() => ({
+    REGULAR: (plan?.orders || []).filter((order) => order.planType !== 'INTRADAY').length,
+    INTRADAY: (plan?.orders || []).filter((order) => order.planType === 'INTRADAY').length,
+  }), [plan])
+  const visibleOrders = useMemo(() => (plan?.orders || []).filter((order) => planType === 'INTRADAY' ? order.planType === 'INTRADAY' : order.planType !== 'INTRADAY'), [plan, planType])
   const committedSellValueByCurrency = useMemo(() => orderCommitments.reduce((result, order) => {
     if ((order.lifecycleStatus || 'PLACED') !== 'PLACED') return result
     if (order.side !== 'SELL') return result
@@ -185,22 +191,22 @@ export default function OrderPlan() {
 
   const grouped = useMemo(() => {
     const groups = { BUY: [], SELL: [], WATCH: [] }
-    ;(plan?.orders || []).forEach((order) => {
+    visibleOrders.forEach((order) => {
       const key = order.side === 'BUY' || order.side === 'SELL' ? order.side : 'WATCH'
       groups[key].push(order)
     })
     return groups
-  }, [plan])
+  }, [visibleOrders])
   const actionGroups = useMemo(() => {
     const groups = { must: [], conditional: [], watch: [] }
-    ;(plan?.orders || []).forEach((order) => {
+    visibleOrders.forEach((order) => {
       const text = `${order.priority || ''} ${order.status || ''} ${order.side || ''}`.toLowerCase()
       if (order.side === 'WATCH' || text.includes('watch') || text.includes('no action')) groups.watch.push(order)
       else if (text.includes('high') || text.includes('ready') || text.includes('must')) groups.must.push(order)
       else groups.conditional.push(order)
     })
     return groups
-  }, [plan])
+  }, [visibleOrders])
 
   const sideLabel = { BUY: t('buyOrders'), SELL: t('sellOrders'), WATCH: t('watchNoAction') }
   const emptyLabel = { BUY: t('noBuyRecommendations'), SELL: t('noSellRecommendations'), WATCH: t('noWatchRecommendations') }
@@ -217,8 +223,12 @@ export default function OrderPlan() {
       <span>{t('reservedByOrders')}<strong>{moneyLines(reservedCash)}</strong></span>
       <span>{t('sellReleaseEstimate')}<strong>{moneyLines(committedSellValueByCurrency)}</strong></span>
     </div>}
+    {plan && <div className="order-plan-type-tabs" role="tablist" aria-label={t('planType')}>
+      <button type="button" className={planType === 'REGULAR' ? 'active regular' : 'regular'} onClick={() => setPlanType('REGULAR')}>{t('regularPlan')} <strong>{planTypeCounts.REGULAR}</strong></button>
+      <button type="button" className={planType === 'INTRADAY' ? 'active intraday' : 'intraday'} onClick={() => setPlanType('INTRADAY')}>{t('intradayPlan')} <strong>{planTypeCounts.INTRADAY}</strong></button>
+    </div>}
     {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel plan-briefing-panel"><div><span>{t('todayFocus')}</span><h2>{t('planSummary')}</h2></div><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
-    {plan && <OrderPlanSummaryTable orders={plan.orders} language={language} t={t} committedKeys={committedKeys} commitmentsByKey={commitmentsByKey} onToggleCommitment={toggleCommitment} onStatusChange={changeCommitmentStatus} onRecordFill={recordFill} />}
+    {plan && <OrderPlanSummaryTable orders={visibleOrders} language={language} t={t} committedKeys={committedKeys} commitmentsByKey={commitmentsByKey} onToggleCommitment={toggleCommitment} onStatusChange={changeCommitmentStatus} onRecordFill={recordFill} />}
     {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
     {loading ? <div className="loading">{t('loadingOrderPlan')}</div> : plan ? <>

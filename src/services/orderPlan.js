@@ -16,6 +16,11 @@ const normalizeSide = (value) => {
   return side || 'WATCH'
 }
 const normalizePlanSymbol = (value) => String(value || '').toUpperCase().replace(/\.NE$/i, '.TO')
+const normalizePlanType = (value) => {
+  const type = String(value || '').toUpperCase().replace(/[^A-Z]/g, '')
+  if (type === 'INTRADAY' || type === 'DAYTRADE' || type === 'DAYTRADING' || type === 'SHORTTERM') return 'INTRADAY'
+  return 'REGULAR'
+}
 
 const sourceOrders = (plan) => [
   ...asArray(plan.orders),
@@ -72,6 +77,7 @@ const normalizeOrder = (order, index) => {
   return {
     id: first(order.id, `${symbol || 'order'}-${side}-${index}`),
     symbol,
+    planType: normalizePlanType(first(order.planType, order.plan, order.horizon, order.timeframe, order.category, order['计划类型'], order['类型'])),
     side,
     priority: first(order.priority, order.urgency, order.rank, order['优先级']),
     status: first(order.status, order['状态'], 'PROPOSED'),
