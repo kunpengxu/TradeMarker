@@ -43,12 +43,25 @@ const eventMatchesSymbol = (event, symbol) => {
 }
 const eventPriority = (event) => ({ earnings: 0, 'stock-news': 1, 'market-news': 2, economic: 3 }[event.type] ?? 4)
 const clampScore = (value) => Math.max(0, Math.min(100, Math.round(value)))
-const sideWeight = (side) => String(side || '').toUpperCase() === 'BUY' ? 10 : String(side || '').toUpperCase() === 'SELL' ? -8 : 4
+const orderSideIntent = (order) => {
+  const text = [
+    order?.side,
+    order?.orderSide,
+    order?.suggestion,
+    order?.plannedOrder,
+    order?.reason,
+    order?.note,
+  ].filter(Boolean).join(' ').toUpperCase()
+  if (/(SELL|TRIM|TAKE[ _-]?PROFIT|REDUCE|STOP|卖|减仓|止盈|止损)/.test(text)) return 'SELL'
+  if (/(BUY|ADD|ACCUMULATE|ENTRY|买|加仓|建仓|买入)/.test(text)) return 'BUY'
+  return 'WATCH'
+}
+const sideWeight = (order) => orderSideIntent(order) === 'BUY' ? 10 : orderSideIntent(order) === 'SELL' ? -8 : 4
 
 const scoreItem = (item, orders = [], events = []) => {
   const change = Number(item?.quote?.changePercent || 0)
   const positionPL = Number(item?.position?.unrealizedPLPercent || 0)
-  const orderBoost = Math.min(20, orders.reduce((sum, order) => sum + Math.max(0, sideWeight(order.side)), 0))
+  const orderBoost = Math.min(20, orders.reduce((sum, order) => sum + Math.max(0, sideWeight(order)), 0))
   const eventBoost = Math.min(15, events.length * 5)
   const trend = clampScore(50 + change * 6)
   const position = clampScore(50 + positionPL * 2)
@@ -126,8 +139,8 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
     ['Orders', t('decisionOrders')],
   ]
   const hasPosition = Number(position?.shares || 0) > 0
-  const buyOrders = orders.filter((order) => String(order.side || '').toUpperCase() === 'BUY')
-  const sellOrders = orders.filter((order) => String(order.side || '').toUpperCase() === 'SELL')
+  const buyOrders = orders.filter((order) => orderSideIntent(order) === 'BUY')
+  const sellOrders = orders.filter((order) => orderSideIntent(order) === 'SELL')
   const [scoreOrderSide, setScoreOrderSide] = useState('')
   useEffect(() => {
     setScoreOrderSide(sellOrders.length ? 'SELL' : buyOrders.length ? 'BUY' : '')
@@ -143,12 +156,15 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
         {buyOrders.length ? <button type="button" className={scoreOrderSide === 'BUY' ? 'active buy' : 'buy'} onClick={() => setScoreOrderSide(scoreOrderSide === 'BUY' ? '' : 'BUY')}>{t('buyOrders')} {buyOrders.length}</button> : null}
       </div> : null}
       {visibleScoreOrders.length ? <div className="score-order-detail">
-        {visibleScoreOrders.map((order) => <article className={String(order.side || '').toLowerCase()} key={order.id}>
-          <strong>{order.side || 'WATCH'} {order.symbol}</strong>
+        {visibleScoreOrders.map((order) => {
+          const intent = orderSideIntent(order)
+          return <article className={intent.toLowerCase()} key={order.id}>
+          <strong>{intent} {order.symbol}</strong>
           {order.currentSituation ? <p><b>{t('currentSituation')}</b>{order.currentSituation}</p> : null}
           {order.suggestion ? <p><b>{t('suggestion')}</b>{order.suggestion}</p> : null}
           {order.plannedOrder ? <p><b>{t('plannedOrder')}</b>{order.plannedOrder}</p> : null}
-        </article>)}
+        </article>
+        })}
       </div> : null}
       <p className="score-formula-note">{t('scoreFormula')}</p>
     </div>
