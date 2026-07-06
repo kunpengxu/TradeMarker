@@ -18,6 +18,11 @@ export default function SyncManager() {
     let cancelled = false
     let isSyncing = false
     let pendingSync = false
+    const savePortfolioSummaryInBackground = () => {
+      buildPortfolioSummary()
+        .then((portfolioSummary) => savePortfolioSummaryToGitHub(portfolioSummary))
+        .catch(() => {})
+    }
     const save = (event) => {
       if (event?.detail?.key && !DATA_KEYS_THAT_SHOULD_SAVE.has(event.detail.key)) return
       if (isSyncing) return
@@ -27,11 +32,8 @@ export default function SyncManager() {
         window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'saving' } }))
         try {
           const result = await saveToGitHub({ skipIfRemoteCurrent: true })
-          if (result.status === 'saved') {
-            const portfolioSummary = await buildPortfolioSummary()
-            await savePortfolioSummaryToGitHub(portfolioSummary)
-          }
           window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
+          if (result.status === 'saved') savePortfolioSummaryInBackground()
         } catch (error) {
           window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'error', message: error.message } }))
         }
@@ -68,11 +70,8 @@ export default function SyncManager() {
           if (result.status === 'local-newer') {
             window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
             const saveResult = await saveToGitHub({ skipIfRemoteCurrent: true })
-            if (saveResult.status === 'saved') {
-              const portfolioSummary = await buildPortfolioSummary()
-              await savePortfolioSummaryToGitHub(portfolioSummary)
-            }
             window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: saveResult }))
+            if (saveResult.status === 'saved') savePortfolioSummaryInBackground()
             continue
           }
           window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
