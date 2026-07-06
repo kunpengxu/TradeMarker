@@ -77,7 +77,7 @@ function SymbolEventsPanel({ events, selected, collapsed, onToggle, onFocusEvent
   </aside>
 }
 
-function WorkspaceKpiStrip({ items, loading, updated, orders, eventsCalendar }) {
+function WorkspaceKpiStrip({ items, loading, updated, orders, eventsCalendar, t }) {
   const positioned = items.filter((item) => (item.position?.shares || 0) > 0)
   const marketValue = positioned.reduce((sum, item) => sum + (item.position?.marketValue || 0), 0)
   const unrealizedPL = positioned.reduce((sum, item) => sum + (item.position?.unrealizedPL || 0), 0)
@@ -85,21 +85,21 @@ function WorkspaceKpiStrip({ items, loading, updated, orders, eventsCalendar }) 
   const losers = items.filter((item) => Number(item.quote?.changePercent) < 0).length
   const eventCount = (eventsCalendar?.symbolEvents || []).length + (eventsCalendar?.macroEvents || []).length
   return <div className="terminal-kpi-strip">
-    <span><small>Watchlist</small><strong>{items.length}</strong><em>{gainers} up / {losers} down</em></span>
-    <span><small>Positions</small><strong>{positioned.length}</strong><em>{money(marketValue)}</em></span>
-    <span><small>Open P/L</small><strong className={valueClass(unrealizedPL)}>{money(unrealizedPL)}</strong><em>unrealized</em></span>
-    <span><small>Order Plan</small><strong>{orders.length}</strong><em>active suggestions</em></span>
-    <span><small>Events</small><strong>{eventCount}</strong><em>watchlist + macro</em></span>
-    <span><small>Data</small><strong>{loading ? 'Scanning' : 'Ready'}</strong><em>{updated ? updated.toLocaleTimeString() : 'not refreshed'}</em></span>
+    <span><small>{t('kpiWatchlist')}</small><strong>{items.length}</strong><em>{t('kpiUpDown', { up: gainers, down: losers })}</em></span>
+    <span><small>{t('kpiPositions')}</small><strong>{positioned.length}</strong><em>{money(marketValue)}</em></span>
+    <span><small>{t('kpiOpenPL')}</small><strong className={valueClass(unrealizedPL)}>{money(unrealizedPL)}</strong><em>{t('kpiUnrealized')}</em></span>
+    <span><small>{t('kpiOrderPlan')}</small><strong>{orders.length}</strong><em>{t('kpiActiveSuggestions')}</em></span>
+    <span><small>{t('kpiEvents')}</small><strong>{eventCount}</strong><em>{t('kpiWatchMacro')}</em></span>
+    <span><small>{t('kpiData')}</small><strong>{loading ? t('kpiScanning') : t('kpiReady')}</strong><em>{updated ? updated.toLocaleTimeString() : t('kpiNotRefreshed')}</em></span>
   </div>
 }
 
-function ScoreRadar({ score }) {
+function ScoreRadar({ score, t }) {
   const axes = [
-    ['Trend', score.trend],
-    ['Setup', score.setup],
-    ['Position', score.position],
-    ['Risk', score.risk],
+    [t('trend'), score.trend],
+    [t('setup'), score.setup],
+    [t('positionScore'), score.position],
+    [t('riskControl'), score.risk],
   ]
   const points = axes.map(([, value], index) => {
     const angle = (-90 + index * 90) * Math.PI / 180
@@ -118,38 +118,43 @@ function ScoreRadar({ score }) {
   </div>
 }
 
-function DecisionPanel({ selected, score, position, orders, events, activeTab, setActiveTab, onShowOrders, onFocusEvent, onCollapse }) {
-  const tabs = ['AI', 'Technical', 'Events', 'Orders']
+function DecisionPanel({ selected, score, position, orders, events, activeTab, setActiveTab, onShowOrders, onFocusEvent, onCollapse, t }) {
+  const tabs = [
+    ['AI', t('decisionAI')],
+    ['Technical', t('decisionTechnical')],
+    ['Events', t('decisionEvents')],
+    ['Orders', t('decisionOrders')],
+  ]
   const hasPosition = Number(position?.shares || 0) > 0
   return <aside className="decision-panel">
-    <div className="decision-tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>{tab}</button>)}<button className="collapse-decision" onClick={onCollapse}>−</button></div>
+    <div className="decision-tabs">{tabs.map(([key, label]) => <button key={key} className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>)}<button className="collapse-decision" onClick={onCollapse}>−</button></div>
     <div className="decision-score-card">
-      <div><span>AI composite</span><strong>{selected || '—'} · {score.score}/100</strong><small>{score.score >= 70 ? 'High conviction candidate' : score.score >= 52 ? 'Watch for confirmation' : 'Lower priority setup'}</small></div>
-      <ScoreRadar score={score} />
+      <div><span>{t('aiComposite')}</span><strong>{selected || '—'} · {score.score}/100</strong><small>{score.score >= 70 ? t('highConvictionCandidate') : score.score >= 52 ? t('watchForConfirmation') : t('lowerPrioritySetup')}</small></div>
+      <ScoreRadar score={score} t={t} />
     </div>
     {activeTab === 'AI' ? <div className="decision-copy">
-      <p>{hasPosition ? `Current position is ${number(position.shares, 4)} shares with ${percent(position.unrealizedPLPercent)} unrealized P/L.` : 'No active position recorded for this symbol.'}</p>
-      <p>{orders.length ? `${orders.length} order suggestion${orders.length > 1 ? 's' : ''} are attached to this symbol.` : 'No current order-plan suggestion is attached.'}</p>
-      <p>{events.length ? `${events.length} relevant event${events.length > 1 ? 's' : ''} are visible for near-term context.` : 'No symbol-specific event is currently highlighted.'}</p>
+      <p>{hasPosition ? t('currentPositionSummary', { shares: number(position.shares, 4), pl: percent(position.unrealizedPLPercent) }) : t('noActivePosition')}</p>
+      <p>{orders.length ? t('orderAttachedSummary', { count: orders.length }) : t('noOrderSuggestionAttached')}</p>
+      <p>{events.length ? t('eventAttachedSummary', { count: events.length }) : t('noSymbolEventHighlighted')}</p>
     </div> : null}
     {activeTab === 'Technical' ? <div className="factor-bars">
-      {[['Trend', score.trend], ['Setup', score.setup], ['Position', score.position], ['Risk control', score.risk]].map(([label, value]) => <span key={label}><b>{label}<em>{value}</em></b><i style={{ width: `${value}%` }} /></span>)}
+      {[[t('trend'), score.trend], [t('setup'), score.setup], [t('positionScore'), score.position], [t('riskControl'), score.risk]].map(([label, value]) => <span key={label}><b>{label}<em>{value}</em></b><i style={{ width: `${value}%` }} /></span>)}
     </div> : null}
     {activeTab === 'Events' ? <div className="decision-list">
-      {events.length ? events.map((event) => <button key={event.id} onClick={() => onFocusEvent(event)}><strong>{event.title}</strong><small>{formatEventDate(event.date)} · {event.type}</small></button>) : <p>No selected-symbol events.</p>}
+      {events.length ? events.map((event) => <button key={event.id} onClick={() => onFocusEvent(event)}><strong>{event.title}</strong><small>{formatEventDate(event.date)} · {event.type}</small></button>) : <p>{t('noSelectedSymbolEvents')}</p>}
     </div> : null}
     {activeTab === 'Orders' ? <div className="decision-list">
-      {orders.length ? orders.map((order) => <button key={order.id} onClick={onShowOrders}><strong>{order.side || 'WATCH'} {order.symbol}</strong><small>{order.reason || order.suggestion || order.status}</small></button>) : <p>No selected-symbol order suggestions.</p>}
+      {orders.length ? orders.map((order) => <button key={order.id} onClick={onShowOrders}><strong>{order.side || 'WATCH'} {order.symbol}</strong><small>{order.reason || order.suggestion || order.status}</small></button>) : <p>{t('noSelectedSymbolOrders')}</p>}
     </div> : null}
   </aside>
 }
 
-function OpportunityBoard({ rows, selected, onSelect }) {
+function OpportunityBoard({ rows, selected, onSelect, t }) {
   return <section className="opportunity-board">
-    <div className="workspace-panel-head"><div><h2>Opportunity Board</h2><p>Ranked watchlist view using price action, position P/L, events, and order-plan signals.</p></div></div>
+    <div className="workspace-panel-head"><div><h2>{t('opportunityBoard')}</h2><p>{t('opportunityBoardHint')}</p></div></div>
     <div className="opportunity-table-wrap">
       <table className="opportunity-table">
-        <thead><tr><th>Rank</th><th>Symbol</th><th>Score</th><th>Change</th><th>P/L</th><th>Orders</th><th>Events</th><th>Read</th></tr></thead>
+        <thead><tr><th>{t('rank')}</th><th>{t('symbol')}</th><th>{t('score')}</th><th>{t('percentChange')}</th><th>{t('pl')}</th><th>{t('orders')}</th><th>{t('kpiEvents')}</th><th>{t('read')}</th></tr></thead>
         <tbody>{rows.slice(0, 18).map((row, index) => <tr key={row.item.symbol} className={selected === row.item.symbol ? 'selected' : ''} onClick={() => onSelect(row.item.symbol)}>
           <td>{index + 1}</td>
           <td><strong>{row.item.symbol}</strong></td>
@@ -158,19 +163,20 @@ function OpportunityBoard({ rows, selected, onSelect }) {
           <td className={valueClass(row.item.position?.unrealizedPL)}>{percent(row.item.position?.unrealizedPLPercent)}</td>
           <td>{row.orders.length}</td>
           <td>{row.events.length}</td>
-          <td>{row.score.score >= 70 ? 'Actively watch' : row.orders.length ? 'Plan attached' : 'Monitor'}</td>
+          <td>{row.score.score >= 70 ? t('activelyWatch') : row.orders.length ? t('planAttached') : t('monitor')}</td>
         </tr>)}</tbody>
       </table>
     </div>
   </section>
 }
 
-function RunLogPanel({ logs }) {
+function RunLogPanel({ logs, t }) {
+  const logTypeLabel = (type) => t(`logType${String(type || '').charAt(0).toUpperCase()}${String(type || '').slice(1)}`)
   return <section className="workspace-panel run-log-panel">
-    <div className="workspace-panel-head"><div><h2>Run Log</h2><p>Local workflow trace for refreshes, uploads, events, and order-plan loads.</p></div></div>
+    <div className="workspace-panel-head"><div><h2>{t('runLog')}</h2><p>{t('runLogHint')}</p></div></div>
     <div className="run-log-list">{logs.length ? logs.map((log) => <article key={log.id} className={log.type}>
-      <span>{log.type}</span><strong>{log.message}</strong><small>{dateTime(log.time)}</small>
-    </article>) : <p>No workflow activity yet.</p>}</div>
+      <span>{logTypeLabel(log.type)}</span><strong>{log.message}</strong><small>{dateTime(log.time)}</small>
+    </article>) : <p>{t('noWorkflowActivity')}</p>}</div>
   </section>
 }
 
@@ -217,7 +223,7 @@ export default function Dashboard() {
 
   const refresh = useCallback(async (symbols = getWatchlist(), replace = true, saveAnalysis = true) => {
     setLoading(true)
-    addRunLog('scan', `Refreshing ${replace ? 'watchlist' : symbols.join(', ')} market data.`)
+    addRunLog('scan', t('logRefreshingMarketData', { scope: replace ? t('logWatchlistScope') : symbols.join(', ') }))
     const rows = await Promise.all(symbols.map(async (ticker) => {
       try {
         const snapshot = await getMarketSnapshot(ticker, { force: true })
@@ -239,17 +245,17 @@ export default function Dashboard() {
     setUpdated(new Date())
     setLoading(false)
     if (saveAnalysis && replace) saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows))
-      .then(() => addRunLog('saved', `Uploaded full market-analysis export for ${rows.length} symbols.`))
-      .catch((error) => addRunLog('error', `Market analysis upload failed: ${error.message}`))
+      .then(() => addRunLog('saved', t('logUploadedMarketAnalysis', { count: rows.length })))
+      .catch((error) => addRunLog('error', t('logMarketAnalysisFailed', { message: error.message })))
     buildEventsCalendarExport(getWatchlist())
       .then((events) => {
         setEventsCalendar(events)
-        addRunLog('events', `Built events calendar with ${(events.symbolEvents || []).length + (events.macroEvents || []).length} events.`)
+        addRunLog('events', t('logBuiltEvents', { count: (events.symbolEvents || []).length + (events.macroEvents || []).length }))
         return saveAnalysis ? saveEventsCalendarToGitHub(events) : null
       })
-      .then((result) => { if (result) addRunLog('saved', 'Uploaded events calendar.') })
-      .catch((error) => addRunLog('error', `Events refresh failed: ${error.message}`))
-  }, [addRunLog])
+      .then((result) => { if (result) addRunLog('saved', t('logUploadedEvents')) })
+      .catch((error) => addRunLog('error', t('logEventsFailed', { message: error.message })))
+  }, [addRunLog, t])
 
   useEffect(() => {
     migrateCdrSymbolsToTorontoOnce()
@@ -275,15 +281,15 @@ export default function Dashboard() {
     loadOrderPlanFromGitHub('order-plan.json')
       .then((result) => {
         if (result.status !== 'loaded') {
-          addRunLog('orders', 'No remote order plan loaded.')
+          addRunLog('orders', t('logNoOrderPlan'))
           return setOrders([])
         }
         const normalized = normalizeOrderPlan(result.data).orders
         setOrders(normalized)
-        addRunLog('orders', `Loaded remote order plan with ${normalized.length} suggestions.`)
+        addRunLog('orders', t('logLoadedOrderPlan', { count: normalized.length }))
       })
-      .catch((error) => { addRunLog('error', `Order plan load failed: ${error.message}`); setOrders([]) })
-  }, [addRunLog])
+      .catch((error) => { addRunLog('error', t('logOrderPlanFailed', { message: error.message })); setOrders([]) })
+  }, [addRunLog, t])
   useEffect(() => {
     if (!selected) { setCandles([]); setTrades([]); return }
     setCandles(historyCache[selected] || [])
@@ -401,7 +407,7 @@ export default function Dashboard() {
           <button className="toolbar-button refresh-button" onClick={() => refresh()} disabled={loading}>↻ {t('refresh')}</button>
         </div>
       </div>
-      <WorkspaceKpiStrip items={items} loading={loading} updated={updated} orders={orders} eventsCalendar={eventsCalendar} />
+      <WorkspaceKpiStrip items={items} loading={loading} updated={updated} orders={orders} eventsCalendar={eventsCalendar} t={t} />
       {orders.length ? <div className="today-focus-strip">
         <span>{t('todayFocus')}</span>
         <strong>{t('stocksWithOrders', { count: plannedWatchlistCount || orderSymbols.length })}</strong>
@@ -480,7 +486,7 @@ export default function Dashboard() {
                   </div>
                   {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} orderPlans={selectedOrders} eventDates={selectedEventDates} focusDate={focusedEventDate} />}
                 </div>
-                {eventsCollapsed ? <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed(false)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setEventsCollapsed(true)} />}
+                {eventsCollapsed ? <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed(false)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setEventsCollapsed(true)} t={t} />}
               </div>
 
               <div className="position-ribbon">
@@ -490,10 +496,10 @@ export default function Dashboard() {
                 <span>{t('unrealizedPL')}<strong className={valueClass(position.unrealizedPL)}>{money(position.unrealizedPL, selectedItem.quote.currency)} &nbsp; {percent(position.unrealizedPLPercent)}</strong></span>
               </div>
 
-              <OpportunityBoard rows={opportunityRows} selected={selected} onSelect={setSelected} />
+              <OpportunityBoard rows={opportunityRows} selected={selected} onSelect={setSelected} t={t} />
               <div className="decision-lower-grid">
-                <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>{t('tradeJournal')}</h2><p>{t('tradeJournalHint')}</p></div></div><TradeLog trades={trades} currency={selectedItem.quote.currency} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); reloadJournal(); addRunLog('journal', 'Deleted trade and recalculated position.') }} /></div>
-                <RunLogPanel logs={runLogs} />
+                <div className="workspace-panel"><div className="workspace-panel-head"><div><h2>{t('tradeJournal')}</h2><p>{t('tradeJournalHint')}</p></div></div><TradeLog trades={trades} currency={selectedItem.quote.currency} onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); reloadJournal(); addRunLog('journal', t('logDeletedTrade')) }} /></div>
+                <RunLogPanel logs={runLogs} t={t} />
               </div>
             </>
           )}
