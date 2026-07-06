@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import IndicatorMenu from '../components/IndicatorMenu'
 import IntervalSelector from '../components/IntervalSelector'
-import OrderPlanCard from '../components/OrderPlanCard'
+import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
 import SymbolSearch from '../components/SymbolSearch'
 import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
@@ -57,6 +57,28 @@ const orderSideIntent = (order) => {
   return 'WATCH'
 }
 const sideWeight = (order) => orderSideIntent(order) === 'BUY' ? 10 : orderSideIntent(order) === 'SELL' ? -8 : 4
+const orderLegSummary = (order, t) => (order.legs || [])
+  .map((leg) => {
+    const parts = [
+      leg.price ? `${t('limit')} ${money(leg.price, order.currency)}` : null,
+      leg.shares ? `${number(leg.shares, 4)} ${t('shares')}` : null,
+      leg.amount ? `${t('amount')} ${money(leg.amount, order.currency)}` : null,
+    ].filter(Boolean)
+    return parts.length ? parts.join(' · ') : ''
+  })
+  .filter(Boolean)
+  .join('；')
+const orderPrimaryText = (order, language, t) => (
+  localizedText(order.plannedOrderText, language) ||
+  order.plannedOrder ||
+  orderLegSummary(order, t) ||
+  localizedText(order.suggestionText, language) ||
+  order.suggestion ||
+  localizedText(order.reasonText, language) ||
+  order.reason ||
+  order.status ||
+  order.side
+)
 
 const scoreItem = (item, orders = [], events = []) => {
   const change = Number(item?.quote?.changePercent || 0)
@@ -131,7 +153,7 @@ function ScoreRadar({ score, t }) {
   </div>
 }
 
-function DecisionPanel({ selected, score, position, orders, events, activeTab, setActiveTab, onShowOrders, onFocusEvent, onCollapse, t }) {
+function DecisionPanel({ selected, score, position, orders, events, activeTab, setActiveTab, onShowOrders, onFocusEvent, onCollapse, t, language }) {
   const tabs = [
     ['AI', t('decisionAI')],
     ['Technical', t('decisionTechnical')],
@@ -141,28 +163,35 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
   const hasPosition = Number(position?.shares || 0) > 0
   const buyOrders = orders.filter((order) => orderSideIntent(order) === 'BUY')
   const sellOrders = orders.filter((order) => orderSideIntent(order) === 'SELL')
+  const watchOrders = orders.filter((order) => orderSideIntent(order) === 'WATCH')
   const [scoreOrderSide, setScoreOrderSide] = useState('')
   useEffect(() => {
-    setScoreOrderSide(sellOrders.length ? 'SELL' : buyOrders.length ? 'BUY' : '')
-  }, [selected, buyOrders.length, sellOrders.length])
-  const visibleScoreOrders = scoreOrderSide === 'SELL' ? sellOrders : scoreOrderSide === 'BUY' ? buyOrders : []
+    setScoreOrderSide(sellOrders.length ? 'SELL' : buyOrders.length ? 'BUY' : watchOrders.length ? 'WATCH' : '')
+  }, [selected, buyOrders.length, sellOrders.length, watchOrders.length])
+  const visibleScoreOrders = scoreOrderSide === 'SELL' ? sellOrders : scoreOrderSide === 'BUY' ? buyOrders : scoreOrderSide === 'WATCH' ? watchOrders : []
   return <aside className="decision-panel">
     <div className="decision-tabs">{tabs.map(([key, label]) => <button key={key} className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>)}<button className="collapse-decision" onClick={onCollapse}>−</button></div>
     <div className="decision-score-card">
       <div><span>{t('aiComposite')}</span><strong>{selected || '—'} · {score.score}/100</strong><small>{score.score >= 70 ? t('highConvictionCandidate') : score.score >= 52 ? t('watchForConfirmation') : t('lowerPrioritySetup')}</small></div>
       <ScoreRadar score={score} t={t} />
-      {(buyOrders.length || sellOrders.length) ? <div className="score-order-actions">
+      {(buyOrders.length || sellOrders.length || watchOrders.length) ? <div className="score-order-actions">
         {sellOrders.length ? <button type="button" className={scoreOrderSide === 'SELL' ? 'active sell' : 'sell'} onClick={() => setScoreOrderSide(scoreOrderSide === 'SELL' ? '' : 'SELL')}>{t('sellOrders')} {sellOrders.length}</button> : null}
         {buyOrders.length ? <button type="button" className={scoreOrderSide === 'BUY' ? 'active buy' : 'buy'} onClick={() => setScoreOrderSide(scoreOrderSide === 'BUY' ? '' : 'BUY')}>{t('buyOrders')} {buyOrders.length}</button> : null}
+        {watchOrders.length ? <button type="button" className={scoreOrderSide === 'WATCH' ? 'active watch' : 'watch'} onClick={() => setScoreOrderSide(scoreOrderSide === 'WATCH' ? '' : 'WATCH')}>{t('watchNoAction')} {watchOrders.length}</button> : null}
       </div> : null}
       {visibleScoreOrders.length ? <div className="score-order-detail">
         {visibleScoreOrders.map((order) => {
           const intent = orderSideIntent(order)
+          const primary = orderPrimaryText(order, language, t)
+          const situation = localizedText(order.currentSituationText, language) || order.currentSituation
+          const suggestion = localizedText(order.suggestionText, language) || order.suggestion
+          const planned = localizedText(order.plannedOrderText, language) || order.plannedOrder
           return <article className={intent.toLowerCase()} key={order.id}>
-          <strong>{intent} {order.symbol}</strong>
-          {order.currentSituation ? <p><b>{t('currentSituation')}</b>{order.currentSituation}</p> : null}
-          {order.suggestion ? <p><b>{t('suggestion')}</b>{order.suggestion}</p> : null}
-          {order.plannedOrder ? <p><b>{t('plannedOrder')}</b>{order.plannedOrder}</p> : null}
+          <strong>{primary}</strong>
+          {situation && situation !== primary ? <p><b>{t('currentSituation')}</b>{situation}</p> : null}
+          {suggestion && suggestion !== primary ? <p><b>{t('suggestion')}</b>{suggestion}</p> : null}
+          {planned && planned !== primary ? <p><b>{t('plannedOrder')}</b>{planned}</p> : null}
+          {order.legs?.length ? <small>{orderLegSummary(order, t)}</small> : null}
         </article>
         })}
       </div> : null}
@@ -222,7 +251,7 @@ function RunLogPanel({ logs, t }) {
 }
 
 export default function Dashboard() {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   const [searchParams] = useSearchParams()
   const requestedSymbol = searchParams.get('symbol') ? normalizeSymbol(searchParams.get('symbol')) : ''
   const [items, setItems] = useState([])
@@ -527,7 +556,7 @@ export default function Dashboard() {
                   </div>
                   {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} orderPlans={selectedOrders} eventDates={selectedEventDates} focusDate={focusedEventDate} />}
                 </div>
-                {eventsCollapsed ? <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed(false)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setEventsCollapsed(true)} t={t} />}
+                {eventsCollapsed ? <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed(false)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setEventsCollapsed(true)} t={t} language={language} />}
               </div>
 
               <div className="position-ribbon">
