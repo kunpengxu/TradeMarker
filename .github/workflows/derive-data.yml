@@ -13,15 +13,26 @@ permissions:
 
 jobs:
   derive:
-    if: ${{ hashFiles('data/trademarker.json') != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check data file
+        id: data-file
+        run: |
+          if [ -f data/trademarker.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No data/trademarker.json in this repository; skipping derived data generation."
+          fi
       - uses: actions/setup-node@v4
+        if: steps.data-file.outputs.exists == 'true'
         with:
           node-version: 22
       - run: node scripts/generate-derived-data.mjs data/trademarker.json
+        if: steps.data-file.outputs.exists == 'true'
       - name: Commit derived data
+        if: steps.data-file.outputs.exists == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
