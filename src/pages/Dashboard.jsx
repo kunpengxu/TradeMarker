@@ -103,14 +103,14 @@ function ScoreRadar({ score, t }) {
   ]
   const points = axes.map(([, value], index) => {
     const angle = (-90 + index * 90) * Math.PI / 180
-    const radius = 24 + value * 0.46
+    const radius = Math.max(8, Math.min(42, value * 0.42))
     return `${60 + Math.cos(angle) * radius},${60 + Math.sin(angle) * radius}`
   }).join(' ')
   return <div className="score-radar">
     <svg viewBox="0 0 120 120" role="img" aria-label="Decision score radar">
-      {[26, 46, 66].map((radius) => <circle key={radius} cx="60" cy="60" r={radius} />)}
-      <line x1="60" y1="8" x2="60" y2="112" />
-      <line x1="8" y1="60" x2="112" y2="60" />
+      {[18, 30, 42].map((radius) => <polygon className="radar-grid" key={radius} points={`60,${60 - radius} ${60 + radius},60 60,${60 + radius} ${60 - radius},60`} />)}
+      <line x1="60" y1="18" x2="60" y2="102" />
+      <line x1="18" y1="60" x2="102" y2="60" />
       <polygon points={points} />
     </svg>
     <strong>{score.score}</strong>
