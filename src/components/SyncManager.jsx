@@ -25,7 +25,10 @@ export default function SyncManager() {
     }
     const save = (event) => {
       if (event?.detail?.key && !DATA_KEYS_THAT_SHOULD_SAVE.has(event.detail.key)) return
-      if (isSyncing) return
+      if (isSyncing) {
+        pendingSync = true
+        return
+      }
       clearTimeout(timer)
       window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'pending-save' } }))
       timer = setTimeout(async () => {

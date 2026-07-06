@@ -13,6 +13,7 @@ const config = () => {
 
 const apiUrl = ({ owner, repo, path }) => `https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`
 const headers = (token) => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' })
+const noStoreHeaders = (token) => ({ ...headers(token), 'Cache-Control': 'no-cache', Pragma: 'no-cache' })
 const encode = (value) => btoa(unescape(encodeURIComponent(value)))
 const decode = (value) => decodeURIComponent(escape(atob(value.replace(/\n/g, ''))))
 const siblingPath = (path, filename) => {
@@ -42,7 +43,11 @@ export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolea
 
 async function getRemote(path = config().path, { parseData = true } = {}) {
   const settings = { ...config(), path }
-  const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}`, { headers: headers(settings.token) })
+  const cacheBust = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const response = await fetch(`${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}&_=${cacheBust}`, {
+    cache: 'no-store',
+    headers: noStoreHeaders(settings.token),
+  })
   if (response.status === 404) return null
   const result = await response.json()
   if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
@@ -56,7 +61,7 @@ async function saveJsonFile(path, data, message) {
   const settings = { ...config(), path }
   const content = encode(JSON.stringify(data, null, 2))
   let lastError
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     const remote = await getRemote(path, { parseData: false })
     const body = {
       message,
@@ -64,12 +69,12 @@ async function saveJsonFile(path, data, message) {
       branch: settings.branch,
       ...(remote?.sha ? { sha: remote.sha } : {}),
     }
-    const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const response = await fetch(apiUrl(settings), { method: 'PUT', cache: 'no-store', headers: { ...noStoreHeaders(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const result = await response.json()
     if (response.ok) return { status: 'saved', path, attempts: attempt + 1 }
     lastError = new Error(result.message || `GitHub sync failed (${response.status}).`)
     if (response.status !== 409 && !/does not match/i.test(result.message || '')) throw lastError
-    await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
+    await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)))
   }
   throw lastError
 }
