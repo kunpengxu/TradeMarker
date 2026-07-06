@@ -54,17 +54,24 @@ async function getRemote(path = config().path, { parseData = true } = {}) {
 async function saveJsonFile(path, data, message) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const settings = { ...config(), path }
-  const remote = await getRemote(path, { parseData: false })
-  const body = {
-    message,
-    content: encode(JSON.stringify(data, null, 2)),
-    branch: settings.branch,
-    ...(remote?.sha ? { sha: remote.sha } : {}),
+  const content = encode(JSON.stringify(data, null, 2))
+  let lastError
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const remote = await getRemote(path, { parseData: false })
+    const body = {
+      message,
+      content,
+      branch: settings.branch,
+      ...(remote?.sha ? { sha: remote.sha } : {}),
+    }
+    const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const result = await response.json()
+    if (response.ok) return { status: 'saved', path, attempts: attempt + 1 }
+    lastError = new Error(result.message || `GitHub sync failed (${response.status}).`)
+    if (response.status !== 409 && !/does not match/i.test(result.message || '')) throw lastError
+    await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
   }
-  const response = await fetch(apiUrl(settings), { method: 'PUT', headers: { ...headers(settings.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  const result = await response.json()
-  if (!response.ok) throw new Error(result.message || `GitHub sync failed (${response.status}).`)
-  return { status: 'saved', path }
+  throw lastError
 }
 
 export async function loadFromGitHub({ force = false } = {}) {
