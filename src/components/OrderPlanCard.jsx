@@ -39,6 +39,7 @@ function OrderLegs({ legs, t, language }) {
     const condition = textFor(leg.conditionText, language) || leg.condition
     const note = textFor(leg.noteText, language) || leg.note
     const parts = [
+      leg.side ? translateToken(leg.side, language) : null,
       translateToken(leg.orderType, language),
       hasValue(leg.price) ? `${t('limit')} ${formatMaybeMoney(leg.price)}` : null,
       hasValue(leg.shares) ? `${t('shares')} ${formatMaybeNumber(leg.shares)}` : null,
@@ -61,9 +62,12 @@ export default function OrderPlanCard({ order }) {
   const { language, t } = useI18n()
   const reason = textFor(order.reasonText, language) || order.reason
   const risk = textFor(order.riskText, language) || order.risk
+  const reEntryPlan = textFor(order.reEntryPlanText, language) || order.reEntryPlan
   const note = textFor(order.noteText, language) || order.note
   const metrics = [
+    order.planType === 'INTRADAY' && order.intradayMode ? order.intradayMode : null,
     hasValue(order.totalShares) ? `${t('shares')} ${formatMaybeNumber(order.totalShares)}` : null,
+    hasValue(order.startingShares) && hasValue(order.expectedEndingShares) ? `${t('shares')} ${formatMaybeNumber(order.startingShares)} → ${formatMaybeNumber(order.expectedEndingShares)}` : null,
     hasValue(order.totalAmount) ? `${t('amount')} ${formatMaybeMoney(order.totalAmount)}` : null,
     hasValue(order.targetPrice) ? `${t('target')} ${formatMaybeMoney(order.targetPrice)}` : null,
     hasValue(order.stopLoss) ? `${t('stopLoss')} ${formatMaybeMoney(order.stopLoss)}` : null,
@@ -74,9 +78,10 @@ export default function OrderPlanCard({ order }) {
     <header><div><span className={`side ${sideClass(order.side)}`}>{translateToken(order.side, language)}</span><h3>{order.symbol ? <SymbolLink symbol={order.symbol} /> : t('noSymbol')}</h3></div>{order.priority && <strong>{translateToken(order.priority, language)}</strong>}</header>
     {metrics.length ? <p className="order-compact-meta">{metrics.join(' · ')}</p> : null}
     <OrderLegs legs={order.legs} t={t} language={language} />
-    {(reason || risk || note) && <p className="order-compact-note">
+    {(reason || risk || reEntryPlan || note) && <p className="order-compact-note">
       {reason && <><b>{t('reason')}:</b> {compactText(reason)} </>}
       {risk && <><b className="risk">{t('riskInvalidation')}:</b> {compactText(risk)} </>}
+      {reEntryPlan && <><b>{t('plannedOrder')}:</b> {compactText(reEntryPlan)} </>}
       {note && <><b>{t('note')}:</b> {compactText(note)} </>}
     </p>}
   </article>

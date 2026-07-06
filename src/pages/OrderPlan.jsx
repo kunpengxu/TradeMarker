@@ -56,9 +56,11 @@ const tokenLabel = (value, language) => {
 const formatPrice = (value) => hasValue(value) ? Number(value).toFixed(2) : null
 const summarizeLegs = (order, language) => {
   const rows = (order.legs || []).map((leg) => {
+    const label = localizedText(leg.labelText, language) || leg.label
     const parts = [
+      label,
       formatPrice(leg.price),
-      tokenLabel(order.side, language),
+      tokenLabel(leg.side || order.side, language),
       hasValue(leg.shares) ? language === 'zh' ? `${number(leg.shares, 4)}股` : `${number(leg.shares, 4)} sh` : null,
       hasValue(leg.amount) ? language === 'zh' ? `金额 ${number(leg.amount, 2)}` : `amount ${number(leg.amount, 2)}` : null,
       hasValue(leg.percent) ? `${leg.percent}%` : null,
@@ -93,7 +95,11 @@ function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitments
         <tbody>{orders.map((order, index) => {
           const current = localizedText(order.currentSituationText, language) || order.currentSituation || localizedText(order.reasonText, language) || order.reason || '—'
           const suggestion = localizedText(order.suggestionText, language) || order.suggestion || localizedText(order.noteText, language) || order.note || fallbackSuggestion(order, language)
-          const plannedOrder = localizedText(order.plannedOrderText, language) || order.plannedOrder || summarizeLegs(order, language)
+          const reEntry = localizedText(order.reEntryPlanText, language) || order.reEntryPlan
+          const plannedOrder = [
+            localizedText(order.plannedOrderText, language) || order.plannedOrder || summarizeLegs(order, language),
+            reEntry,
+          ].filter(Boolean).join(language === 'zh' ? '。' : '. ')
           const checked = committedKeys.has(orderCommitmentKey(order))
           const commitment = commitmentsByKey.get(orderCommitmentKey(order))
           return <tr className={`${orderTone(order)} ${checked ? 'committed' : ''}`} key={order.id || `${order.symbol}-${index}`}>
@@ -158,6 +164,7 @@ export default function OrderPlan() {
     if (order.side !== 'SELL') return result
     const currency = order.currency || 'USD'
     const legValue = (order.legs || []).reduce((sum, leg) => {
+      if (String(leg.side || order.side).toUpperCase() !== 'SELL') return sum
       const price = Number(leg.price)
       const shares = Number(leg.shares)
       return Number.isFinite(price) && Number.isFinite(shares) ? sum + price * shares : sum

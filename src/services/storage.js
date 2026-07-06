@@ -203,6 +203,7 @@ const migrateSymbolList = (symbols = []) => [...new Set(symbols.map(migrateSymbo
 const migrateGroup = (group) => ({ ...group, symbols: migrateSymbolList(group.symbols || []) })
 const migrateOrder = (order) => ({ ...order, symbol: migrateSymbol(order.symbol || '') })
 const orderLegKey = (order) => (order.legs || []).map((leg) => [
+  String(leg.side || order.side || '').toUpperCase(),
   Number(leg.price || 0).toFixed(4),
   Number(leg.shares || 0).toFixed(6),
   Number(leg.amount || 0).toFixed(2),
@@ -226,6 +227,7 @@ const orderCashAmount = (order) => {
   if (order.lifecycleStatus && normalizeOrderLifecycleStatus(order.lifecycleStatus) !== 'PLACED') return 0
   if (String(order.side).toUpperCase() !== 'BUY') return 0
   const legAmount = (order.legs || []).reduce((sum, leg) => {
+    if (String(leg.side || order.side).toUpperCase() !== 'BUY') return sum
     const amount = Number(leg.amount)
     if (Number.isFinite(amount) && amount > 0) return sum + amount
     const price = Number(leg.price)
@@ -252,6 +254,7 @@ const normalizeOrderCommitment = (order) => migrateOrder({
   note: order.note || order.noteText?.zh || order.noteText?.en || '',
   legs: (order.legs || []).map((leg) => ({
     id: leg.id,
+    side: leg.side,
     label: leg.label,
     price: Number(leg.price || 0),
     shares: Number(leg.shares || 0),

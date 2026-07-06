@@ -48,6 +48,7 @@ const sourceOrders = (plan) => [
 
 const normalizeLeg = (leg, parent = {}, index = 0) => ({
   id: first(leg.id, `${parent.symbol || 'order'}-${index}`),
+  side: normalizeSide(first(leg.side, leg.action, leg.recommendation, parent.side)),
   label: first(leg.label, leg.name, leg.stage, leg.batch, `Batch ${index + 1}`),
   labelText: localized(leg, 'label', leg.name, leg.stage, leg.batch, `Batch ${index + 1}`),
   orderType: first(leg.orderType, leg.type, parent.orderType, 'LIMIT'),
@@ -72,12 +73,15 @@ const normalizeOrder = (order, index) => {
     ...asArray(order.orderLevels),
     ...asArray(order.priceLevels),
   ]
-  const parentLeg = normalizeLeg(order, { symbol }, 0)
-  const legs = rawLegs.length ? rawLegs.map((leg, legIndex) => normalizeLeg(leg, { symbol, orderType: order.orderType }, legIndex)) : [parentLeg]
+  const parentLeg = normalizeLeg(order, { symbol, side }, 0)
+  const legs = rawLegs.length ? rawLegs.map((leg, legIndex) => normalizeLeg(leg, { symbol, side, orderType: order.orderType }, legIndex)) : [parentLeg]
   return {
     id: first(order.id, `${symbol || 'order'}-${side}-${index}`),
     symbol,
     planType: normalizePlanType(first(order.planType, order.plan, order.horizon, order.timeframe, order.category, order['计划类型'], order['类型'])),
+    intradayMode: first(order.intradayMode, order.mode, order.strategyMode, order['日内模式']),
+    startingShares: numberOrNull(first(order.startingShares, order.startShares, order.beginningShares, order['起始股数'])),
+    expectedEndingShares: numberOrNull(first(order.expectedEndingShares, order.endingShares, order.finalShares, order['目标结束股数'])),
     side,
     priority: first(order.priority, order.urgency, order.rank, order['优先级']),
     status: first(order.status, order['状态'], 'PROPOSED'),
@@ -94,6 +98,8 @@ const normalizeOrder = (order, index) => {
     suggestionText: localized(order, 'suggestion', order.advice, order.actionPlan, order.recommendationText, order['建议']),
     plannedOrder: first(order.plannedOrder, order.orderText, order.order, order['挂单']),
     plannedOrderText: localized(order, 'plannedOrder', order.orderText, order.order, order['挂单']),
+    reEntryPlan: first(order.reEntryPlan, order.reentryPlan, order.exitPlan, order.closePlan, order['买回计划'], order['平仓计划']),
+    reEntryPlanText: localized(order, 'reEntryPlan', order.reentryPlan, order.exitPlan, order.closePlan, order['买回计划'], order['平仓计划']),
     risk: first(order.risk, order.riskNote, order.invalidation),
     riskText: localized(order, 'risk', order.riskNote, order.invalidation),
     note: first(order.note, order.comment),
