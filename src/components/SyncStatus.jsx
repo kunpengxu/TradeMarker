@@ -5,7 +5,7 @@ import { recordSyncStatus } from '../services/syncHistory'
 const toneFor = (status) => {
   if (status === 'error' || status === 'remote-newer') return 'warning'
   if (status === 'saved' || status === 'loaded' || status === 'current') return 'ok'
-  if (status === 'saving' || status === 'pending-save') return 'busy'
+  if (status === 'saving' || status === 'pending-save' || status === 'local-newer') return 'busy'
   return 'muted'
 }
 
@@ -36,6 +36,7 @@ export default function SyncStatus() {
     if (sync.status === 'saving') return t('syncSaving')
     if (sync.status === 'saved') return t('syncSaved')
     if (sync.status === 'loaded') return t('syncLoaded')
+    if (sync.status === 'local-newer') return t('syncLocalNewer')
     if (sync.status === 'remote-newer') return t('syncRemoteNewer')
     if (sync.status === 'missing-github-settings' || sync.status === 'disabled') return t('syncMissingSettings')
     if (sync.status === 'error') return `${t('syncError')}: ${sync.message || ''}`

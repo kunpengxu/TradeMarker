@@ -33,6 +33,10 @@ const dataSummary = (data = {}) => ({
   plannedOrders: data.plannedOrders?.length || 0,
   orderCommitments: data.orderCommitments?.length || 0,
 })
+const timeValue = (value) => {
+  const time = new Date(value || 0).getTime()
+  return Number.isFinite(time) ? time : 0
+}
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
 
@@ -78,10 +82,14 @@ export async function loadFromGitHub({ force = false } = {}) {
     importData(remote.data)
     return { status: 'loaded', updatedAt: remote.data.updatedAt, ...meta }
   }
-  if (force || !getDataUpdatedAt() || new Date(remote.data.updatedAt) > new Date(getDataUpdatedAt())) {
+  const localUpdatedAt = getDataUpdatedAt()
+  const remoteTime = timeValue(remote.data.updatedAt)
+  const localTime = timeValue(localUpdatedAt)
+  if (force || !localUpdatedAt || remoteTime > localTime) {
     importData(remote.data)
     return { status: 'loaded', updatedAt: remote.data.updatedAt, ...meta }
   }
+  if (localTime > remoteTime) return { status: 'local-newer', updatedAt: localUpdatedAt, ...meta }
   return { status: 'current', updatedAt: remote.data.updatedAt, ...meta }
 }
 
@@ -100,10 +108,10 @@ export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
   if (!hasUserData(local)) return { status: 'skipped-empty-local' }
   if (remote && hasUserData(remote.data) && !hasUserData(local)) return { status: 'skipped-empty-local' }
   if (skipIfRemoteCurrent && remote?.data?.updatedAt && local.updatedAt) {
-    const remoteTime = new Date(remote.data.updatedAt)
-    const localTime = new Date(local.updatedAt)
+    const remoteTime = timeValue(remote.data.updatedAt)
+    const localTime = timeValue(local.updatedAt)
     if (remoteTime > localTime) return { status: 'remote-newer', updatedAt: remote.data.updatedAt, ...meta }
-    if (remoteTime.getTime() === localTime.getTime()) return { status: 'current', updatedAt: remote.data.updatedAt, ...meta }
+    if (remoteTime === localTime) return { status: 'current', updatedAt: remote.data.updatedAt, ...meta }
   }
   return { ...(await saveJsonFile(settings.path, local, 'Update TradeMarker data')), ...meta }
 }

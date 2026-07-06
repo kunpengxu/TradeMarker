@@ -63,8 +63,18 @@ export default function SyncManager() {
             window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: { status: 'missing-github-settings' } }))
             return
           }
-          const result = await loadFromGitHub({ force: Boolean(getAuthToken()) })
+          const result = await loadFromGitHub()
           if (cancelled) return
+          if (result.status === 'local-newer') {
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
+            const saveResult = await saveToGitHub({ skipIfRemoteCurrent: true })
+            if (saveResult.status === 'saved') {
+              const portfolioSummary = await buildPortfolioSummary()
+              await savePortfolioSummaryToGitHub(portfolioSummary)
+            }
+            window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: saveResult }))
+            continue
+          }
           window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail: result }))
         } while (pendingSync && !cancelled)
       } finally {

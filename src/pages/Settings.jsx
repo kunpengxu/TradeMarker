@@ -296,6 +296,7 @@ export default function Settings() {
       const result = direction === 'load' ? await loadFromGitHub({ force: true }) : await saveToGitHub()
       const labels = {
         empty: 'No TradeMarker data file exists in GitHub yet.',
+        'local-newer': 'This browser has newer TradeMarker data and will sync it to GitHub automatically.',
         'skipped-empty-local': 'Skipped GitHub save because this browser has no watchlist or trades.',
         'skipped-empty-remote': 'Skipped GitHub load because the remote file is empty and local data exists.',
       }
