@@ -131,6 +131,7 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
     <div className="decision-score-card">
       <div><span>{t('aiComposite')}</span><strong>{selected || '—'} · {score.score}/100</strong><small>{score.score >= 70 ? t('highConvictionCandidate') : score.score >= 52 ? t('watchForConfirmation') : t('lowerPrioritySetup')}</small></div>
       <ScoreRadar score={score} t={t} />
+      <p className="score-formula-note">{t('scoreFormula')}</p>
     </div>
     {activeTab === 'AI' ? <div className="decision-copy">
       <p>{hasPosition ? t('currentPositionSummary', { shares: number(position.shares, 4), pl: percent(position.unrealizedPLPercent) }) : t('noActivePosition')}</p>
@@ -138,7 +139,12 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
       <p>{events.length ? t('eventAttachedSummary', { count: events.length }) : t('noSymbolEventHighlighted')}</p>
     </div> : null}
     {activeTab === 'Technical' ? <div className="factor-bars">
-      {[[t('trend'), score.trend], [t('setup'), score.setup], [t('positionScore'), score.position], [t('riskControl'), score.risk]].map(([label, value]) => <span key={label}><b>{label}<em>{value}</em></b><i style={{ width: `${value}%` }} /></span>)}
+      {[
+        [t('trend'), score.trend, t('trendScoreHelp')],
+        [t('setup'), score.setup, t('setupScoreHelp')],
+        [t('positionScore'), score.position, t('positionScoreHelp')],
+        [t('riskControl'), score.risk, t('riskControlHelp')],
+      ].map(([label, value, help]) => <span key={label}><b>{label}<em>{value}</em></b><i style={{ width: `${value}%` }} /><small>{help}</small></span>)}
     </div> : null}
     {activeTab === 'Events' ? <div className="decision-list">
       {events.length ? events.map((event) => <button key={event.id} onClick={() => onFocusEvent(event)}><strong>{event.title}</strong><small>{formatEventDate(event.date)} · {event.type}</small></button>) : <p>{t('noSelectedSymbolEvents')}</p>}
