@@ -6,7 +6,7 @@ export function buildChatGptPrompt(snapshot) {
   const mode = snapshot.snapshotMode === 'FULL' ? 'FULL' : 'QUICK'
   const focusSymbols = cleanList(snapshot.request?.focusSymbols || [])
   if (mode === 'QUICK') {
-    return `请严格按照 Chris_Investing_Project_Instructions.txt 分析我上传的最新 TradeMarker AI 快照。
+    return `请使用当前 ChatGPT 项目 Sources 中已连接 Google Drive 并保持同步的 Chris_Investing_Project_Instructions，严格按照其中规则分析我上传的最新 TradeMarker AI 快照。
 
 这是一次盘中快速更新，请优先阅读文件中的：
 - request
@@ -34,7 +34,7 @@ ${focusSymbols.length ? focusSymbols.join(', ') : '文件中的 focusSymbols'}
 JSON 必须严格符合项目中的 order-plan schema，并包含每个订单的 alerts。`
   }
 
-  return `请严格按照 Chris_Investing_Project_Instructions.txt 分析我上传的最新 TradeMarker AI 快照。
+  return `请使用当前 ChatGPT 项目 Sources 中已连接 Google Drive 并保持同步的 Chris_Investing_Project_Instructions，严格按照其中规则分析我上传的最新 TradeMarker AI 快照。
 
 请结合：
 - 全部当前持仓
