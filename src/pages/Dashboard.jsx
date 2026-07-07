@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import ConfirmDialog from '../components/ConfirmDialog'
 import IndicatorMenu from '../components/IndicatorMenu'
 import IntervalSelector from '../components/IntervalSelector'
 import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
@@ -29,6 +30,9 @@ const matchesSymbol = (orderSymbol, symbol) => {
 }
 const DENSITY_KEY = 'trademarker.displayDensity'
 const SELECTED_SYMBOL_KEY = 'trademarker.selectedSymbol'
+const OVERVIEW_COLLAPSED_KEY = 'trademarker.dashboardOverviewCollapsed'
+const DECISION_COLLAPSED_KEY = 'trademarker.decisionPanelCollapsed'
+const DECISION_WIDTH_KEY = 'trademarker.decisionPanelWidth'
 const presetGroupLabelKey = (id) => ({
   'long-core': 'groupLongCore',
   'long-satellite': 'groupLongSatellite',
@@ -40,6 +44,22 @@ const getSavedSelectedSymbol = () => {
     return normalizeSymbol(localStorage.getItem(SELECTED_SYMBOL_KEY) || '')
   } catch {
     return ''
+  }
+}
+const savedBoolean = (key, fallback = false) => {
+  try {
+    const value = localStorage.getItem(key)
+    return value == null ? fallback : value === 'true'
+  } catch {
+    return fallback
+  }
+}
+const savedNumber = (key, fallback) => {
+  try {
+    const value = Number(localStorage.getItem(key))
+    return Number.isFinite(value) ? value : fallback
+  } catch {
+    return fallback
   }
 }
 const eventMatchesSymbol = (event, symbol) => {
@@ -159,7 +179,7 @@ function ScoreRadar({ score, t }) {
   </div>
 }
 
-function DecisionPanel({ selected, score, position, orders, events, activeTab, setActiveTab, onShowOrders, onFocusEvent, onCollapse, t, language }) {
+function DecisionPanel({ selected, score, position, orders, events, activeTab, setActiveTab, onShowOrders, onFocusEvent, onCollapse, onResizeStart, t, language }) {
   const tabs = [
     ['AI', t('decisionAI')],
     ['Technical', t('decisionTechnical')],
@@ -176,6 +196,7 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
   }, [selected, buyOrders.length, sellOrders.length, watchOrders.length])
   const visibleScoreOrders = scoreOrderSide === 'SELL' ? sellOrders : scoreOrderSide === 'BUY' ? buyOrders : scoreOrderSide === 'WATCH' ? watchOrders : []
   return <aside className="decision-panel">
+    <button type="button" className="decision-resize-handle" aria-label={t('resizePanel')} onMouseDown={onResizeStart} />
     <div className="decision-tabs">{tabs.map(([key, label]) => <button key={key} className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>)}<button className="collapse-decision" onClick={onCollapse}>−</button></div>
     <div className="decision-score-card">
       <div><span>{t('aiComposite')}</span><strong>{selected || '—'} · {score.score}/100</strong><small>{score.score >= 70 ? t('highConvictionCandidate') : score.score >= 52 ? t('watchForConfirmation') : t('lowerPrioritySetup')}</small></div>
@@ -274,7 +295,11 @@ export default function Dashboard() {
   const [editingTrade, setEditingTrade] = useState(null)
   const [orders, setOrders] = useState([])
   const [eventsCalendar, setEventsCalendar] = useState(null)
-  const [eventsCollapsed, setEventsCollapsed] = useState(false)
+  const [eventsCollapsed, setEventsCollapsed] = useState(() => savedBoolean(DECISION_COLLAPSED_KEY, false))
+  const [decisionWidth, setDecisionWidth] = useState(() => savedNumber(DECISION_WIDTH_KEY, 320))
+  const [overviewCollapsed, setOverviewCollapsed] = useState(() => savedBoolean(OVERVIEW_COLLAPSED_KEY, false))
+  const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false)
+  const [confirmRemoveSymbol, setConfirmRemoveSymbol] = useState('')
   const [watchlistPickerOpen, setWatchlistPickerOpen] = useState(false)
   const [watchlistTargetGroup, setWatchlistTargetGroup] = useState('')
   const [focusedEventDate, setFocusedEventDate] = useState(null)
@@ -355,6 +380,9 @@ export default function Dashboard() {
     return () => window.removeEventListener('trademarker:data-imported', syncImportedData)
   }, [refresh, requestedSymbol, selected])
   useEffect(() => { localStorage.setItem(DENSITY_KEY, density) }, [density])
+  useEffect(() => { localStorage.setItem(OVERVIEW_COLLAPSED_KEY, String(overviewCollapsed)) }, [overviewCollapsed])
+  useEffect(() => { localStorage.setItem(DECISION_COLLAPSED_KEY, String(eventsCollapsed)) }, [eventsCollapsed])
+  useEffect(() => { localStorage.setItem(DECISION_WIDTH_KEY, String(decisionWidth)) }, [decisionWidth])
   useEffect(() => {
     loadOrderPlanFromGitHub('order-plan.json')
       .then((result) => {
@@ -480,16 +508,40 @@ export default function Dashboard() {
     setSelected(selected)
   }
   const remove = async (ticker) => {
-    if (confirm(t('removeWatchlistConfirm', { symbol: ticker }))) {
-      const next = removeSymbol(ticker)
-      setItems((current) => current.filter((item) => item.symbol !== ticker))
-      setSelected((current) => current === ticker ? next[0] || null : current)
+    setConfirmRemoveSymbol(ticker)
+  }
+  const confirmRemove = () => {
+    const ticker = confirmRemoveSymbol
+    if (!ticker) return
+    const next = removeSymbol(ticker)
+    setItems((current) => current.filter((item) => item.symbol !== ticker))
+    setSelected((current) => current === ticker ? next[0] || null : current)
+    setConfirmRemoveSymbol('')
+  }
+  const selectFromWatchlist = (symbol) => {
+    setSelected(symbol)
+    setWatchlistDrawerOpen(false)
+  }
+  const startDecisionResize = (event) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = decisionWidth
+    const move = (moveEvent) => {
+      const nextWidth = Math.max(280, Math.min(460, startWidth - (moveEvent.clientX - startX)))
+      setDecisionWidth(nextWidth)
     }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
   }
 
   return (
-    <section className={`market-workspace ${density === 'compact' ? 'compact-density' : ''}`}>
+    <section className={`market-workspace ${density === 'compact' ? 'compact-density' : ''} ${watchlistDrawerOpen ? 'watchlist-drawer-open' : ''}`} style={{ '--decision-panel-width': `${decisionWidth}px` }}>
       <div className="workspace-toolbar">
+        <button type="button" className="toolbar-button mobile-watchlist-toggle" onClick={() => setWatchlistDrawerOpen(true)}>{t('openWatchlist')}</button>
         <SymbolSearch onSelect={openSelectedSymbol} />
         <div className="workspace-status">
           <span className="market-status-pill"><i className={`status-dot ${loading ? 'loading-dot' : marketError ? 'error-dot' : ''}`} />{updated ? <><strong>{getMarketDataProviderName()}</strong><em>{t('refreshed')} {updated.toLocaleTimeString()}</em></> : t('loadingReferenceData')}</span>
@@ -497,17 +549,27 @@ export default function Dashboard() {
           <button className="toolbar-button refresh-button" onClick={() => refresh()} disabled={loading}>↻ {t('refresh')}</button>
         </div>
       </div>
-      <WorkspaceKpiStrip items={items} loading={loading} updated={updated} orders={orders} eventsCalendar={eventsCalendar} t={t} />
-      {orders.length ? <div className="today-focus-strip">
-        <span>{t('todayFocus')}</span>
-        <strong>{t('stocksWithOrders', { count: plannedWatchlistCount || orderSymbols.length })}</strong>
-        <em>{selectedOrderFocus}</em>
-        {selectedOrders.length ? <button onClick={() => setShowOrders(true)}>{t('orderSuggestions')}</button> : null}
-      </div> : null}
-      <div className="workflow-strip">{workflowItems.map((item) => <span className={item.tone} key={item.key}>{item.label}<strong>{item.value}</strong></span>)}</div>
+      <div className={`dashboard-overview ${overviewCollapsed ? 'collapsed' : ''}`}>
+        <button type="button" className="overview-toggle" onClick={() => setOverviewCollapsed((current) => !current)}>{overviewCollapsed ? t('showOverview') : t('hideOverview')}</button>
+        {!overviewCollapsed ? <>
+          <WorkspaceKpiStrip items={items} loading={loading} updated={updated} orders={orders} eventsCalendar={eventsCalendar} t={t} />
+          {orders.length ? <div className="today-focus-strip">
+            <span>{t('todayFocus')}</span>
+            <strong>{t('stocksWithOrders', { count: plannedWatchlistCount || orderSymbols.length })}</strong>
+            <em>{selectedOrderFocus}</em>
+            {selectedOrders.length ? <button onClick={() => setShowOrders(true)}>{t('orderSuggestions')}</button> : null}
+          </div> : null}
+          <div className="workflow-strip">{workflowItems.map((item) => <span className={item.tone} key={item.key}>{item.label}<strong>{item.value}</strong></span>)}</div>
+        </> : <div className="overview-collapsed-line">
+          <strong>{loading ? t('kpiScanning') : t('kpiReady')}</strong>
+          <span>{t('stocksWithOrders', { count: plannedWatchlistCount || orderSymbols.length })}</span>
+          <em>{selectedOrderFocus}</em>
+        </div>}
+      </div>
 
       <div className="workspace-body">
-        <WatchlistSidebar items={items} selected={selected} onSelect={setSelected} onRemove={remove} orderSymbols={orderSymbols} orderPlans={orders} sparklines={{ ...sparklineCache, ...intradayCache }} />
+        <button type="button" className="watchlist-drawer-backdrop" onClick={() => setWatchlistDrawerOpen(false)} aria-label={t('closeWatchlist')} />
+        <WatchlistSidebar items={items} selected={selected} onSelect={selectFromWatchlist} onRemove={remove} orderSymbols={orderSymbols} orderPlans={orders} sparklines={{ ...sparklineCache, ...intradayCache }} />
         <div className="market-main">
           {!selectedItem ? (
             <div className="workspace-empty">
@@ -576,7 +638,7 @@ export default function Dashboard() {
                   </div>
                   {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} orderPlans={selectedOrders} eventDates={selectedEventDates} focusDate={focusedEventDate} />}
                 </div>
-                {eventsCollapsed ? <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed(false)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setEventsCollapsed(true)} t={t} language={language} />}
+                {eventsCollapsed ? <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed(false)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setEventsCollapsed(true)} onResizeStart={startDecisionResize} t={t} language={language} />}
               </div>
 
               <div className="position-ribbon">
@@ -625,6 +687,15 @@ export default function Dashboard() {
           <div className="modal-body order-plan-list">{selectedOrders.map((order) => <OrderPlanCard order={order} key={order.id} />)}</div>
         </div>
       </div>}
+      {confirmRemoveSymbol ? <ConfirmDialog
+        title={t('removeWatchlistTitle')}
+        message={t('removeWatchlistConfirm', { symbol: confirmRemoveSymbol })}
+        confirmLabel={t('remove')}
+        cancelLabel={t('cancel')}
+        danger
+        onCancel={() => setConfirmRemoveSymbol('')}
+        onConfirm={confirmRemove}
+      /> : null}
     </section>
   )
 }

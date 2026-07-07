@@ -103,12 +103,12 @@ function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitments
           const checked = committedKeys.has(orderCommitmentKey(order))
           const commitment = commitmentsByKey.get(orderCommitmentKey(order))
           return <tr className={`${orderTone(order)} ${checked ? 'committed' : ''}`} key={order.id || `${order.symbol}-${index}`}>
-            <td><label className="order-commit-checkbox"><input type="checkbox" checked={checked} onChange={() => onToggleCommitment(order)} aria-label={t('orderPlacedFor', { symbol: order.symbol || index + 1 })} /><span /></label></td>
-            <td>{index + 1}</td>
-            <td><strong>{order.symbol ? <SymbolLink symbol={order.symbol} className="order-summary-symbol" /> : '—'}</strong></td>
-            <td>{compactText(current, 150)}</td>
-            <td><strong>{compactText(suggestion, 120)}</strong></td>
-            <td><div className="order-lifecycle-cell"><span>{plannedOrder}</span>{checked && commitment ? <><select value={commitment.lifecycleStatus || 'PLACED'} onChange={(event) => onStatusChange(commitment.id, event.target.value)}>{ORDER_LIFECYCLE_STATUSES.map((status) => <option key={status} value={status}>{t(`orderStatus${status}`)}</option>)}</select>{['BUY', 'SELL'].includes(commitment.side) && ['PARTIAL', 'FILLED'].includes(commitment.lifecycleStatus || 'PLACED') ? <button type="button" className="secondary record-fill-button" onClick={() => onRecordFill(commitment)}>{t('recordFill')}</button> : null}</> : null}</div></td>
+            <td data-label={t('orderPlaced')}><label className="order-commit-checkbox"><input type="checkbox" checked={checked} onChange={() => onToggleCommitment(order)} aria-label={t('orderPlacedFor', { symbol: order.symbol || index + 1 })} /><span /></label></td>
+            <td data-label={t('priority')}>{index + 1}</td>
+            <td data-label={t('orderSymbol')}><strong>{order.symbol ? <SymbolLink symbol={order.symbol} className="order-summary-symbol" /> : '—'}</strong></td>
+            <td data-label={t('currentSituation')}>{compactText(current, 150)}</td>
+            <td data-label={t('suggestion')}><strong>{compactText(suggestion, 120)}</strong></td>
+            <td data-label={t('plannedOrder')}><div className="order-lifecycle-cell"><span>{plannedOrder}</span>{checked && commitment ? <><select value={commitment.lifecycleStatus || 'PLACED'} onChange={(event) => onStatusChange(commitment.id, event.target.value)}>{ORDER_LIFECYCLE_STATUSES.map((status) => <option key={status} value={status}>{t(`orderStatus${status}`)}</option>)}</select>{['BUY', 'SELL'].includes(commitment.side) && ['PARTIAL', 'FILLED'].includes(commitment.lifecycleStatus || 'PLACED') ? <button type="button" className="secondary record-fill-button" onClick={() => onRecordFill(commitment)}>{t('recordFill')}</button> : null}</> : null}</div></td>
           </tr>
         })}</tbody>
       </table>
