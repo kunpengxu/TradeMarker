@@ -240,13 +240,13 @@ export default function Settings() {
     if (getAuthToken()) {
       try {
         await saveSettingsToAccount()
-        setMessage('ChatGPT project URL saved locally and to your signed-in account.')
+        setMessage(t('chatGptProjectUrlSaved'))
       } catch (error) {
-        setMessage(`ChatGPT project URL saved locally, but account sync failed: ${error.message}`)
+        setMessage(t('chatGptProjectUrlAccountSyncFailed', { message: error.message }))
       }
       return
     }
-    setMessage('ChatGPT project URL saved locally.')
+    setMessage(t('chatGptProjectUrlSavedLocal'))
   }
   const saveGitHubSettings = async (event) => {
     event.preventDefault()
@@ -375,9 +375,9 @@ export default function Settings() {
         <label>Marketaux news API key<input type="password" value={marketauxApiKey} onChange={(event) => setMarketauxApiKey(event.target.value)} placeholder="Optional news API key for Events" autoComplete="off" /></label>
         <p><a href="https://www.marketaux.com/" target="_blank" rel="noreferrer">Get a free Marketaux key</a>. TradeMarker uses it only for stock news/events, not prices.</p>
         <small>Keys stay in this browser and are excluded from exported backups. Because this is a frontend-only app, use personal restricted keys.</small><button type="submit">Save market data settings</button></form>
-        <form className="panel api-key-panel" onSubmit={saveChatGptSettings}><h2>ChatGPT Pro project</h2><p>Optional shortcut for the AI analysis package workflow. TradeMarker only opens the link; it does not upload files or send messages to ChatGPT.</p>
-          <label>ChatGPT project URL<input value={chatGptProjectUrl} onChange={(event) => setChatGptProjectUrl(event.target.value)} placeholder="Paste your Chris Investing ChatGPT project URL" autoComplete="off" /></label>
-          <button type="submit">Save ChatGPT project URL</button>
+        <form className="panel api-key-panel" onSubmit={saveChatGptSettings}><h2>{t('chatGptProjectSettingsTitle')}</h2><p>{t('chatGptProjectSettingsText')}</p>
+          <label>{t('chatGptProjectUrl')}<input value={chatGptProjectUrl} onChange={(event) => setChatGptProjectUrl(event.target.value)} placeholder={t('chatGptProjectUrlPlaceholder')} autoComplete="off" /></label>
+          <button type="submit">{t('saveChatGptProjectUrl')}</button>
         </form>
         <form className="panel api-key-panel" onSubmit={saveGitHubSettings}><h2>GitHub automatic backup</h2><p>Keep this app repository public for GitHub Pages, and save private journal data to a separate private repository such as TradeMarkerData.</p>
           <div className="form-row"><label>Owner<input value={githubOwner} onChange={(event) => setGithubOwner(event.target.value)} required /></label><label>Repository<input value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} required /></label></div>

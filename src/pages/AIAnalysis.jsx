@@ -36,6 +36,7 @@ export default function AIAnalysis() {
     <AiAnalysisPackagePanel />
     {message && <p className="notice">{message}</p>}
     <div className="panel ai-context-panel">
+      <div className="panel-head"><div><h2>{t('legacyContextTitle')}</h2><p>{t('legacyContextSubtitle')}</p></div></div>
       <div className="ai-control-grid">
         <label>{t('symbol')}<select value={symbol} onChange={(event) => setSymbol(event.target.value)}><option value="all">{t('allSymbols')}</option>{symbols.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
         <label>{t('watchlist')}<select value={groupId} onChange={(event) => setGroupId(event.target.value)}><option value="all">{t('allStocks')}</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
