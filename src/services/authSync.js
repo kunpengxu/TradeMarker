@@ -69,6 +69,7 @@ export async function saveSettingsToAccount() {
     githubBranch: settings.githubBranch,
     githubDataPath: settings.githubDataPath,
     githubToken: settings.githubToken,
+    chatGptProjectUrl: settings.chatGptProjectUrl,
   }
   return authFetch('/settings', { method: 'PUT', body: JSON.stringify({ settings: syncedSettings }) })
 }

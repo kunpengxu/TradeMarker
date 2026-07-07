@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import AiAnalysisPackagePanel from '../components/AiAnalysisPackagePanel'
 import { buildAIAnalysisContext, buildAIAnalysisPrompt, copyAIAnalysisContext } from '../services/aiContext'
 import { getTrades, getWatchlist, getWatchlistGroups } from '../services/storage'
 import { useI18n } from '../i18n'
@@ -32,6 +33,7 @@ export default function AIAnalysis() {
   }
 
   return <section><div className="page-head"><div><p className="eyebrow">{t('aiEyebrow')}</p><h1>{t('aiTitle')}</h1><p>{t('aiSubtitle')}</p></div></div>
+    <AiAnalysisPackagePanel />
     {message && <p className="notice">{message}</p>}
     <div className="panel ai-context-panel">
       <div className="ai-control-grid">

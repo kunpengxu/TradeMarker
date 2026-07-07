@@ -33,6 +33,7 @@ export default function Settings() {
   const [githubDataPath, setGithubDataPath] = useState(() => settings.githubDataPath ?? 'data/trademarker.json')
   const [githubToken, setGithubToken] = useState(() => settings.githubToken || '')
   const [authWorkerUrl, setAuthWorkerUrl] = useState(() => settings.authWorkerUrl ?? getAuthWorkerUrl())
+  const [chatGptProjectUrl, setChatGptProjectUrl] = useState(() => settings.chatGptProjectUrl || '')
   const [authUser, setAuthUser] = useState(null)
   const [isAuthBusy, setIsAuthBusy] = useState(false)
   const [syncHistory, setSyncHistory] = useState(() => getSyncHistory())
@@ -61,6 +62,7 @@ export default function Settings() {
     setGithubDataPath(settings.githubDataPath ?? 'data/trademarker.json')
     setGithubToken(settings.githubToken || '')
     setAuthWorkerUrl(settings.authWorkerUrl ?? getAuthWorkerUrl())
+    setChatGptProjectUrl(settings.chatGptProjectUrl || '')
   }
 
   useEffect(() => {
@@ -203,6 +205,7 @@ export default function Settings() {
       githubDataPath: '',
       githubToken: '',
       authWorkerUrl: '',
+      chatGptProjectUrl: '',
     })
     setProvider('yahoo')
     setFmpApiKey('')
@@ -215,6 +218,7 @@ export default function Settings() {
     setGithubDataPath('')
     setGithubToken('')
     setAuthWorkerUrl('')
+    setChatGptProjectUrl('')
     setMessage('Settings form fields cleared in this browser. Your journal data was not deleted.')
   }
   const saveMarketData = (event) => {
@@ -230,9 +234,23 @@ export default function Settings() {
     })
     setMessage(`${provider === 'yahoo' ? 'Yahoo Finance' : provider === 'fmp' ? 'Financial Modeling Prep' : 'Twelve Data'} selected as the market data provider.`)
   }
+  const saveChatGptSettings = async (event) => {
+    event.preventDefault()
+    saveSettings({ ...getSettings(), chatGptProjectUrl: chatGptProjectUrl.trim() })
+    if (getAuthToken()) {
+      try {
+        await saveSettingsToAccount()
+        setMessage('ChatGPT project URL saved locally and to your signed-in account.')
+      } catch (error) {
+        setMessage(`ChatGPT project URL saved locally, but account sync failed: ${error.message}`)
+      }
+      return
+    }
+    setMessage('ChatGPT project URL saved locally.')
+  }
   const saveGitHubSettings = async (event) => {
     event.preventDefault()
-    saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim() })
+    saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim(), chatGptProjectUrl: chatGptProjectUrl.trim() })
     if (getAuthToken()) {
       try {
         await saveSettingsToAccount()
@@ -261,7 +279,7 @@ export default function Settings() {
     try {
       setIsAuthBusy(true)
       saveMarketData({ preventDefault() {} })
-      saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim(), authWorkerUrl: authWorkerUrl.trim() })
+      saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim(), authWorkerUrl: authWorkerUrl.trim(), chatGptProjectUrl: chatGptProjectUrl.trim() })
       await saveSettingsToAccount()
       setMessage('Saved API keys and GitHub sync settings to your signed-in account.')
     } catch (error) {
@@ -357,6 +375,10 @@ export default function Settings() {
         <label>Marketaux news API key<input type="password" value={marketauxApiKey} onChange={(event) => setMarketauxApiKey(event.target.value)} placeholder="Optional news API key for Events" autoComplete="off" /></label>
         <p><a href="https://www.marketaux.com/" target="_blank" rel="noreferrer">Get a free Marketaux key</a>. TradeMarker uses it only for stock news/events, not prices.</p>
         <small>Keys stay in this browser and are excluded from exported backups. Because this is a frontend-only app, use personal restricted keys.</small><button type="submit">Save market data settings</button></form>
+        <form className="panel api-key-panel" onSubmit={saveChatGptSettings}><h2>ChatGPT Pro project</h2><p>Optional shortcut for the AI analysis package workflow. TradeMarker only opens the link; it does not upload files or send messages to ChatGPT.</p>
+          <label>ChatGPT project URL<input value={chatGptProjectUrl} onChange={(event) => setChatGptProjectUrl(event.target.value)} placeholder="Paste your Chris Investing ChatGPT project URL" autoComplete="off" /></label>
+          <button type="submit">Save ChatGPT project URL</button>
+        </form>
         <form className="panel api-key-panel" onSubmit={saveGitHubSettings}><h2>GitHub automatic backup</h2><p>Keep this app repository public for GitHub Pages, and save private journal data to a separate private repository such as TradeMarkerData.</p>
           <div className="form-row"><label>Owner<input value={githubOwner} onChange={(event) => setGithubOwner(event.target.value)} required /></label><label>Repository<input value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} required /></label></div>
           <div className="form-row"><label>Branch<input value={githubBranch} onChange={(event) => setGithubBranch(event.target.value)} required /></label><label>JSON file path<input value={githubDataPath} onChange={(event) => setGithubDataPath(event.target.value)} required /></label></div>
