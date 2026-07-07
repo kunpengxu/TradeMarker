@@ -145,6 +145,12 @@ export async function saveEventsCalendarToGitHub(events) {
   return saveJsonFile(path, events, 'Update TradeMarker events calendar')
 }
 
+export async function saveOrderPlanToGitHub(orderPlan) {
+  const settings = config()
+  const path = siblingPath(settings.path, 'order-plan.json')
+  return saveJsonFile(path, orderPlan, 'Update TradeMarker order plan')
+}
+
 export async function loadEventsCalendarFromGitHub() {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const settings = config()

@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { buildAiSnapshot } from '../services/aiSnapshotBuilder'
 import { DEFAULT_QUICK_FOCUS_SYMBOLS } from '../services/aiPromptBuilder'
 import { analysisPackageFilenames, byteSize, copyText, downloadJsonFile, downloadTextFile } from '../services/fileDownload'
+import { saveOrderPlanToGitHub } from '../services/githubSync'
+import { normalizeOrderPlan } from '../services/orderPlan'
 import { getSettings } from '../services/storage'
 import { useI18n } from '../i18n'
 
@@ -14,6 +16,7 @@ const formatBytes = (bytes) => {
 
 export default function AiAnalysisPackagePanel() {
   const { language, t } = useI18n()
+  const orderPlanFileRef = useRef()
   const [mode, setMode] = useState('QUICK')
   const [focusInput, setFocusInput] = useState(DEFAULT_QUICK_FOCUS_SYMBOLS.join(', '))
   const [moveThreshold, setMoveThreshold] = useState(5)
@@ -112,6 +115,29 @@ export default function AiAnalysisPackagePanel() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  const uploadOrderPlan = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setLoading(true)
+    setMessage(t('uploadingOrderPlan'))
+    try {
+      const data = JSON.parse(await file.text())
+      const normalized = normalizeOrderPlan(data)
+      if (!normalized.orders.length) throw new Error(t('uploadOrderPlanInvalid'))
+      const result = await saveOrderPlanToGitHub(data)
+      if (result.status === 'disabled') {
+        setMessage(t('uploadOrderPlanDisabled'))
+        return
+      }
+      setMessage(t('uploadOrderPlanSuccess', { path: result.path || 'data/order-plan.json', count: normalized.orders.length }))
+    } catch (error) {
+      setMessage(error.message === t('uploadOrderPlanInvalid') ? error.message : t('uploadOrderPlanFailed', { message: error.message }))
+    } finally {
+      setLoading(false)
+      event.target.value = ''
+    }
+  }
+
   return <div className="panel ai-package-panel">
     <div className="panel-head">
       <div>
@@ -154,6 +180,8 @@ export default function AiAnalysisPackagePanel() {
       <button type="button" className="secondary" disabled={loading || !prompt} onClick={copyPrompt}>{t('copyChatGptPrompt')}</button>
       <button type="button" className="secondary" disabled={loading} onClick={openChatGptProject}>{t('openChatGptProject')}</button>
       <button type="button" disabled={loading || !snapshot} onClick={() => downloadCurrent()}>{t('downloadChatGptPackage')}</button>
+      <button type="button" className="secondary" disabled={loading} onClick={() => orderPlanFileRef.current?.click()}>{t('uploadGptOrderPlan')}</button>
+      <input ref={orderPlanFileRef} hidden type="file" accept="application/json,.json" onChange={uploadOrderPlan} />
     </div>
     {downloadedAt ? <small className="ai-package-meta">{t('lastDownload')}: {downloadedAt.toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US')}</small> : null}
     {manualPrompt ? <textarea className="manual-prompt-box" readOnly value={manualPrompt} /> : null}
