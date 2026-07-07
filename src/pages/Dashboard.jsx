@@ -14,7 +14,7 @@ import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition, calculateRealizedPLByTrade } from '../services/positionCalculator'
-import { addSymbol, applyPresetWatchlistGroupsOnce, calculateReservedCashByCurrency, deleteTrade, getCashBalances, getOrderCommitments, getTrades, getWatchlist, migrateCdrSymbolsToTorontoOnce, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
+import { addSymbolToGroup, applyPresetWatchlistGroupsOnce, calculateReservedCashByCurrency, deleteTrade, getCashBalances, getOrderCommitments, getTrades, getWatchlist, getWatchlistGroups, migrateCdrSymbolsToTorontoOnce, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { dateTime, money, number, percent, valueClass } from '../utils/formatters'
 import { useChartIndicators } from '../hooks/useChartIndicators'
 import { useI18n } from '../i18n'
@@ -29,6 +29,12 @@ const matchesSymbol = (orderSymbol, symbol) => {
 }
 const DENSITY_KEY = 'trademarker.displayDensity'
 const SELECTED_SYMBOL_KEY = 'trademarker.selectedSymbol'
+const presetGroupLabelKey = (id) => ({
+  'long-core': 'groupLongCore',
+  'long-satellite': 'groupLongSatellite',
+  swing: 'groupSwing',
+  'leveraged-swing': 'groupLeveragedSwing',
+})[id]
 const getSavedSelectedSymbol = () => {
   try {
     return normalizeSymbol(localStorage.getItem(SELECTED_SYMBOL_KEY) || '')
@@ -269,6 +275,8 @@ export default function Dashboard() {
   const [orders, setOrders] = useState([])
   const [eventsCalendar, setEventsCalendar] = useState(null)
   const [eventsCollapsed, setEventsCollapsed] = useState(false)
+  const [watchlistPickerOpen, setWatchlistPickerOpen] = useState(false)
+  const [watchlistTargetGroup, setWatchlistTargetGroup] = useState('')
   const [focusedEventDate, setFocusedEventDate] = useState(null)
   const [showOrders, setShowOrders] = useState(false)
   const [analysisTab, setAnalysisTab] = useState('AI')
@@ -395,6 +403,11 @@ export default function Dashboard() {
 
   const selectedItem = items.find((item) => item.symbol === selected)
   const selectedInWatchlist = selected ? getWatchlist().includes(selected) : false
+  const watchlistGroups = useMemo(() => getWatchlistGroups(), [items, watchlistPickerOpen])
+  const groupLabel = (group) => {
+    const key = presetGroupLabelKey(group.id)
+    return key ? t(key) : group.name
+  }
   const selectedOrders = useMemo(() => orders.filter((order) => matchesSymbol(order.symbol, selected)), [orders, selected])
   const selectedEvents = useMemo(() => (eventsCalendar?.symbolEvents || [])
     .filter((event) => eventMatchesSymbol(event, selected))
@@ -454,7 +467,14 @@ export default function Dashboard() {
       setItems((current) => [...current])
       return
     }
-    addSymbol(selected)
+    const groups = getWatchlistGroups()
+    setWatchlistTargetGroup(groups[0]?.id || 'default')
+    setWatchlistPickerOpen(true)
+  }
+  const addSelectedToWatchlistGroup = async () => {
+    if (!selected) return
+    addSymbolToGroup(selected, watchlistTargetGroup || getWatchlistGroups()[0]?.id)
+    setWatchlistPickerOpen(false)
     if (selectedItem) setItems((current) => [...current])
     else await refresh([selected], false)
     setSelected(selected)
@@ -582,6 +602,23 @@ export default function Dashboard() {
         <button className="sell-button" onClick={() => setTradeSide('SELL')}>S {t('recordSell')}</button>
         <button className="secondary" onClick={() => selectedOrders.length && setShowOrders(true)} disabled={!selectedOrders.length}>{t('orderSuggestions')} {selectedOrders.length || ''}</button>
       </div> : null}
+      {watchlistPickerOpen && <div className="modal-backdrop" onMouseDown={() => setWatchlistPickerOpen(false)}>
+        <div className="modal add-watchlist-modal" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="modal-head"><h2>{t('chooseWatchlistGroup')}</h2><button type="button" className="icon-button" onClick={() => setWatchlistPickerOpen(false)}>×</button></div>
+          <div className="modal-body add-watchlist-body">
+            <p>{t('chooseWatchlistGroupHint', { symbol: selected })}</p>
+            <label>{t('watchlistGroup')}
+              <select value={watchlistTargetGroup || watchlistGroups[0]?.id || ''} onChange={(event) => setWatchlistTargetGroup(event.target.value)}>
+                {watchlistGroups.map((group) => <option key={group.id} value={group.id}>{groupLabel(group)}</option>)}
+              </select>
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={() => setWatchlistPickerOpen(false)}>{t('cancel')}</button>
+              <button type="button" onClick={addSelectedToWatchlistGroup}>{t('addToSelectedGroup')}</button>
+            </div>
+          </div>
+        </div>
+      </div>}
       {showOrders && <div className="modal-backdrop" onMouseDown={() => setShowOrders(false)}>
         <div className="modal order-plan-modal" onMouseDown={(event) => event.stopPropagation()}>
           <div className="modal-head"><h2>{t('orderSuggestionsFor', { symbol: selected })}</h2><button type="button" className="icon-button" onClick={() => setShowOrders(false)}>×</button></div>

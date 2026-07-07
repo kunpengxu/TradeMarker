@@ -151,6 +151,19 @@ export const addSymbol = (symbol) => {
   saveWatchlist(next)
   return next
 }
+export const addSymbolToGroup = (symbol, groupId) => {
+  const clean = normalizeSymbol(symbol)
+  if (!clean) return getWatchlist()
+  const nextWatchlist = [...new Set([...getWatchlist(), clean])]
+  write(KEYS.watchlist, nextWatchlist, false)
+  const storedGroups = read(KEYS.watchlistGroups, [])
+  const groups = storedGroups.length ? storedGroups : [{ id: 'default', name: 'Watchlist', symbols: [] }]
+  const nextGroups = groups.map((group) => ({ ...group, symbols: group.symbols.filter((item) => normalizeSymbol(item) !== clean) }))
+  const target = nextGroups.find((group) => group.id === groupId) || nextGroups[0]
+  target.symbols = [...new Set([...target.symbols, clean])]
+  saveWatchlistGroups(nextGroups)
+  return nextWatchlist
+}
 export const removeSymbol = (symbol) => {
   const clean = normalizeSymbol(symbol)
   const next = getWatchlist().filter((item) => item !== clean)
