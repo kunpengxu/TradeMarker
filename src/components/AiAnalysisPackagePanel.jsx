@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildAiSnapshot } from '../services/aiSnapshotBuilder'
 import { DEFAULT_QUICK_FOCUS_SYMBOLS } from '../services/aiPromptBuilder'
 import { analysisPackageFilenames, byteSize, copyText, downloadJsonFile, downloadTextFile } from '../services/fileDownload'
@@ -14,11 +14,22 @@ const formatBytes = (bytes) => {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
+const FOCUS_SYMBOLS_KEY = 'trademarker.aiPackage.focusSymbols'
+
+const savedFocusSymbols = () => {
+  try {
+    const saved = localStorage.getItem(FOCUS_SYMBOLS_KEY)
+    return saved == null ? DEFAULT_QUICK_FOCUS_SYMBOLS.join(', ') : saved
+  } catch {
+    return DEFAULT_QUICK_FOCUS_SYMBOLS.join(', ')
+  }
+}
+
 export default function AiAnalysisPackagePanel() {
   const { language, t } = useI18n()
   const orderPlanFileRef = useRef()
   const [mode, setMode] = useState('QUICK')
-  const [focusInput, setFocusInput] = useState(DEFAULT_QUICK_FOCUS_SYMBOLS.join(', '))
+  const [focusInput, setFocusInput] = useState(savedFocusSymbols)
   const [moveThreshold, setMoveThreshold] = useState(5)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -45,6 +56,14 @@ export default function AiAnalysisPackagePanel() {
       usdCash: snapshot.account?.cash?.find((row) => row.currency === 'USD'),
     }
   }, [snapshot])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FOCUS_SYMBOLS_KEY, focusInput)
+    } catch {
+      // Ignore storage failures; the generator can still work for this session.
+    }
+  }, [focusInput])
 
   const focusSymbols = () => focusInput.split(/[,\s，、]+/).map((item) => item.trim().toUpperCase()).filter(Boolean)
 
