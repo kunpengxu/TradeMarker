@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import ConfirmDialog from '../components/ConfirmDialog'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import { calculateRealizedPLByTrade } from '../services/positionCalculator'
@@ -14,7 +13,6 @@ export default function TradeLogPage() {
   const [sideFilter, setSideFilter] = useState('all')
   const [symbolFilter, setSymbolFilter] = useState('all')
   const [groupFilter, setGroupFilter] = useState('all')
-  const [deleteTradeId, setDeleteTradeId] = useState('')
   useEffect(() => {
     const syncTrades = () => setTrades(getTrades())
     window.addEventListener('trademarker:data-imported', syncTrades)
@@ -50,24 +48,13 @@ export default function TradeLogPage() {
     [t('soldPL'), realizedDisplay, realizedClass],
     [t('notedTrades'), filteredTrades.filter((trade) => trade.note).length],
   ]
-  return <>
-    <section><div className="page-head"><div><p className="eyebrow">{t('allSymbols')}</p><h1>{t('tradeLogTitle')}</h1><p>{t('tradeLogSubtitle')}</p></div></div>
+  return <section><div className="page-head"><div><p className="eyebrow">{t('allSymbols')}</p><h1>{t('tradeLogTitle')}</h1><p>{t('tradeLogSubtitle')}</p></div></div>
     <div className="trade-log-summary">{tradeStats.map(([label, value, className]) => <span key={label}>{label}<strong className={className || ''}>{value}</strong></span>)}</div>
     <div className="panel trade-log-filters">
       <label>{t('side')}<select value={sideFilter} onChange={(event) => setSideFilter(event.target.value)}><option value="all">{t('allTrades')}</option><option value="executed">{t('executedTrades')}</option><option value="BUY">{t('buyTrades')}</option><option value="SELL">{t('sellTrades')}</option><option value="ORDER">{t('placedOrders')}</option></select></label>
       <label>{t('symbol')}<select value={symbolFilter} onChange={(event) => setSymbolFilter(event.target.value)}><option value="all">{t('allSymbols')}</option>{symbols.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}</select></label>
       <label>{t('watchlist')}<select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}><option value="all">{t('allStocks')}</option>{groups.map((group) => <option value={group.id} key={group.id}>{t(group.id === 'long-core' ? 'groupLongCore' : group.id === 'long-satellite' ? 'groupLongSatellite' : group.id === 'swing' ? 'groupSwing' : group.id === 'leveraged-swing' ? 'groupLeveragedSwing' : 'customGroup')}</option>)}</select></label>
     </div>
-    <div className="panel trade-log-panel"><TradeLog trades={filteredTrades} showSymbol onEdit={setEditingTrade} onDelete={setDeleteTradeId} /></div>
+    <div className="panel trade-log-panel"><TradeLog trades={filteredTrades} showSymbol onEdit={setEditingTrade} onDelete={(id) => { deleteTrade(id); setTrades(getTrades()) }} /></div>
     {editingTrade && <TradeModal side={editingTrade.side} symbol={editingTrade.symbol} defaultPrice={editingTrade.price} initialTrade={editingTrade} onClose={() => setEditingTrade(null)} onSave={(trade) => { updateTrade(trade); setTrades(getTrades()); setEditingTrade(null) }} />}</section>
-    {deleteTradeId ? <ConfirmDialog
-      title={t('deleteTradeTitle')}
-      message={t('deleteTradeConfirm')}
-      confirmLabel={t('delete')}
-      cancelLabel={t('cancel')}
-      danger
-      onCancel={() => setDeleteTradeId('')}
-      onConfirm={() => { deleteTrade(deleteTradeId); setTrades(getTrades()); setDeleteTradeId('') }}
-    /> : null}
-  </>
 }

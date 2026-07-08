@@ -33,14 +33,14 @@ export default function TradeLog({ trades, onDelete, onEdit, showSymbol = false,
         const soldPL = trade.side === 'SELL' ? realizedPL.get(trade.id) : null
         const tradeDate = formatTradeDate(trade.date)
         return <tr className={`trade-row ${trade.side.toLowerCase()} ${soldPL == null ? '' : soldPL >= 0 ? 'positive' : 'negative'}`} key={trade.id}>
-          {showSymbol && <td data-label={t('symbol')}><strong><SymbolLink symbol={trade.symbol} /></strong></td>}
-          <td data-label={t('side')}><span className={`side ${trade.side.toLowerCase()}`}>{sideLabel(trade, t)}</span></td>
-          <td data-label={t('price')}>{money(trade.price, trade.currency || currency)}</td>
-          <td data-label={t('shares')}>{number(trade.shares, 4)}</td>
-          <td data-label={t('soldPL')} className={soldPL == null ? '' : soldPL >= 0 ? 'positive' : 'negative'}>{soldPL == null ? '—' : <strong>{money(soldPL, trade.currency || currency)}</strong>}</td>
-          <td data-label={t('date')}><span className="trade-date"><strong>{tradeDate.date}</strong><small>{tradeDate.time || dateTime(trade.date)}</small></span></td>
-          <td data-label={t('note')}>{trade.note ? <span className="trade-note-chip">{compactNote(trade.note)}</span> : <span className="muted-dash">—</span>}</td>
-          <td data-label=""><div className="row-actions">{onEdit && !trade.orderCommitmentId && <button className="text-button" onClick={() => onEdit(trade)}>{t('edit')}</button>}<button className="text-button danger" onClick={() => onDelete(trade.id)}>{t('delete')}</button></div></td>
+          {showSymbol && <td><strong><SymbolLink symbol={trade.symbol} /></strong></td>}
+          <td><span className={`side ${trade.side.toLowerCase()}`}>{sideLabel(trade, t)}</span></td>
+          <td>{money(trade.price, trade.currency || currency)}</td>
+          <td>{number(trade.shares, 4)}</td>
+          <td className={soldPL == null ? '' : soldPL >= 0 ? 'positive' : 'negative'}>{soldPL == null ? '—' : <strong>{money(soldPL, trade.currency || currency)}</strong>}</td>
+          <td><span className="trade-date"><strong>{tradeDate.date}</strong><small>{tradeDate.time || dateTime(trade.date)}</small></span></td>
+          <td>{trade.note ? <span className="trade-note-chip">{compactNote(trade.note)}</span> : <span className="muted-dash">—</span>}</td>
+          <td><div className="row-actions">{onEdit && !trade.orderCommitmentId && <button className="text-button" onClick={() => onEdit(trade)}>{t('edit')}</button>}<button className="text-button danger" onClick={() => onDelete(trade.id)}>{t('delete')}</button></div></td>
         </tr>
       })}</tbody>
     </table></div>
