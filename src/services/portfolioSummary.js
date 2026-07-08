@@ -20,8 +20,23 @@ const totalByCurrency = (positions) => positions.reduce((result, position) => {
 
 export function createPortfolioSummary(positions, { trades = getTrades(), orderCommitments = getOrderCommitments() } = {}) {
   const totals = totalByCurrency(positions)
-  const currencies = Object.keys(totals)
   const tradingStats = calculateTradingStatistics(positions, trades)
+  const realizedCurrencies = new Set([
+    ...Object.keys(tradingStats.realizedByCurrency || {}),
+    ...Object.keys(tradingStats.realizedCostBasisByCurrency || {}),
+  ])
+  realizedCurrencies.forEach((currency) => {
+    totals[currency] ||= { currency, cost: 0, value: 0, pl: 0 }
+  })
+  Object.values(totals).forEach((total) => {
+    total.realizedPL = tradingStats.realizedByCurrency?.[total.currency] || 0
+    total.realizedCostBasis = tradingStats.realizedCostBasisByCurrency?.[total.currency] || 0
+    total.realizedProceeds = tradingStats.realizedProceedsByCurrency?.[total.currency] || 0
+    total.totalPL = total.pl + total.realizedPL
+    const totalCostBase = total.cost + total.realizedCostBasis
+    total.totalPLPercent = totalCostBase ? (total.totalPL / totalCostBase) * 100 : 0
+  })
+  const currencies = Object.keys(totals)
   const cashBalances = getCashBalances()
   const cashByCurrency = Object.fromEntries(cashBalances.map((balance) => [balance.currency, balance.amount]))
   const reservedCashByCurrency = calculateReservedCashByCurrency(orderCommitments)
@@ -55,6 +70,11 @@ export function createPortfolioSummary(positions, { trades = getTrades(), orderC
       marketValuePlusCash: round(total.value + (cashByCurrency[total.currency] || 0)),
       unrealizedPL: round(total.pl),
       unrealizedPLPercent: total.cost ? round((total.pl / total.cost) * 100) : 0,
+      realizedPL: round(total.realizedPL),
+      realizedCostBasis: round(total.realizedCostBasis),
+      realizedProceeds: round(total.realizedProceeds),
+      totalPL: round(total.totalPL),
+      totalPLPercent: round(total.totalPLPercent),
       positionCount: positions.filter((position) => position.quote.currency === total.currency).length,
     })),
     currencyDistribution: Object.values(totals).map((total) => ({

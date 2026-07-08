@@ -54,3 +54,41 @@ export function calculateRealizedPLByTrade(trades) {
 
   return realized
 }
+
+export function calculateRealizedTradeStatsByTrade(trades) {
+  const realized = new Map()
+
+  const tradesBySymbol = [...trades].reduce((groups, trade) => {
+    const symbol = trade.symbol || ''
+    groups.set(symbol, [...(groups.get(symbol) || []), trade])
+    return groups
+  }, new Map())
+
+  tradesBySymbol.forEach((symbolTrades) => {
+    let shares = 0
+    let costBasis = 0
+    const sortedTrades = [...symbolTrades].filter((trade) => trade.side === 'BUY' || trade.side === 'SELL').sort((a, b) => new Date(a.date) - new Date(b.date))
+    sortedTrades.forEach((trade) => {
+      const quantity = Number(trade.shares)
+      const price = Number(trade.price)
+      if (!Number.isFinite(quantity) || !Number.isFinite(price)) return
+      if (trade.side === 'BUY') {
+        costBasis += quantity * price
+        shares += quantity
+      } else if (trade.side === 'SELL') {
+        const averageCost = shares > 0 ? costBasis / shares : 0
+        const soldCostBasis = averageCost * quantity
+        const proceeds = price * quantity
+        realized.set(trade.id, {
+          realizedPL: proceeds - soldCostBasis,
+          soldCostBasis,
+          proceeds,
+        })
+        costBasis = Math.max(0, costBasis - soldCostBasis)
+        shares -= quantity
+      }
+    })
+  })
+
+  return realized
+}

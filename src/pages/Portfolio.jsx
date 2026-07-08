@@ -39,17 +39,34 @@ export default function Portfolio() {
       setLoading(false)
     })
   }, [])
-  const totals = useMemo(() => positions.reduce((result, position) => {
-    const currency = position.quote.currency || 'USD'
-    const current = result[currency] || { currency, cost: 0, value: 0, pl: 0 }
-    current.cost += position.costBasis
-    current.value += position.marketValue
-    current.pl += position.unrealizedPL
-    result[currency] = current
-    return result
-  }, {}), [positions])
   const allTrades = useMemo(() => getTrades(), [])
   const tradingStats = useMemo(() => calculateTradingStatistics(positions, allTrades), [positions, allTrades])
+  const totals = useMemo(() => {
+    const result = positions.reduce((rows, position) => {
+      const currency = position.quote.currency || 'USD'
+      const current = rows[currency] || { currency, cost: 0, value: 0, pl: 0, realizedPL: 0, realizedCostBasis: 0, totalPL: 0, totalReturnPercent: 0 }
+      current.cost += position.costBasis
+      current.value += position.marketValue
+      current.pl += position.unrealizedPL
+      rows[currency] = current
+      return rows
+    }, {})
+    const realizedCurrencies = new Set([
+      ...Object.keys(tradingStats.realizedByCurrency || {}),
+      ...Object.keys(tradingStats.realizedCostBasisByCurrency || {}),
+    ])
+    realizedCurrencies.forEach((currency) => {
+      result[currency] ||= { currency, cost: 0, value: 0, pl: 0, realizedPL: 0, realizedCostBasis: 0, totalPL: 0, totalReturnPercent: 0 }
+    })
+    Object.values(result).forEach((total) => {
+      total.realizedPL = tradingStats.realizedByCurrency?.[total.currency] || 0
+      total.realizedCostBasis = tradingStats.realizedCostBasisByCurrency?.[total.currency] || 0
+      total.totalPL = total.pl + total.realizedPL
+      const totalCostBase = total.cost + total.realizedCostBasis
+      total.totalReturnPercent = totalCostBase ? total.totalPL / totalCostBase * 100 : 0
+    })
+    return result
+  }, [positions, tradingStats])
   const currencies = Object.keys(totals)
   const cashByCurrency = useMemo(() => Object.fromEntries(cashBalances.map((balance) => [balance.currency, balance.amount])), [cashBalances])
   const reservedCashByCurrency = useMemo(() => calculateReservedCashByCurrency(orderCommitments), [orderCommitments])
@@ -153,7 +170,7 @@ export default function Portfolio() {
 
   if (loading) return <div className="loading">{t('loadingPortfolio')}</div>
   return <section><div className="page-head"><div><p className="eyebrow">{t('portfolioEyebrow')}</p><h1>{t('portfolioTitle')}</h1><p>{t('portfolioSubtitle')}</p></div></div>
-    <div className="portfolio-summary">{Object.values(totals).map((total) => <div className={`panel portfolio-card portfolio-overview-card ${valueClass(total.pl)}`} key={total.currency}><span>{total.currency} {t('portfolioOverview')}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} <b>{money(total.cost, total.currency)}</b></small><small className={valueClass(total.pl)}>{t('pl')} <b>{money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</b></small></div></div>)}
+    <div className="portfolio-summary">{Object.values(totals).map((total) => <div className={`panel portfolio-card portfolio-overview-card ${valueClass(total.totalPL || total.pl)}`} key={total.currency}><span>{total.currency} {t('portfolioOverview')}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} <b>{money(total.cost, total.currency)}</b></small><small className={valueClass(total.pl)}>{t('unrealizedPL')} <b>{money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</b></small><small className={valueClass(total.realizedPL)}>{t('soldPL')} <b>{money(total.realizedPL, total.currency)}</b></small><small className={valueClass(total.totalPL)}>{t('totalPL')} <b>{money(total.totalPL, total.currency)} · {percent(total.totalReturnPercent)}</b></small></div></div>)}
       <details className="panel portfolio-card cash-card"><summary><span>{t('availableCash')}</span><strong>{cashDisplay}</strong><small className="cash-after-orders">{t('cashAfterOrders')} <b>{cashAfterOrdersDisplay}</b></small></summary><p>{t('availableCashHint')}</p><p className="portfolio-note">{t('reservedByOrders')}: {reservedCashDisplay}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></details>
     </div>
     <div className="panel trading-stats"><h2>{t('tradingStatistics')}</h2><div className="stats-grid grouped-stats">{statGroups.map(([group, rows]) => <section className="stat-group" key={group}><h3>{group}</h3>{rows.map(([label, value]) => <span key={label}>{label}{value}</span>)}</section>)}</div><p className="portfolio-note">{t('mixedCurrencyNote')}</p></div>

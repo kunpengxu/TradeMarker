@@ -1,14 +1,14 @@
-import { calculatePosition, calculateRealizedPLByTrade } from './positionCalculator'
+import { calculatePosition, calculateRealizedPLByTrade, calculateRealizedTradeStatsByTrade } from './positionCalculator'
 import { getTrades } from './storage'
 
 export const calculateTradingStatistics = (positions, trades) => {
-  const realizedByTrade = calculateRealizedPLByTrade(trades)
+  const realizedByTrade = calculateRealizedTradeStatsByTrade(trades)
   const positionCurrency = new Map(positions.map((position) => [position.symbol, position.quote?.currency || 'USD']))
   const tradeCurrency = (trade) => trade.currency || positionCurrency.get(trade.symbol) || 'USD'
   const realizedTrades = trades.filter((trade) => trade.side === 'SELL' && realizedByTrade.has(trade.id)).map((trade) => ({
     ...trade,
     currency: tradeCurrency(trade),
-    realizedPL: realizedByTrade.get(trade.id),
+    ...realizedByTrade.get(trade.id),
   }))
   const totalRealizedPL = realizedTrades.reduce((sum, trade) => sum + trade.realizedPL, 0)
   const totalUnrealizedPL = positions.reduce((sum, position) => sum + position.unrealizedPL, 0)
@@ -20,6 +20,16 @@ export const calculateTradingStatistics = (positions, trades) => {
   const realizedByCurrency = realizedTrades.reduce((result, trade) => {
     const currency = trade.currency || 'USD'
     result[currency] = (result[currency] || 0) + trade.realizedPL
+    return result
+  }, {})
+  const realizedCostBasisByCurrency = realizedTrades.reduce((result, trade) => {
+    const currency = trade.currency || 'USD'
+    result[currency] = (result[currency] || 0) + trade.soldCostBasis
+    return result
+  }, {})
+  const realizedProceedsByCurrency = realizedTrades.reduce((result, trade) => {
+    const currency = trade.currency || 'USD'
+    result[currency] = (result[currency] || 0) + trade.proceeds
     return result
   }, {})
   const realizedCountByCurrency = realizedTrades.reduce((result, trade) => {
@@ -39,6 +49,8 @@ export const calculateTradingStatistics = (positions, trades) => {
     totalRealizedPL: realizedTrades.length ? totalRealizedPL : null,
     unrealizedByCurrency,
     realizedByCurrency,
+    realizedCostBasisByCurrency,
+    realizedProceedsByCurrency,
     averageRealizedByCurrency: Object.fromEntries(Object.entries(realizedByCurrency).map(([currency, value]) => [currency, value / realizedCountByCurrency[currency]])),
     openPositions: positions.length,
     closedTrades: realizedTrades.length,
