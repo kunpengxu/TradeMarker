@@ -170,8 +170,17 @@ export default function Portfolio() {
 
   if (loading) return <div className="loading">{t('loadingPortfolio')}</div>
   return <section><div className="page-head"><div><p className="eyebrow">{t('portfolioEyebrow')}</p><h1>{t('portfolioTitle')}</h1><p>{t('portfolioSubtitle')}</p></div></div>
-    <div className="portfolio-summary">{Object.values(totals).map((total) => <div className={`panel portfolio-card portfolio-overview-card ${valueClass(total.totalPL || total.pl)}`} key={total.currency}><span>{total.currency} {t('portfolioOverview')}</span><strong>{money(total.value, total.currency)}</strong><div><small>{t('totalCost')} <b>{money(total.cost, total.currency)}</b></small><small className={valueClass(total.pl)}>{t('unrealizedPL')} <b>{money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</b></small><small className={valueClass(total.realizedPL)}>{t('soldPL')} <b>{money(total.realizedPL, total.currency)}</b></small><small className={valueClass(total.totalPL)}>{t('totalPL')} <b>{money(total.totalPL, total.currency)} · {percent(total.totalReturnPercent)}</b></small></div></div>)}
-      <details className="panel portfolio-card cash-card"><summary><span>{t('availableCash')}</span><strong>{cashDisplay}</strong><small className="cash-after-orders">{t('cashAfterOrders')} <b>{cashAfterOrdersDisplay}</b></small></summary><p>{t('availableCashHint')}</p><p className="portfolio-note">{t('reservedByOrders')}: {reservedCashDisplay}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></details>
+    <div className="portfolio-summary">{Object.values(totals).map((total) => <div className={`panel portfolio-card portfolio-overview-card ${valueClass(total.totalPL || total.pl)}`} key={total.currency}>
+      <span>{total.currency} {t('portfolioOverview')}</span>
+      <strong>{money(total.value, total.currency)}</strong>
+      <div className="portfolio-overview-metrics">
+        <small>{t('totalCost')} <b>{money(total.cost, total.currency)}</b></small>
+        <small className={valueClass(total.pl)}>{t('unrealizedPL')} <b>{money(total.pl, total.currency)} · {percent(total.cost ? total.pl / total.cost * 100 : 0)}</b></small>
+        <small className={valueClass(total.realizedPL)}>{t('soldPL')} <b>{money(total.realizedPL, total.currency)}</b></small>
+        <small className={valueClass(total.totalPL)}>{t('totalPL')} <b>{money(total.totalPL, total.currency)} · {percent(total.totalReturnPercent)}</b></small>
+      </div>
+    </div>)}
+      <details className="panel portfolio-card cash-card"><summary><span>{t('availableCash')}</span><strong>{cashDisplay}</strong><small className="cash-after-orders"><span>{t('cashAfterOrders')}</span><b>{cashAfterOrdersDisplay}</b></small></summary><p>{t('availableCashHint')}</p><p className="portfolio-note">{t('reservedByOrders')}: {reservedCashDisplay}</p><div className="cash-input-grid">{cashCurrencies.map((currency) => <label key={currency}><small>{currency}</small><input type="number" step="0.01" value={cashByCurrency[currency] ?? ''} placeholder="0.00" onChange={(event) => updateCashBalance(currency, event.target.value)} /></label>)}</div></details>
     </div>
     <div className="panel trading-stats"><h2>{t('tradingStatistics')}</h2><div className="stats-grid grouped-stats">{statGroups.map(([group, rows]) => <section className="stat-group" key={group}><h3>{group}</h3>{rows.map(([label, value]) => <span key={label}>{label}{value}</span>)}</section>)}</div><p className="portfolio-note">{t('mixedCurrencyNote')}</p></div>
     <div className="panel portfolio-risk-panel"><h2>{t('riskConcentration')}</h2><div className="risk-card-grid">
