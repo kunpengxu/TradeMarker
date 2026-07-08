@@ -179,16 +179,6 @@ function ScoreRadar({ score, t }) {
   </div>
 }
 
-function DecisionPanelRail({ score, orders, onExpand, t }) {
-  return <aside className="decision-panel-rail">
-    <button type="button" onClick={onExpand} aria-label={t('expandAnalysisPanel')} title={t('expandAnalysisPanel')}>
-      <span>{t('decisionAI')}</span>
-      <strong>{score.score}</strong>
-      {orders.length ? <em>{orders.length}</em> : null}
-    </button>
-  </aside>
-}
-
 function DecisionPanel({ selected, score, position, orders, events, activeTab, setActiveTab, onShowOrders, onFocusEvent, onCollapse, onResizeStart, t, language }) {
   const tabs = [
     ['AI', t('decisionAI')],
@@ -207,7 +197,7 @@ function DecisionPanel({ selected, score, position, orders, events, activeTab, s
   const visibleScoreOrders = scoreOrderSide === 'SELL' ? sellOrders : scoreOrderSide === 'BUY' ? buyOrders : scoreOrderSide === 'WATCH' ? watchOrders : []
   return <aside className="decision-panel">
     <button type="button" className="decision-resize-handle" aria-label={t('resizePanel')} onMouseDown={onResizeStart} />
-    <div className="decision-tabs">{tabs.map(([key, label]) => <button key={key} className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>)}<button className="collapse-decision" onClick={onCollapse} aria-label={t('collapseAnalysisPanel')} title={t('collapseAnalysisPanel')}>−</button></div>
+    <div className="decision-tabs">{tabs.map(([key, label]) => <button key={key} className={activeTab === key ? 'active' : ''} onClick={() => setActiveTab(key)}>{label}</button>)}<button className="collapse-decision" onClick={onCollapse}>−</button></div>
     <div className="decision-score-card">
       <div><span>{t('aiComposite')}</span><strong>{selected || '—'} · {score.score}/100</strong><small>{score.score >= 70 ? t('highConvictionCandidate') : score.score >= 52 ? t('watchForConfirmation') : t('lowerPrioritySetup')}</small></div>
       <ScoreRadar score={score} t={t} />
@@ -305,7 +295,7 @@ export default function Dashboard() {
   const [editingTrade, setEditingTrade] = useState(null)
   const [orders, setOrders] = useState([])
   const [eventsCalendar, setEventsCalendar] = useState(null)
-  const [decisionCollapsed, setDecisionCollapsed] = useState(() => savedBoolean(DECISION_COLLAPSED_KEY, false))
+  const [eventsCollapsed, setEventsCollapsed] = useState(() => savedBoolean(DECISION_COLLAPSED_KEY, false))
   const [decisionWidth, setDecisionWidth] = useState(() => savedNumber(DECISION_WIDTH_KEY, 320))
   const [overviewCollapsed, setOverviewCollapsed] = useState(() => savedBoolean(OVERVIEW_COLLAPSED_KEY, false))
   const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false)
@@ -391,7 +381,7 @@ export default function Dashboard() {
   }, [refresh, requestedSymbol, selected])
   useEffect(() => { localStorage.setItem(DENSITY_KEY, density) }, [density])
   useEffect(() => { localStorage.setItem(OVERVIEW_COLLAPSED_KEY, String(overviewCollapsed)) }, [overviewCollapsed])
-  useEffect(() => { localStorage.setItem(DECISION_COLLAPSED_KEY, String(decisionCollapsed)) }, [decisionCollapsed])
+  useEffect(() => { localStorage.setItem(DECISION_COLLAPSED_KEY, String(eventsCollapsed)) }, [eventsCollapsed])
   useEffect(() => { localStorage.setItem(DECISION_WIDTH_KEY, String(decisionWidth)) }, [decisionWidth])
   useEffect(() => {
     loadOrderPlanFromGitHub('order-plan.json')
@@ -648,7 +638,7 @@ export default function Dashboard() {
                   </div>
                   {interval === '1m' && !hasIntradayLoaded ? <div className="workspace-empty"><h1>{t('loadingIntradayData')}</h1><p>{t('fetchingIntraday', { symbol: selected })}</p></div> : interval === '1m' && !chartCandles.length ? <div className="workspace-empty"><h1>{t('noIntradayData')}</h1><p>{t('noIntradayText')}</p></div> : <StockChart candles={chartCandles} interval={interval} trades={trades} averageCost={position.averageCost} closeOnly={selectedItem.quote.closeOnly} currency={selectedItem.quote.currency} quoteChange={selectedItem.quote.change} quotePrice={selectedItem.quote.price} indicators={indicators} orderPlans={selectedOrders} eventDates={selectedEventDates} focusDate={focusedEventDate} />}
                 </div>
-                {decisionCollapsed ? <DecisionPanelRail score={selectedScore} orders={selectedOrders} onExpand={() => setDecisionCollapsed(false)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setDecisionCollapsed(true)} onResizeStart={startDecisionResize} t={t} language={language} />}
+                {eventsCollapsed ? <SymbolEventsPanel events={selectedEvents} selected={selected} collapsed={eventsCollapsed} onToggle={() => setEventsCollapsed(false)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} t={t} /> : <DecisionPanel selected={selected} score={selectedScore} position={position} orders={selectedOrders} events={selectedEvents} activeTab={analysisTab} setActiveTab={setAnalysisTab} onShowOrders={() => selectedOrders.length && setShowOrders(true)} onFocusEvent={(event) => setFocusedEventDate(event.date || null)} onCollapse={() => setEventsCollapsed(true)} onResizeStart={startDecisionResize} t={t} language={language} />}
               </div>
 
               <div className="position-ribbon">
