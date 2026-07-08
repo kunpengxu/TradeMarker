@@ -39,9 +39,10 @@ export default function StockChart({ candles, interval, trades, averageCost, clo
   useEffect(() => {
     if (!containerRef.current || !candles.length) return
     const light = theme === 'light'
+    const chartHeight = Math.max(320, containerRef.current.clientHeight || 460)
     const chart = createChart(containerRef.current, {
       autoSize: true,
-      height: 460,
+      height: chartHeight,
       layout: { background: { color: light ? '#f8fafc' : '#111a2d' }, textColor: light ? '#64748b' : '#94a3b8' },
       grid: { vertLines: { color: light ? '#e2e8f0' : '#1c2941' }, horzLines: { color: light ? '#e2e8f0' : '#1c2941' } },
       crosshair: { mode: CrosshairMode.Normal },
