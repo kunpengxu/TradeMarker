@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:ai-snapshot": "node scripts/test-ai-snapshot.mjs",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist -t"
   },
   "dependencies": {
     "lightweight-charts": "4.2.3",
