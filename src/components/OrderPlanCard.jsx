@@ -6,13 +6,6 @@ const sideClass = (side) => String(side || '').toLowerCase().replace(/[^a-z]/g, 
 const formatMaybeMoney = (value) => value == null ? '—' : money(value)
 const formatMaybeNumber = (value) => value == null ? '—' : number(value, 4)
 const hasValue = (value) => value != null && Number(value) !== 0
-const stringifyObject = (value) => {
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
 const compactText = (value, max = 180) => {
   const text = safeText(value).trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
@@ -21,7 +14,7 @@ export const safeText = (value, language) => {
   if (value == null || value === '') return ''
   if (Array.isArray(value)) return value.map((item) => safeText(item, language)).filter(Boolean).join(' · ')
   if (typeof value !== 'object') return String(value)
-  return safeText(value[language], language) ||
+  const direct = safeText(value[language], language) ||
     safeText(value.en, language) ||
     safeText(value.zh, language) ||
     safeText(value.cn, language) ||
@@ -29,8 +22,9 @@ export const safeText = (value, language) => {
     safeText(value.label, language) ||
     safeText(value.note, language) ||
     safeText(value.reason, language) ||
-    safeText(value.summary, language) ||
-    stringifyObject(value)
+    safeText(value.summary, language)
+  if (direct) return direct
+  return Object.values(value).map((item) => safeText(item, language)).filter(Boolean).join(' · ')
 }
 const translateToken = (value, language) => {
   if (language !== 'zh') return value

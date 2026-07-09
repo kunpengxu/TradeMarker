@@ -5,10 +5,11 @@ const numberOrNull = (value) => {
   const number = Number(value)
   return Number.isFinite(number) ? number : null
 }
-const localized = (item, key, ...fallbacks) => ({
-  en: first(item[`${key}En`], item[`${key}EN`], item[key]?.en, item[key], ...fallbacks),
-  zh: first(item[`${key}Zh`], item[`${key}ZH`], item[`${key}Cn`], item[`${key}CN`], item[key]?.zh, item[key]?.cn, item[key], ...fallbacks),
-})
+const localized = (item, key, ...fallbacks) => {
+  const en = first(item[`${key}En`], item[`${key}EN`], item[key]?.en, item[key], ...fallbacks)
+  const zh = first(item[`${key}Zh`], item[`${key}ZH`], item[`${key}Cn`], item[`${key}CN`], item[key]?.zh, item[key]?.cn, item[key], ...fallbacks)
+  return en == null && zh == null ? null : { en, zh }
+}
 const normalizeSide = (value) => {
   const side = String(value || '').toUpperCase()
   if (['BUY', 'B', 'LONG'].includes(side)) return 'BUY'
