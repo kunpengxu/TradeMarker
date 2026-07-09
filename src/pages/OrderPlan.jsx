@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import OrderPlanCard, { localizedText, safeText } from '../components/OrderPlanCard'
+import OrderPlanErrorBoundary from '../components/OrderPlanErrorBoundary'
 import SymbolLink from '../components/SymbolLink'
 import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { normalizeOrderPlan } from '../services/orderPlan'
@@ -221,6 +222,7 @@ export default function OrderPlan() {
   return <section><div className="page-head"><div><p className="eyebrow">{t('orderEyebrow')}</p><h1>{t('orderTitle')}</h1><p>{t('orderSubtitle')}</p></div><button onClick={load} disabled={loading}>{loading ? t('loading') : t('reloadPlan')}</button></div>
     <details className="panel order-plan-source"><summary><span>{t('githubJsonFile')}</span><strong>{filename}</strong></summary><label><input value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="order-plan.json" /></label><small>{t('orderFileHint')}</small></details>
     {message && <p className="notice">{message}</p>}
+    <OrderPlanErrorBoundary resetKey={`${filename}:${message}:${planType}:${plan?.generatedAt || ''}`} onRetry={load}>
     {plan && <div className="order-plan-summary">
       <span>{t('title')}<strong>{localizedText(plan.titleText, language) || safeText(plan.title, language)}</strong></span>
       <span>{t('tradingDate')}<strong>{safeText(plan.tradingDate, language) || '—'}</strong></span>
@@ -248,5 +250,6 @@ export default function OrderPlan() {
       </div>
       <details className="side-breakdown"><summary>{t('currentPlan')}</summary><div className="order-plan-groups compact-breakdown">{['BUY', 'SELL', 'WATCH'].map((side) => <section key={side}><h2>{sideLabel[side]} <small>{grouped[side].length}</small></h2>{grouped[side].length ? <div className="order-plan-list">{grouped[side].map((order) => <OrderPlanCard order={order} key={`side-${order.id}`} />)}</div> : <div className="empty-inline">{emptyLabel[side]}</div>}</section>)}</div></details>
     </> : <div className="empty-inline">{t('noOrderPlanLoaded')}</div>}
+    </OrderPlanErrorBoundary>
   </section>
 }
