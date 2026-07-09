@@ -889,16 +889,30 @@ const en = {
 const dictionaries = { en, zh }
 const I18nContext = createContext(null)
 
+const readLanguage = () => {
+  try {
+    return localStorage.getItem(LANGUAGE_KEY) || 'en'
+  } catch {
+    return 'en'
+  }
+}
+
+const writeLanguage = (language) => {
+  try {
+    localStorage.setItem(LANGUAGE_KEY, language)
+  } catch {}
+}
+
 const interpolate = (template, values = {}) => Object.entries(values).reduce(
   (text, [key, value]) => text.replaceAll(`{${key}}`, value),
   template,
 )
 
 export function I18nProvider({ children }) {
-  const [language, setLanguageState] = useState(() => localStorage.getItem(LANGUAGE_KEY) || 'en')
+  const [language, setLanguageState] = useState(readLanguage)
   const setLanguage = (next) => {
     const clean = next === 'zh' ? 'zh' : 'en'
-    localStorage.setItem(LANGUAGE_KEY, clean)
+    writeLanguage(clean)
     setLanguageState(clean)
   }
   const value = useMemo(() => ({

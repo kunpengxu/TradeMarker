@@ -5,8 +5,18 @@ const DEFAULT_AUTH_WORKER_URL = import.meta.env.VITE_TRADEMARKER_AUTH_URL || 'ht
 
 const cleanUrl = (value) => String(value || '').trim().replace(/\/$/, '')
 export const getAuthWorkerUrl = () => cleanUrl(getSettings().authWorkerUrl) || DEFAULT_AUTH_WORKER_URL
-export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || ''
-export const clearAuthToken = () => localStorage.removeItem(AUTH_TOKEN_KEY)
+export const getAuthToken = () => {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+export const clearAuthToken = () => {
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+  } catch {}
+}
 export const hasGitHubDataSettings = (settings = getSettings()) => Boolean(
   cleanUrl(settings.githubOwner) &&
   cleanUrl(settings.githubRepo) &&
@@ -21,7 +31,9 @@ export function saveAuthTokenFromHash() {
   const hash = new URLSearchParams(hashText)
   const token = search.get('auth_token') || hash.get('auth_token')
   if (!token) return false
-  localStorage.setItem(AUTH_TOKEN_KEY, token)
+  try {
+    localStorage.setItem(AUTH_TOKEN_KEY, token)
+  } catch {}
   search.delete('auth_token')
   const cleanSearch = search.toString()
   const cleanHash = hashText.startsWith('auth_token=') ? '#/settings' : window.location.hash || '#/settings'
