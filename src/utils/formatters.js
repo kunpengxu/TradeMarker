@@ -1,5 +1,17 @@
-export const money = (value, currency = 'USD') => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency })
-export const number = (value, digits = 2) => Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: digits })
+const numericValue = (value) => {
+  const number = Number(value || 0)
+  return Number.isFinite(number) ? number : 0
+}
+
+export const number = (value, digits = 2) => numericValue(value).toLocaleString('en-US', { maximumFractionDigits: digits })
+export const money = (value, currency = 'USD') => {
+  const cleanCurrency = String(currency || 'USD').trim().toUpperCase()
+  try {
+    return numericValue(value).toLocaleString('en-US', { style: 'currency', currency: /^[A-Z]{3}$/.test(cleanCurrency) ? cleanCurrency : 'USD' })
+  } catch {
+    return `${number(value, 2)} ${cleanCurrency || 'USD'}`
+  }
+}
 export const percent = (value) => {
   const numberValue = Number(value)
   if (!Number.isFinite(numberValue)) return '—'

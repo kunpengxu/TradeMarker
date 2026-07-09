@@ -2,17 +2,35 @@ import SymbolLink from './SymbolLink'
 import { money, number } from '../utils/formatters'
 import { useI18n } from '../i18n'
 
-const sideClass = (side) => side.toLowerCase().replace(/[^a-z]/g, '-')
+const sideClass = (side) => String(side || '').toLowerCase().replace(/[^a-z]/g, '-')
 const formatMaybeMoney = (value) => value == null ? '—' : money(value)
 const formatMaybeNumber = (value) => value == null ? '—' : number(value, 4)
 const hasValue = (value) => value != null && Number(value) !== 0
+const stringifyObject = (value) => {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
 const compactText = (value, max = 180) => {
-  const text = String(value || '').trim()
+  const text = safeText(value).trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
-const textFor = (value, language) => {
-  if (!value || typeof value !== 'object') return value || ''
-  return value[language] || value.en || value.zh || ''
+export const safeText = (value, language) => {
+  if (value == null || value === '') return ''
+  if (Array.isArray(value)) return value.map((item) => safeText(item, language)).filter(Boolean).join(' · ')
+  if (typeof value !== 'object') return String(value)
+  return safeText(value[language], language) ||
+    safeText(value.en, language) ||
+    safeText(value.zh, language) ||
+    safeText(value.cn, language) ||
+    safeText(value.text, language) ||
+    safeText(value.label, language) ||
+    safeText(value.note, language) ||
+    safeText(value.reason, language) ||
+    safeText(value.summary, language) ||
+    stringifyObject(value)
 }
 const translateToken = (value, language) => {
   if (language !== 'zh') return value
@@ -36,18 +54,18 @@ const translateToken = (value, language) => {
 
 function OrderLegs({ legs, t, language }) {
   return <div className="order-leg-list compact">{legs.map((leg, index) => {
-    const condition = textFor(leg.conditionText, language) || leg.condition
-    const note = textFor(leg.noteText, language) || leg.note
+    const condition = safeText(leg.conditionText, language) || safeText(leg.condition, language)
+    const note = safeText(leg.noteText, language) || safeText(leg.note, language)
     const parts = [
-      leg.side ? translateToken(leg.side, language) : null,
-      translateToken(leg.orderType, language),
+      leg.side ? safeText(translateToken(leg.side, language), language) : null,
+      safeText(translateToken(leg.orderType, language), language),
       hasValue(leg.price) ? `${t('limit')} ${formatMaybeMoney(leg.price)}` : null,
       hasValue(leg.shares) ? `${t('shares')} ${formatMaybeNumber(leg.shares)}` : null,
       hasValue(leg.amount) ? `${t('amount')} ${formatMaybeMoney(leg.amount)}` : null,
       hasValue(leg.percent) ? `${t('size')} ${leg.percent}%` : null,
     ].filter(Boolean)
     return <div className="order-leg compact" key={leg.id || index}>
-      <strong>{textFor(leg.labelText, language) || leg.label}</strong>
+      <strong>{safeText(leg.labelText, language) || safeText(leg.label, language)}</strong>
       <span>{parts.join(' · ') || t('notSpecified')}</span>
       {(condition || note) && <p>{compactText(condition || note, 150)}</p>}
     </div>
@@ -55,27 +73,27 @@ function OrderLegs({ legs, t, language }) {
 }
 
 export function localizedText(value, language) {
-  return textFor(value, language)
+  return safeText(value, language)
 }
 
 export default function OrderPlanCard({ order }) {
   const { language, t } = useI18n()
-  const reason = textFor(order.reasonText, language) || order.reason
-  const risk = textFor(order.riskText, language) || order.risk
-  const reEntryPlan = textFor(order.reEntryPlanText, language) || order.reEntryPlan
-  const note = textFor(order.noteText, language) || order.note
+  const reason = safeText(order.reasonText, language) || safeText(order.reason, language)
+  const risk = safeText(order.riskText, language) || safeText(order.risk, language)
+  const reEntryPlan = safeText(order.reEntryPlanText, language) || safeText(order.reEntryPlan, language)
+  const note = safeText(order.noteText, language) || safeText(order.note, language)
   const metrics = [
-    order.planType === 'INTRADAY' && order.intradayMode ? order.intradayMode : null,
+    order.planType === 'INTRADAY' && order.intradayMode ? safeText(order.intradayMode, language) : null,
     hasValue(order.totalShares) ? `${t('shares')} ${formatMaybeNumber(order.totalShares)}` : null,
     hasValue(order.startingShares) && hasValue(order.expectedEndingShares) ? `${t('shares')} ${formatMaybeNumber(order.startingShares)} → ${formatMaybeNumber(order.expectedEndingShares)}` : null,
     hasValue(order.totalAmount) ? `${t('amount')} ${formatMaybeMoney(order.totalAmount)}` : null,
     hasValue(order.targetPrice) ? `${t('target')} ${formatMaybeMoney(order.targetPrice)}` : null,
     hasValue(order.stopLoss) ? `${t('stopLoss')} ${formatMaybeMoney(order.stopLoss)}` : null,
     hasValue(order.takeProfit) ? `${t('takeProfit')} ${formatMaybeMoney(order.takeProfit)}` : null,
-    order.status ? `${t('status')} ${translateToken(order.status, language)}` : null,
+    order.status ? `${t('status')} ${safeText(translateToken(order.status, language), language)}` : null,
   ].filter(Boolean)
   return <article className={`order-plan-card ${sideClass(order.side)}`}>
-    <header><div><span className={`side ${sideClass(order.side)}`}>{translateToken(order.side, language)}</span><h3>{order.symbol ? <SymbolLink symbol={order.symbol} /> : t('noSymbol')}</h3></div>{order.priority && <strong>{translateToken(order.priority, language)}</strong>}</header>
+    <header><div><span className={`side ${sideClass(order.side)}`}>{safeText(translateToken(order.side, language), language)}</span><h3>{order.symbol ? <SymbolLink symbol={order.symbol} /> : t('noSymbol')}</h3></div>{order.priority && <strong>{safeText(translateToken(order.priority, language), language)}</strong>}</header>
     {metrics.length ? <p className="order-compact-meta">{metrics.join(' · ')}</p> : null}
     <OrderLegs legs={order.legs} t={t} language={language} />
     {(reason || risk || reEntryPlan || note) && <p className="order-compact-note">

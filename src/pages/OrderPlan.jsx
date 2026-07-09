@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import OrderPlanCard, { localizedText } from '../components/OrderPlanCard'
+import OrderPlanCard, { localizedText, safeText } from '../components/OrderPlanCard'
 import SymbolLink from '../components/SymbolLink'
 import { loadOrderPlanFromGitHub } from '../services/githubSync'
 import { normalizeOrderPlan } from '../services/orderPlan'
@@ -13,7 +13,7 @@ const formatDate = (date) => {
 }
 const hasValue = (value) => value != null && Number.isFinite(Number(value)) && Number(value) !== 0
 const compactText = (value, max = 130) => {
-  const text = String(value || '').trim()
+  const text = safeText(value).trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 const orderTone = (order) => {
@@ -51,12 +51,12 @@ const tokenLabel = (value, language) => {
     LIMIT: 'limit',
     MARKET: 'market',
   }
-  return language === 'zh' ? zh[key] || value : en[key] || value
+  return safeText(language === 'zh' ? zh[key] || value : en[key] || value, language)
 }
 const formatPrice = (value) => hasValue(value) ? Number(value).toFixed(2) : null
 const summarizeLegs = (order, language) => {
   const rows = (order.legs || []).map((leg) => {
-    const label = localizedText(leg.labelText, language) || leg.label
+    const label = localizedText(leg.labelText, language) || safeText(leg.label, language)
     const parts = [
       label,
       formatPrice(leg.price),
@@ -93,11 +93,11 @@ function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitments
           <th>{t('plannedOrder')}</th>
         </tr></thead>
         <tbody>{orders.map((order, index) => {
-          const current = localizedText(order.currentSituationText, language) || order.currentSituation || localizedText(order.reasonText, language) || order.reason || '—'
-          const suggestion = localizedText(order.suggestionText, language) || order.suggestion || localizedText(order.noteText, language) || order.note || fallbackSuggestion(order, language)
-          const reEntry = localizedText(order.reEntryPlanText, language) || order.reEntryPlan
+          const current = localizedText(order.currentSituationText, language) || safeText(order.currentSituation, language) || localizedText(order.reasonText, language) || safeText(order.reason, language) || '—'
+          const suggestion = localizedText(order.suggestionText, language) || safeText(order.suggestion, language) || localizedText(order.noteText, language) || safeText(order.note, language) || fallbackSuggestion(order, language)
+          const reEntry = localizedText(order.reEntryPlanText, language) || safeText(order.reEntryPlan, language)
           const plannedOrder = [
-            localizedText(order.plannedOrderText, language) || order.plannedOrder || summarizeLegs(order, language),
+            localizedText(order.plannedOrderText, language) || safeText(order.plannedOrder, language) || summarizeLegs(order, language),
             reEntry,
           ].filter(Boolean).join(language === 'zh' ? '。' : '. ')
           const checked = committedKeys.has(orderCommitmentKey(order))
@@ -222,8 +222,8 @@ export default function OrderPlan() {
     <details className="panel order-plan-source"><summary><span>{t('githubJsonFile')}</span><strong>{filename}</strong></summary><label><input value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="order-plan.json" /></label><small>{t('orderFileHint')}</small></details>
     {message && <p className="notice">{message}</p>}
     {plan && <div className="order-plan-summary">
-      <span>{t('title')}<strong>{localizedText(plan.titleText, language) || plan.title}</strong></span>
-      <span>{t('tradingDate')}<strong>{plan.tradingDate || '—'}</strong></span>
+      <span>{t('title')}<strong>{localizedText(plan.titleText, language) || safeText(plan.title, language)}</strong></span>
+      <span>{t('tradingDate')}<strong>{safeText(plan.tradingDate, language) || '—'}</strong></span>
       <span>{t('generated')}<strong>{formatDate(plan.generatedAt)}</strong></span>
       <span>{t('orders')}<strong>{plan.orders.length}</strong></span>
       <span>{t('committedOrders')}<strong>{orderCommitments.length}</strong></span>
@@ -234,10 +234,10 @@ export default function OrderPlan() {
       <button type="button" className={planType === 'REGULAR' ? 'active regular' : 'regular'} onClick={() => setPlanType('REGULAR')}>{t('regularPlan')} <strong>{planTypeCounts.REGULAR}</strong></button>
       <button type="button" className={planType === 'INTRADAY' ? 'active intraday' : 'intraday'} onClick={() => setPlanType('INTRADAY')}>{t('intradayPlan')} <strong>{planTypeCounts.INTRADAY}</strong></button>
     </div>}
-    {(localizedText(plan?.summaryText, language) || plan?.summary) && <div className="panel plan-briefing-panel"><div><span>{t('todayFocus')}</span><h2>{t('planSummary')}</h2></div><p>{localizedText(plan.summaryText, language) || plan.summary}</p></div>}
+    {(localizedText(plan?.summaryText, language) || safeText(plan?.summary, language)) && <div className="panel plan-briefing-panel"><div><span>{t('todayFocus')}</span><h2>{t('planSummary')}</h2></div><p>{localizedText(plan.summaryText, language) || safeText(plan.summary, language)}</p></div>}
     {plan && <OrderPlanSummaryTable orders={visibleOrders} language={language} t={t} committedKeys={committedKeys} commitmentsByKey={commitmentsByKey} onToggleCommitment={toggleCommitment} onStatusChange={changeCommitmentStatus} onRecordFill={recordFill} />}
-    {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
-    {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{item}</p>)}</div> : null}
+    {(plan?.assumptionsText?.[language]?.length || plan?.assumptions?.length) ? <div className="panel order-bullets"><h2>{t('assumptions')}</h2>{(plan.assumptionsText?.[language] || plan.assumptions).map((item, index) => <p key={index}>{safeText(item, language)}</p>)}</div> : null}
+    {(plan?.warningsText?.[language]?.length || plan?.warnings?.length) ? <div className="panel order-bullets warning"><h2>{t('warnings')}</h2>{(plan.warningsText?.[language] || plan.warnings).map((item, index) => <p key={index}>{safeText(item, language)}</p>)}</div> : null}
     {loading ? <div className="loading">{t('loadingOrderPlan')}</div> : plan ? <>
       <div className="action-board">
         {[
