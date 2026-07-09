@@ -48,9 +48,11 @@ const sourceOrders = (plan) => [
 ]
 
 const normalizeLeg = (leg, parent = {}, index = 0) => ({
+  raw: leg,
   id: first(leg.id, `${parent.symbol || 'order'}-${index}`),
   side: normalizeSide(first(leg.side, leg.action, leg.recommendation, parent.side)),
   label: first(leg.label, leg.name, leg.stage, leg.batch, `Batch ${index + 1}`),
+  labelZh: first(leg.labelZh, leg.labelZH, leg.labelCn, leg.labelCN),
   labelText: localized(leg, 'label', leg.name, leg.stage, leg.batch, `Batch ${index + 1}`),
   orderType: first(leg.orderType, leg.type, parent.orderType, 'LIMIT'),
   price: numberOrNull(first(leg.price, leg.limitPrice, leg.triggerPrice, leg.entryPrice)),
@@ -58,6 +60,7 @@ const normalizeLeg = (leg, parent = {}, index = 0) => ({
   amount: numberOrNull(first(leg.amount, leg.value, leg.notional)),
   percent: numberOrNull(first(leg.percent, leg.allocationPercent, leg.positionPercent)),
   condition: first(leg.condition, leg.trigger, leg.when),
+  conditionZh: first(leg.conditionZh, leg.conditionZH, leg.conditionCn, leg.conditionCN),
   conditionText: localized(leg, 'condition', leg.trigger, leg.when),
   note: first(leg.note, leg.reason, leg.comment),
   noteText: localized(leg, 'note', leg.reason, leg.comment),
@@ -77,6 +80,7 @@ const normalizeOrder = (order, index) => {
   const parentLeg = normalizeLeg(order, { symbol, side }, 0)
   const legs = rawLegs.length ? rawLegs.map((leg, legIndex) => normalizeLeg(leg, { symbol, side, orderType: order.orderType }, legIndex)) : [parentLeg]
   return {
+    raw: order,
     id: first(order.id, `${symbol || 'order'}-${side}-${index}`),
     symbol,
     planType: normalizePlanType(first(order.planType, order.plan, order.horizon, order.timeframe, order.category, order['计划类型'], order['类型'])),

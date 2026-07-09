@@ -13,8 +13,16 @@ const formatDate = (date) => {
   return value ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: value.includes('T') || value.includes(':') ? 'short' : undefined }) : 'Not specified'
 }
 const hasValue = (value) => value != null && Number.isFinite(Number(value)) && Number(value) !== 0
+const getText = (value, fallback = '', language = 'zh') => {
+  if (!value) return fallback
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return value.map((item) => getText(item, '', language)).filter(Boolean).join(' · ') || fallback
+  if (typeof value === 'object') return value[language] || value.zh || value.en || fallback
+  return String(value)
+}
 const compactText = (value, max = 130) => {
-  const text = safeText(value).trim()
+  const text = getText(value).trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 const orderTone = (order) => {
@@ -55,20 +63,22 @@ const tokenLabel = (value, language) => {
   return safeText(language === 'zh' ? zh[key] || value : en[key] || value, language)
 }
 const formatPrice = (value) => hasValue(value) ? Number(value).toFixed(2) : null
+const rawOf = (item) => item?.raw && typeof item.raw === 'object' ? item.raw : {}
 const summarizeLegs = (order, language) => {
   const rows = (order.legs || []).map((leg) => {
-    const label = localizedText(leg.labelText, language) || safeText(leg.label, language)
+    const raw = rawOf(leg)
+    const label = getText(raw.labelZh, '', language) || getText(leg.labelZh, '', language) || localizedText(leg.labelText, language) || getText(raw.label, '', language) || getText(leg.label, '', language)
+    const condition = getText(raw.conditionZh, '', language) || getText(leg.conditionZh, '', language) || localizedText(leg.conditionText, language) || getText(raw.condition, '', language) || getText(leg.condition, '', language)
     const parts = [
+      tokenLabel(leg.side || raw.side || order.side, language),
+      formatPrice(leg.price ?? raw.price),
+      hasValue(leg.shares ?? raw.shares) ? language === 'zh' ? `${number(leg.shares ?? raw.shares, 4)}股` : `${number(leg.shares ?? raw.shares, 4)} sh` : null,
       label,
-      formatPrice(leg.price),
-      tokenLabel(leg.side || order.side, language),
-      hasValue(leg.shares) ? language === 'zh' ? `${number(leg.shares, 4)}股` : `${number(leg.shares, 4)} sh` : null,
-      hasValue(leg.amount) ? language === 'zh' ? `金额 ${number(leg.amount, 2)}` : `amount ${number(leg.amount, 2)}` : null,
-      hasValue(leg.percent) ? `${leg.percent}%` : null,
+      condition,
     ].filter(Boolean)
     return parts.join(language === 'zh' ? ' ' : ' ')
   }).filter(Boolean)
-  return rows.length ? rows.join(language === 'zh' ? '；' : '; ') : '—'
+  return rows.length ? rows.join(language === 'zh' ? '；' : '; ') : language === 'zh' ? '无挂单 / 观察' : 'No order / watch'
 }
 const fallbackSuggestion = (order, language) => {
   const side = tokenLabel(order.side, language)
@@ -76,6 +86,43 @@ const fallbackSuggestion = (order, language) => {
   if (language === 'zh') return [side, status].filter(Boolean).join(' · ') || '—'
   return [side, status].filter(Boolean).join(' · ') || '—'
 }
+const currentSituationFor = (order, language) => {
+  const raw = rawOf(order)
+  return getText(raw.currentSituation, '', language) ||
+    getText(raw.currentSituationZh, '', language) ||
+    getText(order.currentSituationText, '', language) ||
+    getText(order.currentSituation, '', language) ||
+    getText(raw.reasonZh, '', language) ||
+    getText(order.reasonText?.zh, '', language) ||
+    getText(raw.reason, '', language) ||
+    getText(order.reason, '', language) ||
+    ''
+}
+const suggestionFor = (order, language) => {
+  const raw = rawOf(order)
+  const recommendation = getText(raw.recommendation, '', language) ||
+    getText(raw.recommendationText, '', language) ||
+    getText(order.recommendationText, '', language) ||
+    getText(order.recommendation, '', language) ||
+    getText(order.suggestionText, '', language) ||
+    getText(order.suggestion, '', language)
+  if (recommendation) return recommendation
+
+  const riskZh = getText(raw.riskZh, '', language) || getText(order.riskText?.zh, '', language)
+  const reEntryPlanZh = getText(raw.reEntryPlanZh, '', language) ||
+    getText(raw.reentryPlanZh, '', language) ||
+    getText(order.reEntryPlanText?.zh, '', language)
+  if (riskZh && reEntryPlanZh) return [riskZh, reEntryPlanZh].join(language === 'zh' ? '；' : '; ')
+  if (riskZh || reEntryPlanZh) return riskZh || reEntryPlanZh
+
+  return getText(raw.risk, '', language) ||
+    getText(order.risk, '', language) ||
+    getText(raw.reEntryPlan, '', language) ||
+    getText(raw.reentryPlan, '', language) ||
+    getText(order.reEntryPlan, '', language) ||
+    ''
+}
+const plannedOrderFor = (order, language) => summarizeLegs(order, language)
 
 const ORDER_LIFECYCLE_STATUSES = ['PLACED', 'PARTIAL', 'FILLED', 'CANCELLED', 'EXPIRED']
 
@@ -94,22 +141,18 @@ function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitments
           <th>{t('plannedOrder')}</th>
         </tr></thead>
         <tbody>{orders.map((order, index) => {
-          const current = localizedText(order.currentSituationText, language) || safeText(order.currentSituation, language) || localizedText(order.reasonText, language) || safeText(order.reason, language) || '—'
-          const suggestion = localizedText(order.suggestionText, language) || safeText(order.suggestion, language) || localizedText(order.noteText, language) || safeText(order.note, language) || fallbackSuggestion(order, language)
-          const reEntry = localizedText(order.reEntryPlanText, language) || safeText(order.reEntryPlan, language)
-          const plannedOrder = [
-            localizedText(order.plannedOrderText, language) || safeText(order.plannedOrder, language) || summarizeLegs(order, language),
-            reEntry,
-          ].filter(Boolean).join(language === 'zh' ? '。' : '. ')
+          const current = currentSituationFor(order, language)
+          const suggestion = suggestionFor(order, language) || fallbackSuggestion(order, language)
+          const plannedOrder = plannedOrderFor(order, language)
           const checked = committedKeys.has(orderCommitmentKey(order))
           const commitment = commitmentsByKey.get(orderCommitmentKey(order))
           return <tr className={`${orderTone(order)} ${checked ? 'committed' : ''}`} key={order.id || `${order.symbol}-${index}`}>
             <td><label className="order-commit-checkbox"><input type="checkbox" checked={checked} onChange={() => onToggleCommitment(order)} aria-label={t('orderPlacedFor', { symbol: order.symbol || index + 1 })} /><span /></label></td>
             <td>{index + 1}</td>
             <td><strong>{order.symbol ? <SymbolLink symbol={order.symbol} className="order-summary-symbol" /> : '—'}</strong></td>
-            <td>{compactText(current, 150)}</td>
-            <td><strong>{compactText(suggestion, 120)}</strong></td>
-            <td><div className="order-lifecycle-cell"><span>{plannedOrder}</span>{checked && commitment ? <><select value={commitment.lifecycleStatus || 'PLACED'} onChange={(event) => onStatusChange(commitment.id, event.target.value)}>{ORDER_LIFECYCLE_STATUSES.map((status) => <option key={status} value={status}>{t(`orderStatus${status}`)}</option>)}</select>{['BUY', 'SELL'].includes(commitment.side) && ['PARTIAL', 'FILLED'].includes(commitment.lifecycleStatus || 'PLACED') ? <button type="button" className="secondary record-fill-button" onClick={() => onRecordFill(commitment)}>{t('recordFill')}</button> : null}</> : null}</div></td>
+            <td>{compactText(getText(current, '', language), 150)}</td>
+            <td><strong>{compactText(getText(suggestion, '', language), 120)}</strong></td>
+            <td><div className="order-lifecycle-cell"><span>{getText(plannedOrder, '', language)}</span>{checked && commitment ? <><select value={commitment.lifecycleStatus || 'PLACED'} onChange={(event) => onStatusChange(commitment.id, event.target.value)}>{ORDER_LIFECYCLE_STATUSES.map((status) => <option key={status} value={status}>{t(`orderStatus${status}`)}</option>)}</select>{['BUY', 'SELL'].includes(commitment.side) && ['PARTIAL', 'FILLED'].includes(commitment.lifecycleStatus || 'PLACED') ? <button type="button" className="secondary record-fill-button" onClick={() => onRecordFill(commitment)}>{t('recordFill')}</button> : null}</> : null}</div></td>
           </tr>
         })}</tbody>
       </table>
