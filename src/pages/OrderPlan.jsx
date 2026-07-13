@@ -21,6 +21,26 @@ const getText = (value, fallback = '', language = 'zh') => {
   if (typeof value === 'object') return value[language] || value.zh || value.en || fallback
   return String(value)
 }
+const fieldVariants = (item, key, language, { includePlain = true } = {}) => {
+  if (!item || typeof item !== 'object') return []
+  const primary = language === 'zh'
+    ? [`${key}Zh`, `${key}ZH`, `${key}Cn`, `${key}CN`]
+    : [`${key}En`, `${key}EN`]
+  const fallback = language === 'zh'
+    ? [`${key}En`, `${key}EN`]
+    : [`${key}Zh`, `${key}ZH`, `${key}Cn`, `${key}CN`]
+  return [...primary, ...(includePlain ? [key] : []), ...fallback].map((variant) => item[variant])
+}
+const textFromFields = (language, ...entries) => {
+  for (const entry of entries) {
+    const value = Array.isArray(entry) ? fieldVariants(entry[0], entry[1], language, entry[2]) : [entry]
+    for (const candidate of value) {
+      const text = getText(candidate, '', language)
+      if (text) return text
+    }
+  }
+  return ''
+}
 const compactText = (value, max = 130) => {
   const text = getText(value).trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
@@ -67,8 +87,8 @@ const rawOf = (item) => item?.raw && typeof item.raw === 'object' ? item.raw : {
 const summarizeLegs = (order, language) => {
   const rows = (order.legs || []).map((leg) => {
     const raw = rawOf(leg)
-    const label = getText(raw.labelZh, '', language) || getText(leg.labelZh, '', language) || localizedText(leg.labelText, language) || getText(raw.label, '', language) || getText(leg.label, '', language)
-    const condition = getText(raw.conditionZh, '', language) || getText(leg.conditionZh, '', language) || localizedText(leg.conditionText, language) || getText(raw.condition, '', language) || getText(leg.condition, '', language)
+    const label = textFromFields(language, [raw, 'label'], [leg, 'label'], leg.labelText, raw.label, leg.label)
+    const condition = textFromFields(language, [raw, 'condition'], [leg, 'condition'], leg.conditionText, raw.condition, leg.condition)
     const parts = [
       tokenLabel(leg.side || raw.side || order.side, language),
       formatPrice(leg.price ?? raw.price),
@@ -88,39 +108,37 @@ const fallbackSuggestion = (order, language) => {
 }
 const currentSituationFor = (order, language) => {
   const raw = rawOf(order)
-  return getText(raw.currentSituation, '', language) ||
-    getText(raw.currentSituationZh, '', language) ||
-    getText(order.currentSituationText, '', language) ||
-    getText(order.currentSituation, '', language) ||
-    getText(raw.reasonZh, '', language) ||
-    getText(order.reasonText?.zh, '', language) ||
-    getText(raw.reason, '', language) ||
-    getText(order.reason, '', language) ||
-    ''
+  return textFromFields(
+    language,
+    [raw, 'currentSituation', { includePlain: false }],
+    order.currentSituationText,
+    order.currentSituation,
+    raw.currentSituation,
+    [raw, 'reason'],
+    order.reasonText,
+    order.reason,
+  )
 }
 const suggestionFor = (order, language) => {
   const raw = rawOf(order)
-  const recommendation = getText(raw.recommendation, '', language) ||
-    getText(raw.recommendationText, '', language) ||
-    getText(order.recommendationText, '', language) ||
-    getText(order.recommendation, '', language) ||
-    getText(order.suggestionText, '', language) ||
-    getText(order.suggestion, '', language)
+  const recommendation = textFromFields(
+    language,
+    [raw, 'recommendation', { includePlain: false }],
+    raw.recommendationText,
+    order.recommendationText,
+    order.recommendation,
+    order.suggestionText,
+    order.suggestion,
+    raw.recommendation,
+  )
   if (recommendation) return recommendation
 
-  const riskZh = getText(raw.riskZh, '', language) || getText(order.riskText?.zh, '', language)
-  const reEntryPlanZh = getText(raw.reEntryPlanZh, '', language) ||
-    getText(raw.reentryPlanZh, '', language) ||
-    getText(order.reEntryPlanText?.zh, '', language)
-  if (riskZh && reEntryPlanZh) return [riskZh, reEntryPlanZh].join(language === 'zh' ? '；' : '; ')
-  if (riskZh || reEntryPlanZh) return riskZh || reEntryPlanZh
+  const risk = textFromFields(language, [raw, 'risk'], order.riskText, order.risk)
+  const reEntryPlan = textFromFields(language, [raw, 'reEntryPlan'], [raw, 'reentryPlan'], order.reEntryPlanText, order.reEntryPlan)
+  if (risk && reEntryPlan) return [risk, reEntryPlan].join(language === 'zh' ? '；' : '; ')
+  if (risk || reEntryPlan) return risk || reEntryPlan
 
-  return getText(raw.risk, '', language) ||
-    getText(order.risk, '', language) ||
-    getText(raw.reEntryPlan, '', language) ||
-    getText(raw.reentryPlan, '', language) ||
-    getText(order.reEntryPlan, '', language) ||
-    ''
+  return ''
 }
 const plannedOrderFor = (order, language) => summarizeLegs(order, language)
 

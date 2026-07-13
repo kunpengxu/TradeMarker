@@ -2,11 +2,29 @@ export const DEFAULT_QUICK_FOCUS_SYMBOLS = ['TSLL', 'SOXS', 'RKLX', 'ASTX', 'AMD
 
 const cleanList = (items) => [...new Set((items || []).map((item) => String(item || '').trim().toUpperCase()).filter(Boolean))]
 
+const outputLanguageName = (language) => language === 'zh' ? 'Chinese' : 'English'
+const outputLanguageLocale = (language) => language === 'zh' ? 'zh-CN' : 'en-US'
+const outputLanguageInstruction = (language) => {
+  if (language === 'zh') {
+    return `输出语言：中文。
+order-plan.json 中的用户可读字段请优先写中文；如果提供双语字段，请使用 { "zh": "...", "en": "..." }。`
+  }
+  return `Output language: English.
+The narrative analysis and every user-facing order-plan.json text field must be in English.
+For localized fields, include bilingual objects where possible, for example currentSituationText/suggestionText/plannedOrderText/reasonText/riskText/reEntryPlanText as { "en": "...", "zh": "..." }. Do not put Chinese-only prose in plain string fields such as suggestion, currentSituation, plannedOrder, reason, risk, or note.`
+}
+
 export function buildChatGptPrompt(snapshot) {
   const mode = snapshot.snapshotMode === 'FULL' ? 'FULL' : 'QUICK'
   const focusSymbols = cleanList(snapshot.request?.focusSymbols || [])
+  const language = snapshot.request?.uiLanguage === 'zh' ? 'zh' : 'en'
+  const languageInstruction = outputLanguageInstruction(language)
+  const jsonLanguage = outputLanguageLocale(language)
+  const proseLanguage = outputLanguageName(language)
   if (mode === 'QUICK') {
     return `请使用当前 ChatGPT 项目 Sources 中已连接 Google Drive 并保持同步的 Chris_Investing_Project_Instructions，严格按照其中规则分析我上传的最新 TradeMarker AI 快照。
+
+${languageInstruction}
 
 这是一次盘中快速更新，请优先阅读文件中的：
 - request
@@ -36,11 +54,13 @@ ${focusSymbols.length ? focusSymbols.join(', ') : '文件中的 focusSymbols'}
 13. 对于 TSLL、TSLU.TO、RKLX、ASTX、AMDL、SOXL 等杠杆产品，如果不建议补仓，也必须明确说明原因；
 14. 如果现金不足以同时执行多个买单，必须标注哪些买单互斥，并按优先级排序。
 
-请先给我中文整体分析，然后生成完整、可下载的挂单建议 JSON。
-JSON 必须严格符合项目中的 order-plan schema，并包含每个订单的 alerts。`
+请先给我 ${proseLanguage} 整体分析，然后生成完整、可下载的挂单建议 JSON。
+JSON 必须严格符合项目中的 order-plan schema，并包含每个订单的 alerts。JSON request.language 应为 ${jsonLanguage}。`
   }
 
   return `请使用当前 ChatGPT 项目 Sources 中已连接 Google Drive 并保持同步的 Chris_Investing_Project_Instructions，严格按照其中规则分析我上传的最新 TradeMarker AI 快照。
+
+${languageInstruction}
 
 请结合：
 - 全部当前持仓
@@ -71,7 +91,7 @@ JSON 必须严格符合项目中的 order-plan schema，并包含每个订单的
 14. 杠杆波段仓默认不建议补仓，除非出现明确企稳、强反转、成交量确认，且仓位不会失控；
 15. 对于 TSLL、TSLU.TO、RKLX、ASTX、AMDL、SOXL 等杠杆产品，如果不建议补仓，也必须明确说明原因；
 16. 如果现金不足以同时执行多个买单，必须标注哪些买单互斥，并按优先级排序；
-17. 最后生成完整、可下载的 order-plan.json。`
+17. 最后生成完整、可下载的 order-plan.json，JSON request.language 应为 ${jsonLanguage}。`
 }
 
 export { cleanList as uniquePromptSymbols }

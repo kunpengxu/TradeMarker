@@ -25,7 +25,9 @@ const isTodayTrade = (trade) => {
   if (!trade.date) return false
   return new Intl.DateTimeFormat('en-CA', { timeZone: TORONTO_TIME_ZONE }).format(new Date(trade.date)) === todayToronto()
 }
-const asText = (value) => typeof value === 'object' ? (value?.zh || value?.en || '') : (value || '')
+const asText = (value) => typeof value === 'object' ? (value?.en || value?.zh || '') : (value || '')
+const normalizeUiLanguage = (language) => language === 'zh' ? 'zh' : 'en'
+const outputLocale = (language) => normalizeUiLanguage(language) === 'zh' ? 'zh-CN' : 'en-US'
 const compactCandle = (candle) => ({
   time: candle.time,
   open: round(candle.open),
@@ -268,8 +270,9 @@ export function selectRecentTrades(trades, mode) {
     .map(compactTrade)
 }
 
-export async function buildAiSnapshot({ mode = 'QUICK', focusSymbols = [], moveThreshold = 5 } = {}) {
+export async function buildAiSnapshot({ mode = 'QUICK', focusSymbols = [], moveThreshold = 5, language = 'en' } = {}) {
   const snapshotMode = mode === 'FULL' ? 'FULL' : 'QUICK'
+  const uiLanguage = normalizeUiLanguage(language)
   const trades = getTrades()
   const groups = getWatchlistGroups()
   const cashBalances = getCashBalances()
@@ -320,7 +323,8 @@ export async function buildAiSnapshot({ mode = 'QUICK', focusSymbols = [], moveT
       analysisType: snapshotMode === 'QUICK' ? 'INTRADAY_UPDATE' : 'FULL_PORTFOLIO',
       focusSymbols: finalFocusSymbols,
       requiredOutput: 'DOWNLOADABLE_ORDER_PLAN_JSON',
-      language: 'zh-CN',
+      language: outputLocale(uiLanguage),
+      uiLanguage,
       requirements: snapshotMode === 'QUICK'
         ? ['检查当前持仓数量', '检查现金是否足够', '检查多个买单是否互斥', 'SELL_FIRST数量不得超过已有持股', '日内计划必须有止盈、止损和恢复仓位方案', '主动评估长期补仓、波段低吸和日内BUY_FIRST机会', '杠杆产品补仓必须说明是否满足企稳、强反转、成交量和仓位控制条件']
         : ['整体分析全部持仓和观察列表', '每个当前持仓必须有REGULAR计划', '波段仓和杠杆波段仓必须有INTRADAY评估', '主动评估长期补仓、波段低吸和日内BUY_FIRST机会', '杠杆产品补仓必须说明是否满足企稳、强反转、成交量和仓位控制条件', '最后生成完整可下载的order-plan.json'],

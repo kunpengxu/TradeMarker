@@ -88,6 +88,7 @@ export default function AiAnalysisPackagePanel() {
         mode: nextMode,
         focusSymbols: focusSymbols(),
         moveThreshold: Number(moveThreshold) || 5,
+        language,
       })
       setSnapshot(result.snapshot)
       setPrompt(result.prompt)
