@@ -150,6 +150,14 @@ function OrderPlanSummaryTable({ orders, language, t, committedKeys, commitments
     <h2>{t('orderQuickSummary')}</h2>
     <div className="order-summary-table-wrap">
       <table className="order-summary-table">
+        <colgroup>
+          <col className="order-summary-placed-col" />
+          <col className="order-summary-priority-col" />
+          <col className="order-summary-symbol-col" />
+          <col className="order-summary-current-col" />
+          <col className="order-summary-suggestion-col" />
+          <col className="order-summary-planned-col" />
+        </colgroup>
         <thead><tr>
           <th>{t('orderPlaced')}</th>
           <th>{t('priority')}</th>
