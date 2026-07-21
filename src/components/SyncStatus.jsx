@@ -3,7 +3,7 @@ import { useI18n } from '../i18n'
 import { recordSyncStatus } from '../services/syncHistory'
 
 const toneFor = (status) => {
-  if (status === 'error' || status === 'remote-newer') return 'warning'
+  if (status === 'error' || status === 'remote-newer' || status === 'empty-data' || status === 'skipped-empty-local') return 'warning'
   if (status === 'saved' || status === 'loaded' || status === 'current') return 'ok'
   if (status === 'saving' || status === 'pending-save' || status === 'local-newer') return 'busy'
   return 'muted'
@@ -40,6 +40,8 @@ export default function SyncStatus() {
     if (sync.status === 'remote-newer') return t('syncRemoteNewer')
     if (sync.status === 'missing-github-settings' || sync.status === 'disabled') return t('syncMissingSettings')
     if (sync.status === 'error') return `${t('syncError')}: ${sync.message || ''}`
+    if (sync.status === 'empty-data') return t('syncEmptyData')
+    if (sync.status === 'skipped-empty-local') return t('syncSkippedEmptyLocal')
     if (sync.status === 'current') return t('syncCurrent')
     return sync.status || ''
   }, [sync, t])

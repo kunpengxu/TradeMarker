@@ -89,6 +89,6 @@ export async function saveSettingsToAccount() {
 export async function loadSettingsFromAccount() {
   const result = await authFetch('/settings')
   if (!result.settings) return { status: 'empty' }
-  saveSettings({ ...getSettings(), ...result.settings })
+  saveSettings({ ...getSettings(), ...result.settings }, { markDataUpdated: false })
   return { status: 'loaded', settings: result.settings }
 }

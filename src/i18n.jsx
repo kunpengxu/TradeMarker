@@ -26,6 +26,8 @@ const zh = {
   syncMissingSettings: 'GitHub 同步未配置',
   syncError: '同步失败',
   syncCurrent: '已是最新',
+  syncEmptyData: 'GitHub 数据文件为空',
+  syncSkippedEmptyLocal: '本地没有数据，已跳过上传',
 
   orderEyebrow: 'GPT 挂单计划',
   orderTitle: '今日挂单',
@@ -468,6 +470,8 @@ const en = {
   syncMissingSettings: 'GitHub sync is not configured',
   syncError: 'Sync failed',
   syncCurrent: 'Up to date',
+  syncEmptyData: 'GitHub data file is empty',
+  syncSkippedEmptyLocal: 'Local data is empty; upload skipped',
 
   orderEyebrow: 'GPT order plan',
   orderTitle: 'Today’s Orders',

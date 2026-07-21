@@ -24,7 +24,9 @@ const hasUserData = (data) => Boolean(
   data?.watchlist?.length ||
   data?.trades?.length ||
   data?.plannedOrders?.length ||
-  data?.watchlistGroups?.some((group) => group.symbols?.length),
+  data?.orderCommitments?.length ||
+  data?.watchlistGroups?.some((group) => group.symbols?.length) ||
+  data?.account?.cashBalances?.some((balance) => Number(balance?.amount) !== 0),
 )
 const dataSummary = (data = {}) => ({
   updatedAt: data.updatedAt || null,
@@ -89,6 +91,7 @@ export async function loadFromGitHub({ force = false } = {}) {
   const remoteHasUserData = hasUserData(remote.data)
   const localHasUserData = hasUserData(local)
   if (!remoteHasUserData && localHasUserData) return { status: 'skipped-empty-remote', ...meta }
+  if (!remoteHasUserData && !localHasUserData) return { status: 'empty-data', ...meta }
   if (remoteHasUserData && !localHasUserData) {
     importData(remote.data)
     return { status: 'loaded', updatedAt: remote.data.updatedAt, ...meta }
