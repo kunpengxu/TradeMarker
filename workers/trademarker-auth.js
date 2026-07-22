@@ -175,6 +175,7 @@ export default {
       }
       return json({ error: 'Not found.' }, 404, request)
     } catch (error) {
+      
       return json({ error: error.message || 'Auth request failed.' }, 400, request)
     }
   },
