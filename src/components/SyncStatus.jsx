@@ -32,9 +32,10 @@ export default function SyncStatus() {
 
   const text = useMemo(() => {
     if (!sync) return ''
+    const filename = sync.path?.split('/').pop()
     if (sync.status === 'pending-save') return t('syncPendingSave')
-    if (sync.status === 'saving') return t('syncSaving')
-    if (sync.status === 'saved') return t('syncSaved')
+    if (sync.status === 'saving') return filename ? t('syncSavingFile', { file: filename }) : t('syncSaving')
+    if (sync.status === 'saved') return filename ? t('syncSavedFile', { file: filename }) : t('syncSaved')
     if (sync.status === 'loaded') return t('syncLoaded')
     if (sync.status === 'local-newer') return t('syncLocalNewer')
     if (sync.status === 'remote-newer') return t('syncRemoteNewer')

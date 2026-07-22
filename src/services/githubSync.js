@@ -39,6 +39,15 @@ const timeValue = (value) => {
   const time = new Date(value || 0).getTime()
   return Number.isFinite(time) ? time : 0
 }
+const syncMeta = (path = config().path) => {
+  const settings = config()
+  return { path, repo: `${settings.owner}/${settings.repo}`, branch: settings.branch }
+}
+const emitSyncStatus = (detail) => {
+  try {
+    window.dispatchEvent(new CustomEvent('trademarker:auto-sync-status', { detail }))
+  } catch {}
+}
 
 export const isGitHubSyncConfigured = () => Object.values(config()).every(Boolean)
 
@@ -78,6 +87,19 @@ async function saveJsonFile(path, data, message) {
     await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)))
   }
   throw lastError
+}
+
+async function saveDerivedJsonFile(path, data, message) {
+  const meta = syncMeta(path)
+  emitSyncStatus({ status: 'saving', ...meta })
+  try {
+    const result = await saveJsonFile(path, data, message)
+    emitSyncStatus({ ...result, ...meta })
+    return { ...result, ...meta }
+  } catch (error) {
+    emitSyncStatus({ status: 'error', message: error.message, ...meta })
+    throw error
+  }
 }
 
 export async function loadFromGitHub({ force = false } = {}) {
@@ -143,25 +165,25 @@ export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
 export async function savePortfolioSummaryToGitHub(summary) {
   const settings = config()
   const path = siblingPath(settings.path, 'portfolio-summary.json')
-  return saveJsonFile(path, summary, 'Update TradeMarker portfolio summary')
+  return saveDerivedJsonFile(path, summary, 'Update TradeMarker portfolio summary')
 }
 
 export async function saveMarketAnalysisToGitHub(analysis) {
   const settings = config()
   const path = siblingPath(settings.path, 'market-analysis.json')
-  return saveJsonFile(path, analysis, 'Update TradeMarker market analysis')
+  return saveDerivedJsonFile(path, analysis, 'Update TradeMarker market analysis')
 }
 
 export async function saveEventsCalendarToGitHub(events) {
   const settings = config()
   const path = siblingPath(settings.path, 'events-calendar.json')
-  return saveJsonFile(path, events, 'Update TradeMarker events calendar')
+  return saveDerivedJsonFile(path, events, 'Update TradeMarker events calendar')
 }
 
 export async function saveOrderPlanToGitHub(orderPlan) {
   const settings = config()
   const path = siblingPath(settings.path, 'order-plan.json')
-  return saveJsonFile(path, orderPlan, 'Update TradeMarker order plan')
+  return saveDerivedJsonFile(path, orderPlan, 'Update TradeMarker order plan')
 }
 
 export async function loadEventsCalendarFromGitHub() {
