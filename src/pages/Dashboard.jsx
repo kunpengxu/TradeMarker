@@ -8,11 +8,12 @@ import StockChart from '../components/StockChart'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
 import WatchlistSidebar from '../components/WatchlistSidebar'
-import { loadOrderPlanFromGitHub, saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub } from '../services/githubSync'
+import { loadOrderPlanFromGitHub, saveEventsCalendarToGitHub, saveMarketAnalysisToGitHub, savePortfolioSummaryToGitHub } from '../services/githubSync'
 import { buildEventsCalendarExport } from '../services/eventsData'
 import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketDataProviderName, getMarketSnapshot, hasMarketDataApiKey } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
+import { createPortfolioSummary } from '../services/portfolioSummary'
 import { calculatePosition, calculateRealizedPLByTrade } from '../services/positionCalculator'
 import { addSymbolToGroup, applyPresetWatchlistGroupsOnce, calculateReservedCashByCurrency, deleteTrade, getCashBalances, getOrderCommitments, getTrades, getWatchlist, getWatchlistGroups, migrateCdrSymbolsToTorontoOnce, normalizeSymbol, removeSymbol, saveTrade, updateTrade } from '../services/storage'
 import { dateTime, money, number, percent, valueClass } from '../utils/formatters'
@@ -98,6 +99,10 @@ const scoreItem = (item, orders = [], events = []) => {
   const score = clampScore(trend * 0.32 + position * 0.24 + setup * 0.28 + risk * 0.16)
   return { score, trend, position, setup, risk }
 }
+
+const portfolioPositionsFromRows = (rows) => rows
+  .filter((row) => row.quote && (row.position?.shares || 0) > 0)
+  .map((row) => ({ symbol: row.symbol, quote: row.quote, ...row.position }))
 
 function SymbolEventsPanel({ events, selected, collapsed, onToggle, onFocusEvent, t }) {
   return <aside className={`symbol-events-panel ${collapsed ? 'collapsed' : ''}`}>
@@ -322,9 +327,14 @@ export default function Dashboard() {
     setSelected((current) => current && getWatchlist().includes(current) ? current : getWatchlist()[0] || null)
     setUpdated(new Date())
     setLoading(false)
-    if (saveAnalysis && replace) saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows))
-      .then(() => addRunLog('saved', t('logUploadedMarketAnalysis', { count: rows.length })))
-      .catch((error) => addRunLog('error', t('logMarketAnalysisFailed', { message: error.message })))
+    if (saveAnalysis && replace) {
+      saveMarketAnalysisToGitHub(buildMarketAnalysisExport(rows))
+        .then(() => addRunLog('saved', t('logUploadedMarketAnalysis', { count: rows.length })))
+        .catch((error) => addRunLog('error', t('logMarketAnalysisFailed', { message: error.message })))
+      savePortfolioSummaryToGitHub(createPortfolioSummary(portfolioPositionsFromRows(rows)))
+        .then(() => addRunLog('saved', t('logUploadedPortfolioSummary')))
+        .catch((error) => addRunLog('error', t('logPortfolioSummaryFailed', { message: error.message })))
+    }
     buildEventsCalendarExport(getWatchlist())
       .then((events) => {
         setEventsCalendar(events)
