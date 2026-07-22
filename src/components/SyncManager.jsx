@@ -85,11 +85,13 @@ export default function SyncManager() {
     }
     syncNow().catch(() => {})
     window.addEventListener('trademarker:data-changed', save)
+    window.addEventListener('trademarker:data-imported', save)
     window.addEventListener('trademarker:auth-changed', syncNow)
     return () => {
       cancelled = true
       clearTimeout(timer)
       window.removeEventListener('trademarker:data-changed', save)
+      window.removeEventListener('trademarker:data-imported', save)
       window.removeEventListener('trademarker:auth-changed', syncNow)
     }
   }, [])

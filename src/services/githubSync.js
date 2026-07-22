@@ -112,6 +112,7 @@ export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
   const settings = config()
   const remote = await getRemote()
   const local = exportData()
+  const remoteHasUserData = remote?.data ? hasUserData(remote.data) : false
   const meta = {
     path: settings.path,
     repo: `${settings.owner}/${settings.repo}`,
@@ -121,7 +122,7 @@ export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
   }
   if (!hasUserData(local)) return { status: 'skipped-empty-local' }
   if (remote && hasUserData(remote.data) && !hasUserData(local)) return { status: 'skipped-empty-local' }
-  if (skipIfRemoteCurrent && remote?.data?.updatedAt && local.updatedAt) {
+  if (skipIfRemoteCurrent && remoteHasUserData && remote?.data?.updatedAt && local.updatedAt) {
     const remoteTime = timeValue(remote.data.updatedAt)
     const localTime = timeValue(local.updatedAt)
     if (remoteTime > localTime) return { status: 'remote-newer', updatedAt: remote.data.updatedAt, ...meta }
