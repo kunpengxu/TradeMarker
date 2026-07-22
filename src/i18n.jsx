@@ -28,6 +28,7 @@ const zh = {
   syncMissingSettings: 'GitHub 同步未配置',
   syncError: '同步失败',
   syncCurrent: '已是最新',
+  syncCurrentFile: '{file} 已是最新',
   syncEmptyData: 'GitHub 数据文件为空',
   syncSkippedEmptyLocal: '本地没有数据，已跳过上传',
 
@@ -476,6 +477,7 @@ const en = {
   syncMissingSettings: 'GitHub sync is not configured',
   syncError: 'Sync failed',
   syncCurrent: 'Up to date',
+  syncCurrentFile: '{file} is up to date',
   syncEmptyData: 'GitHub data file is empty',
   syncSkippedEmptyLocal: 'Local data is empty; upload skipped',
 

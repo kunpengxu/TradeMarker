@@ -43,7 +43,7 @@ export default function SyncStatus() {
     if (sync.status === 'error') return `${t('syncError')}: ${sync.message || ''}`
     if (sync.status === 'empty-data') return t('syncEmptyData')
     if (sync.status === 'skipped-empty-local') return t('syncSkippedEmptyLocal')
-    if (sync.status === 'current') return t('syncCurrent')
+    if (sync.status === 'current') return filename ? t('syncCurrentFile', { file: filename }) : t('syncCurrent')
     return sync.status || ''
   }, [sync, t])
 
