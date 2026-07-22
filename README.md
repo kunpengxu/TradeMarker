@@ -86,7 +86,7 @@ Settings can connect TradeMarker to a JSON file in a GitHub repository. The reco
 
 When configured, the app loads newer remote data on startup and automatically saves local watchlist, group, and journal changes. Use a fine-grained token restricted to the private data repository with **Contents: Read and write**. The token stays in the current browser and is excluded from exported and synchronized data.
 
-To prevent accidental data loss, TradeMarker skips automatic GitHub saves when the current browser has no watchlist or trades, and skips loading an empty remote file over a browser that already has local data. If you ever need to recover a previous backup, open `data/trademarker.json` in GitHub and use **History** to restore a non-empty version.
+To prevent accidental data loss, TradeMarker skips automatic GitHub saves when the current browser has no user data (watchlist, trades, planned orders, groups, order commitments, or cash balances), and skips loading an empty remote file over a browser that already has local data. Restoring account settings or GitHub tokens does not mark the browser's journal data as newer than GitHub. If you ever need to recover a previous backup, open `data/trademarker.json` in GitHub and use **History** to restore a non-empty version.
 
 When you open the Portfolio page, TradeMarker also writes `data/portfolio-summary.json` to the same private data repository. This file summarizes open positions, cost basis, market value, unrealized profit/loss, and nominal currency distribution so it can be shared with analysis tools without sending the full app state.
 

@@ -529,7 +529,7 @@ export const calculateReservedCashByCurrency = (commitments = getOrderCommitment
 }, {})
 
 export const getSettings = () => read(KEYS.settings, {})
-export const saveSettings = (settings, { markDataUpdated = true } = {}) => write(KEYS.settings, settings, markDataUpdated)
+export const saveSettings = (settings, { markDataUpdated = false } = {}) => write(KEYS.settings, settings, markDataUpdated)
 
 export const exportData = () => ({
   watchlist: getWatchlist(),
