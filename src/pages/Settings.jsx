@@ -248,9 +248,22 @@ export default function Settings() {
     }
     setMessage(t('chatGptProjectUrlSavedLocal'))
   }
+  const saveGitHubSettingsLocally = () => {
+    const nextSettings = {
+      ...getSettings(),
+      githubOwner: githubOwner.trim(),
+      githubRepo: githubRepo.trim(),
+      githubBranch: githubBranch.trim(),
+      githubDataPath: githubDataPath.trim(),
+      githubToken: githubToken.trim(),
+      chatGptProjectUrl: chatGptProjectUrl.trim(),
+    }
+    saveSettings(nextSettings)
+    return nextSettings
+  }
   const saveGitHubSettings = async (event) => {
     event.preventDefault()
-    saveSettings({ ...getSettings(), githubOwner: githubOwner.trim(), githubRepo: githubRepo.trim(), githubBranch: githubBranch.trim(), githubDataPath: githubDataPath.trim(), githubToken: githubToken.trim(), chatGptProjectUrl: chatGptProjectUrl.trim() })
+    saveGitHubSettingsLocally()
     if (getAuthToken()) {
       try {
         await saveSettingsToAccount()
@@ -310,6 +323,11 @@ export default function Settings() {
   }
   const runGitHubSync = async (direction) => {
     try {
+      const settings = saveGitHubSettingsLocally()
+      if (!settings.githubOwner || !settings.githubRepo || !settings.githubBranch || !settings.githubDataPath || !settings.githubToken) {
+        setMessage('Fill Owner, Repository, Branch, JSON path, and token before syncing.')
+        return
+      }
       setMessage(direction === 'load' ? 'Loading data from GitHub…' : 'Saving data to GitHub…')
       const result = direction === 'load' ? await loadFromGitHub({ force: true }) : await saveToGitHub()
       const labels = {
