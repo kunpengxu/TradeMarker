@@ -174,6 +174,12 @@ export async function saveMarketAnalysisToGitHub(analysis) {
   return saveDerivedJsonFile(path, analysis, 'Update TradeMarker market analysis')
 }
 
+export async function saveSymbolSnapshotToGitHub(snapshot) {
+  const settings = config()
+  const path = siblingPath(settings.path, 'symbol-snapshot.json')
+  return saveDerivedJsonFile(path, snapshot, 'Update TradeMarker symbol snapshot')
+}
+
 export async function saveEventsCalendarToGitHub(events) {
   const settings = config()
   const path = siblingPath(settings.path, 'events-calendar.json')

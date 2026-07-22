@@ -7,7 +7,8 @@ import StockChart from '../components/StockChart'
 import TradeJournalTimeline, { DecisionTimeline } from '../components/TradeJournalTimeline'
 import TradeLog from '../components/TradeLog'
 import TradeModal from '../components/TradeModal'
-import { loadOrderPlanFromGitHub } from '../services/githubSync'
+import { loadOrderPlanFromGitHub, saveSymbolSnapshotToGitHub } from '../services/githubSync'
+import { buildMarketAnalysisExport } from '../services/marketAnalysisExport'
 import { getIntradayCandles, getMarketSnapshot } from '../services/marketData'
 import { normalizeOrderPlan } from '../services/orderPlan'
 import { calculatePosition } from '../services/positionCalculator'
@@ -43,7 +44,16 @@ export default function StockDetail() {
   const load = useCallback(async () => {
     try {
       const snapshot = await getMarketSnapshot(symbol, { force: true })
+      const nextPosition = calculatePosition(getTrades(symbol), snapshot.quote.price)
       setQuote(snapshot.quote); setCandles(snapshot.candles); setIntradayCandles([]); setIntradayLoaded(false); setError('')
+      saveSymbolSnapshotToGitHub({
+        generatedAt: new Date().toISOString(),
+        source: 'TradeMarker',
+        symbol,
+        quote: snapshot.quote,
+        position: nextPosition,
+        marketAnalysis: buildMarketAnalysisExport([{ symbol, quote: snapshot.quote, candles: snapshot.candles, position: nextPosition }]).symbols[0],
+      }).catch(() => {})
     } catch (requestError) {
       setError(requestError.message)
     }
