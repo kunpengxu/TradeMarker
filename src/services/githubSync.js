@@ -110,7 +110,15 @@ export async function loadFromGitHub({ force = false } = {}) {
 export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
   if (!isGitHubSyncConfigured()) return { status: 'disabled' }
   const settings = config()
-  const remote = await getRemote()
+  let remote = null
+  let remoteParseError = null
+  try {
+    remote = await getRemote()
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error
+    remoteParseError = error
+    remote = await getRemote(settings.path, { parseData: false })
+  }
   const local = exportData()
   const remoteHasUserData = remote?.data ? hasUserData(remote.data) : false
   const meta = {
@@ -119,6 +127,7 @@ export async function saveToGitHub({ skipIfRemoteCurrent = false } = {}) {
     branch: settings.branch,
     local: dataSummary(local),
     remote: remote?.data ? dataSummary(remote.data) : null,
+    remoteParseError: remoteParseError?.message || '',
   }
   if (!hasUserData(local)) return { status: 'skipped-empty-local' }
   if (remote && hasUserData(remote.data) && !hasUserData(local)) return { status: 'skipped-empty-local' }
